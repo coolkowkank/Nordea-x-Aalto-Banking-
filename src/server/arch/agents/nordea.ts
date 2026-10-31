@@ -115,14 +115,14 @@ function handleMessage(uid: string, msg: AgentMessage) {
     const categories = [...new Set(matches.map((t) => t.category))];
     appendMessage(uid, {
       from: 'nordea', to: msg.from, type: 'reply',
-      summary: `Nordea agent returns an aggregate over ${matches.length} transaction${matches.length === 1 ? '' : 's'} from the Nordea DB (no account identifiers).`,
+      summary: `Nordea agent returns an aggregate over ${matches.length} transaction${matches.length === 1 ? '' : 's'} from the Nordea DB (no account identifiers, no raw transactions).`,
       payload: {
         inReplyTo: msg.id,
         from: 'nordea-db',
         matchCount: matches.length,
         totalAbsEur: total,
         categories,
-        sample: matches.slice(0, 3).map((t) => ({ date: t.date, category: t.category, amount: t.amount, description: t.description ?? null })),
+        // F9/AC5: aggregates only. Raw transactions (date, amount, description) never leave the Nordea DB.
       },
     });
     updateMessage(uid, msg.id, { status: 'answered' });

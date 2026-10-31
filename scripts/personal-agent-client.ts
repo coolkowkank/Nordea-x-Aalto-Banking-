@@ -24,7 +24,7 @@ const SERVER = opt('server', 'http://localhost:3000');
 const UID = opt('uid', 'lauri');
 
 interface CmReply { from: 'cm-db'; matchedEntries: { id: string; title: string; detail: string; status: string; evidence: { total?: number; note?: string } | null }[] }
-interface NordeaReply { from: 'nordea-db'; matchCount: number; totalAbsEur: number; categories: string[]; sample: { date: string; category: string; amount: number; description: string | null }[] }
+interface NordeaReply { from: 'nordea-db'; matchCount: number; totalAbsEur: number; categories: string[] } // F9: aggregates only, no raw transactions
 
 async function ask(to: 'cm' | 'nordea', question: string): Promise<Record<string, unknown> | null> {
   const res = await fetch(`${SERVER}/api/arch/${UID}/agent-query`, {

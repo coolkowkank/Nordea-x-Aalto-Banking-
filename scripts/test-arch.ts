@@ -156,8 +156,9 @@ check('a refreshed proposal waits in merge review', (sc2.staleFlags?.length ?? 0
 const cmAns = A.agentQuery(UID2, 'cm', 'car');
 check('the CM agent answers from the Context Memory DB', (cmAns.reply as { matchedEntries: unknown[] }).matchedEntries.length >= 1, JSON.stringify(cmAns.reply).slice(0, 120));
 const noAns = A.agentQuery(UID, 'nordea', 'car');
-const noReply = noAns.reply as { matchCount: number; totalAbsEur: number; sample: { description: string | null }[] };
+const noReply = noAns.reply as { matchCount: number; totalAbsEur: number; sample?: unknown };
 check('the Nordea agent answers with an aggregate from the Nordea DB', noReply.matchCount > 0 && noReply.totalAbsEur > 0, JSON.stringify(noAns.reply).slice(0, 120));
+check('F9/AC5: the aggregate carries NO raw transactions (no dates, amounts or descriptions leave the Nordea DB)', noReply.sample === undefined && !JSON.stringify(noAns.reply).includes('Fuel'), JSON.stringify(noAns.reply).slice(0, 160));
 check('the Nordea reply carries no account identifiers', !JSON.stringify(noAns.reply).match(/iban|balance/i));
 const busAfter = S.loadBus(UID);
 check('both queries and replies are explicit bus messages',
@@ -186,13 +187,13 @@ const composed = compose('car', {
   from: 'cm-db',
   matchedEntries: [{ id: 'e1', title: 'Car activity', detail: 'goal-related spending', status: 'active', evidence: { total: 20616 } }],
 }, {
-  from: 'nordea-db', matchCount: 72, totalAbsEur: 20616, categories: ['transport'], sample: [],
+  from: 'nordea-db', matchCount: 72, totalAbsEur: 20616, categories: ['transport'],
 });
 check('the client composes the final answer from both agents\' replies',
   composed.includes('Car activity') && composed.includes('72') && composed.includes('20616'), composed.slice(0, 120));
 check('the server\'s agent-query reply carries facts only, no composed wording',
   ['from', 'matchedEntries'].every((k) => k in cmAns.reply) && !('answer' in cmAns.reply) && !('text' in cmAns.reply)
-  && ['from', 'matchCount', 'totalAbsEur', 'categories', 'sample'].every((k) => k in noAns.reply) && !('answer' in noAns.reply));
+  && ['from', 'matchCount', 'totalAbsEur', 'categories'].every((k) => k in noAns.reply) && !('answer' in noAns.reply) && !('sample' in noAns.reply));
 
 // --- Disputed entries are never silently re-accepted by refresh cycles
 const UID3 = 'disputeuser';
