@@ -78,15 +78,23 @@ If it says "The developer monitor is off", the setting wasn't picked up (check t
 
 ## The three-database architecture
 
-`/arch.html` is the working version of the agreed target: three separate databases, one agent each, explicit agent-to-agent messages.
+`/arch.html` is the working prototype of the agreed target: three separate data stores, one agent each, explicit agent-to-agent messages. API under `/api/arch/:userId/`, tests in `scripts/test-arch.ts` (`npm run test:arch`, 27 checks), data in `data/arch/` as one JSON file per store.
 
 - **User DB** - the personal agent's store (profile, goals, personal facts). Abel is the in-app personal agent; connecting an external agent (e.g. Meta Muse) swaps the role, disconnecting swaps back. Nothing is deleted either way.
 - **Context Memory DB** - the cabinet, the shared context between you and Nordea. Only the Context Memory agent writes it. It advises; it never changes bank data.
-- **Nordea DB** - the Nordea agent's store (accounts, transactions). It proposes goal-relevant insights, you accept or reject each one in merge review.
+- **Nordea DB** - the Nordea agent's store (accounts, transactions). It proposes goal-relevant insights; you accept or reject each in merge review.
 
-Rules in force: direct input to Abel never goes through the sync airlock; the airlock gates only a connected external agent's syncs (WhatsApp, calendar, notes, email). Every cabinet entry can be explained (who proposed it, why, when you approved it) and disputed. Turning an agent off, disconnecting the personal agent and deleting a database are three separate actions.
+Three distinct gates: what you type to Abel goes straight into the User DB (no gate); a connected external agent's syncs (WhatsApp, calendar, notes, email) wait in the **sync airlock** for your approval; bank-side proposals wait in **merge review**. Every cabinet entry can be explained (who proposed it, why, when you approved it) and disputed. Turning an agent off, disconnecting the personal agent and deleting a store are three separate actions. The personal agent never reads the Nordea store, so it cannot state account figures, and it says plainly when it lacks context.
 
-API under `/api/arch/:userId/`, tests in `scripts/test-arch.ts` (`npm run test:arch`). Data lives in `data/arch/` as one JSON file per database.
+Run it: `npm install`, `python3 scripts/load_data.py seed/demo --target file`, `npm run dev`, then open `/arch.html`. Checks: `npm run lint`, `npm test`, `npm run check:feed`, `npm run test:arch`.
+
+**What this prototype is not (yet):**
+
+- The three stores are JSON files in one server process. Agent separation is a code convention (each module only calls its own store), not credential- or network-level isolation. The approved target - three real databases with separate credentials (e.g. three Supabase projects) - is not built; it needs live infrastructure and separate approval.
+- The connect button is a mode selector. There is no real Meta (or any external agent) integration; `/api/arch/:uid/sync` is a stand-in HTTP endpoint where an external agent's items can be posted for the demo.
+- The Nordea store is a one-time copy of the customer's loaded bank data; there is no refresh loop (delete it and it re-copies on next access). Staleness detection exists on the main app side (stale goals), not in this module.
+- Retrieval is keyword overlap, not embeddings/RAG.
+- Answers are deterministic templates over retrieved facts, not an LLM.
 
 ## Checks
 
