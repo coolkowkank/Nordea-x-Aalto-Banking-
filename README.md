@@ -76,6 +76,18 @@ More → Nordea account data.
 If it says "The developer monitor is off", the setting wasn't picked up (check the spelling, restart).
 "No data loaded yet" means it works, but no data has been loaded.
 
+## The three-database architecture
+
+`/arch.html` is the working version of the agreed target: three separate databases, one agent each, explicit agent-to-agent messages.
+
+- **User DB** - the personal agent's store (profile, goals, personal facts). Abel is the in-app personal agent; connecting an external agent (e.g. Meta Muse) swaps the role, disconnecting swaps back. Nothing is deleted either way.
+- **Context Memory DB** - the cabinet, the shared context between you and Nordea. Only the Context Memory agent writes it. It advises; it never changes bank data.
+- **Nordea DB** - the Nordea agent's store (accounts, transactions). It proposes goal-relevant insights, you accept or reject each one in merge review.
+
+Rules in force: direct input to Abel never goes through the sync airlock; the airlock gates only a connected external agent's syncs (WhatsApp, calendar, notes, email). Every cabinet entry can be explained (who proposed it, why, when you approved it) and disputed. Turning an agent off, disconnecting the personal agent and deleting a database are three separate actions.
+
+API under `/api/arch/:userId/`, tests in `scripts/test-arch.ts` (`npm run test:arch`). Data lives in `data/arch/` as one JSON file per database.
+
 ## Checks
 
 | Command | What it does |
