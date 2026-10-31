@@ -53,7 +53,6 @@ export interface ChatBegin {
   kind: 'direct' | 'ask' | 'doc';
   parked?: boolean;
   direct?: { reply: string; used: string[] };
-  queryMessageId?: string;
   question?: string;
   used?: string[];
   parts?: string[];
@@ -90,42 +89,28 @@ export function beginChat(uid: string, text: string): ChatBegin {
     for (const f of factHits.slice(0, 3)) { parts.push(`From your ${f.source}: ${f.text}`); factSources.push(f.text); }
   }
 
-  // 2. Shared context: answer from the finished context.md when one exists (B1c). Before the
-  // first build round finalises one, fall back to a live query to the Context Memory agent.
+  // 2. Shared context comes from the session's context.md (F15/B1c); the orchestrator opens
+  // the session round before calling this. Parked cabinet: answer from the User DB only.
   if (getCabinetParkedMirror(uid)) return { kind: 'doc', parked: true, question: trimmed, used, parts, factSources, goalCount: u.goals.length };
-  if (loadContext(uid)?.finalisedAt) return { kind: 'doc', question: trimmed, used, parts, factSources, goalCount: u.goals.length };
-  const query = appendMessage(uid, {
-    from: 'personal', to: 'cm', type: 'query', status: 'pending',
-    summary: `${personalLabel(u)} asks the Context Memory agent for cabinet entries about: ${trimmed.slice(0, 80)}`,
-    payload: { question: trimmed },
-  });
-  return { kind: 'ask', queryMessageId: query.id, question: trimmed, used, parts, factSources, goalCount: u.goals.length };
+  return { kind: 'doc', question: trimmed, used, parts, factSources, goalCount: u.goals.length };
 }
 
 /** Second half: compose the answer - from the finished context.md (B1c) or the CM agent's reply. */
-export function finishChat(uid: string, begin: ChatBegin): { reply: string; used: string[] } {
+export function finishChat(uid: string, begin: ChatBegin): { reply: string; used: string[]; memoryHits: number } {
   const trimmed = begin.question ?? '';
   const used = begin.used ?? [];
   const parts = begin.parts ?? [];
   const factSources = begin.factSources ?? [];
 
-  let parked = false;
-  let entryHits: { title: string; detail: string; evidence?: { total?: number } | null }[] = [];
+  // The session's shared document is the source: memory rows the CM agent wrote, nordea rows
+  // the Nordea agent wrote (F15). ACTIVE entries only - stale/disputed are not served.
+  const parked = begin.parked === true;
+  let entryHits: { title: string; detail: string; evidence?: Record<string, unknown> | null }[] = [];
   let nordeaHits: { title: string; detail: string; evidence?: Record<string, unknown> | null }[] = [];
-  if (begin.kind === 'doc') {
-    // The finished shared document is the source: memory rows the CM agent wrote, nordea
-    // rows the Nordea agent wrote. ACTIVE entries only - stale/disputed are not served.
-    parked = begin.parked === true;
-    if (!parked) {
-      const q = words(trimmed);
-      entryHits = readSectionRows(uid, 'memory').filter((r) => (r.status ?? 'active') === 'active' && overlaps(q, words(`${r.title} ${r.detail}`))).slice(0, 3);
-      nordeaHits = readSectionRows(uid, 'nordea').filter((r) => overlaps(q, words(`${r.title} ${r.detail}`))).slice(0, 2);
-    }
-  } else {
-    const replyMsg = loadBus(uid).messages.find((m) => m.type === 'reply' && (m.payload as { inReplyTo?: string } | undefined)?.inReplyTo === begin.queryMessageId);
-    const payload = (replyMsg?.payload ?? {}) as { parked?: boolean; matchedEntries?: { title: string; detail: string; status: string; evidence?: { total?: number } }[] };
-    parked = !!payload.parked;
-    entryHits = payload.parked ? [] : (payload.matchedEntries ?? []).filter((e) => e.status === 'active').slice(0, 3);
+  if (!parked) {
+    const q = words(trimmed);
+    entryHits = readSectionRows(uid, 'memory').filter((r) => (r.status ?? 'active') === 'active' && overlaps(q, words(`${r.title} ${r.detail}`))).slice(0, 3);
+    nordeaHits = readSectionRows(uid, 'nordea').filter((r) => overlaps(q, words(`${r.title} ${r.detail}`))).slice(0, 2);
   }
   if (entryHits.length) {
     used.push('context-memory-db');
@@ -139,13 +124,13 @@ export function finishChat(uid: string, begin: ChatBegin): { reply: string; used
   // 3. Guardrail: the personal agent never touches the Nordea DB.
   const bankish = ['balance', 'account', 'spent', 'spend', 'transaction', 'salary', 'money', 'save', 'saving'].some((w) => trimmed.toLowerCase().includes(w));
   if (!parts.length) {
-    if (parked) return { reply: `I don't have enough in your User DB to answer that, and the cabinet is parked - reconnect it if you want me to use shared context again.`, used };
-    if (bankish) return { reply: `I don't have your bank data - as your personal agent I only read your User DB and shared context the Context Memory agent hands me. Nordea's agent can propose goal-related insights to the cabinet for your review.`, used };
-    return { reply: `I don't have enough context to answer that yet. All I have is what's in your User DB (${begin.goalCount ?? 0} goal${(begin.goalCount ?? 0) === 1 ? '' : 's'}) and the shared cabinet, which had nothing on this.`, used };
+    if (parked) return { reply: `I don't have enough in your User DB to answer that, and the cabinet is parked - reconnect it if you want me to use shared context again.`, used, memoryHits: 0 };
+    if (bankish) return { reply: `I don't have your bank data - as your personal agent I only read your User DB and shared context the Context Memory agent hands me. Nordea's agent can propose goal-related insights to the cabinet for your review.`, used, memoryHits: 0 };
+    return { reply: `I don't have enough context to answer that yet. All I have is what's in your User DB (${begin.goalCount ?? 0} goal${(begin.goalCount ?? 0) === 1 ? '' : 's'}) and the shared cabinet, which had nothing on this.`, used, memoryHits: 0 };
   }
   if (bankish && !used.includes('context-memory-db') && !used.includes('context-md')) parts.push(`For actual account figures, Nordea's agent works from the Nordea DB - I can't read it directly.`);
   const grounded = groundNumbers(parts.join(' '), factSources);
-  return { reply: grounded.reply, used };
+  return { reply: grounded.reply, used, memoryHits: entryHits.length };
 }
 
 // ---------- Agent-to-agent queries (transport for the external demo client) ----------
@@ -225,7 +210,7 @@ export function decideAirlock(uid: string, batchId: string, approve: boolean) {
 // ---------- Message handler: what the personal agent does when the bus delivers ----------
 
 function handleMessage(uid: string, msg: AgentMessage) {
-  const payload = (msg.payload ?? {}) as { roundId?: string; purpose?: string; goalIds?: string[]; control?: string; trigger?: string };
+  const payload = (msg.payload ?? {}) as { roundId?: string; purpose?: string; goalIds?: string[]; control?: string; trigger?: string; question?: string; sessionId?: string };
   if (msg.type === 'control' && payload.control === 'status') {
     const u = loadUserDb(uid);
     appendMessage(uid, {
@@ -239,16 +224,31 @@ function handleMessage(uid: string, msg: AgentMessage) {
   if (msg.type === 'round-start' && payload.roundId) {
     // The personal agent starts the build: it writes the Customer section of the shared
     // context.md from its own User DB (AC2/AC3). Goal TITLES are shared; goal details and
-    // personal facts stay in the User DB until the customer allows sharing them.
+    // personal facts stay in the User DB until the customer allows sharing them. A session
+    // round shares the part relevant to the opening question; a contribution round shares all.
     const u = loadUserDb(uid);
-    writeCustomerSection(uid, u.goals.map((g) => ({ id: g.id, title: g.title, detail: '', source: 'personal' as const, at: now() })),
-      `${u.goals.length} goal${u.goals.length === 1 ? '' : 's'} shared by title; details and personal facts stay in the User DB until the customer allows sharing them.`,
+    const question = typeof payload.question === 'string' ? payload.question : null;
+    const qw = question ? words(question) : [];
+    const relevant = question ? u.goals.filter((g) => overlaps(qw, words(`${g.title} ${g.detail}`))) : u.goals;
+    writeCustomerSection(uid, relevant.map((g) => ({ id: g.id, title: g.title, detail: '', source: 'personal' as const, observed: 'observed' as const, at: now() })),
+      `${relevant.length} of ${u.goals.length} goal${u.goals.length === 1 ? '' : 's'} shared by title${question ? ' (relevant to the question)' : ''}; details and personal facts stay in the User DB until the customer allows sharing them.`,
       { roundId: payload.roundId, trigger: String(payload.trigger ?? 'contribution') });
     appendMessage(uid, {
       from: 'personal', to: 'cm', type: 'inform', status: 'pending',
-      summary: `${personalLabel(u)} wrote the Customer section of context.md (${u.goals.length} goal${u.goals.length === 1 ? '' : 's'} shared by title).`,
-      payload: { roundId: payload.roundId },
+      summary: `${personalLabel(u)} wrote the Customer section of context.md (${relevant.length} goal${relevant.length === 1 ? '' : 's'} shared by title).`,
+      payload: { roundId: payload.roundId, ...(question ? { question } : {}) },
     });
+    // F4: the personal agent contributes too - it proposes the customer's goals to the
+    // cabinet; the CM agent dedupes and the customer reviews, same as Nordea's proposals.
+    const alreadyProposed = new Set(loadBus(uid).messages.filter((m) => m.type === 'propose' && m.from === 'personal' && m.status === 'pending').map((m) => m.summary));
+    for (const g of relevant) {
+      if (alreadyProposed.has(`Customer goal: ${g.title}`)) continue; // no duplicate pending proposals
+      appendMessage(uid, {
+        from: 'personal', to: 'cm', type: 'propose', status: 'pending',
+        summary: `Customer goal: ${g.title}`,
+        payload: { roundId: payload.roundId, goalIds: [g.id], detail: `The customer is saving toward "${g.title}". Proposed by the personal agent from the User DB (direct customer input).`, observed: 'observed' },
+      });
+    }
     roundDone(uid, payload.roundId, 'personal');
     return;
   }

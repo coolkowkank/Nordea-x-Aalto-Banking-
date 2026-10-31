@@ -4,7 +4,7 @@
  * control messages, runs the dispatcher, reads reply payloads, and renders the customer's
  * own dashboard. Agents talk to each other only through bus messages.
  */
-import { ArchError } from './types.js';
+import { ArchError, newId, now } from './types.js';
 import type { AgentId, ArchEntry, BuildRound } from './types.js';
 import { dispatchPending } from './dispatcher.js';
 import { runRound } from './rounds.js';
@@ -18,7 +18,7 @@ import { loadCmDb, deleteCmDb } from './store/cmStore.js';
 import { loadNordeaDb, nordeaFileExists, deleteNordeaDb } from './store/nordeaStore.js';
 import { deleteContext, loadContext, renderContextMd } from './store/contextStore.js';
 import {
-  appendMessage, findMessage, getAgentsOff, setAgentsOff, loadBus,
+  appendMessage, findMessage, getAgentsOff, setAgentsOff, loadBus, busKvGet, busKvSet, getCabinetParkedMirror,
 } from './store/busStore.js';
 
 // ---------- Coordination state (bus kv), with one-time migration from the legacy User DB field ----------
@@ -42,11 +42,53 @@ const requireAgentOn = (uid: string, a: AgentId) => {
 
 // ---------- Personal agent chat (Abel in-app, or the connected external agent) ----------
 
-export function chat(uid: string, text: string): { reply: string; used: string[] } {
-  const begin = beginChat(uid, text);
-  if (begin.kind === 'direct') return begin.direct!;
-  dispatchPending(uid, { maxDeliver: 10 }); // the CM agent itself answers the query now
-  return finishChat(uid, begin);
+// ---------- Chat sessions (F15): one context.md per customer session ----------
+
+const SESSION_IDLE_MS = 30 * 60 * 1000; // session rule: a session ends after 30 min idle
+
+interface ChatSession { id: string; roundId: string; startedAt: string; lastActivityAt: string }
+
+/** Resolve the current session: the client's id wins; otherwise a new session after 30 min idle. */
+function resolveSession(uid: string, clientSessionId?: string): { session: ChatSession; isNew: boolean } {
+  const raw = busKvGet(uid, 'chatSession');
+  const existing = raw ? (JSON.parse(raw) as ChatSession) : null;
+  const nowIso = now();
+  if (existing && !clientSessionId && nowIso < new Date(new Date(existing.lastActivityAt).getTime() + SESSION_IDLE_MS).toISOString()) {
+    return { session: existing, isNew: false };
+  }
+  if (existing && clientSessionId && existing.id === clientSessionId) return { session: existing, isNew: false };
+  const session: ChatSession = { id: clientSessionId ?? newId('session'), roundId: '', startedAt: nowIso, lastActivityAt: nowIso };
+  return { session, isNew: true };
+}
+
+function saveSession(uid: string, session: ChatSession) { busKvSet(uid, 'chatSession', JSON.stringify(session)); }
+
+/**
+ * A customer question (F15): the first question of a session opens a session round with an
+ * empty document; every question is answered from the session's context.md; if the document
+ * has nothing from the Context Memory agent for a follow-up, a top-up round adds rows to the
+ * same document (never a fresh one).
+ */
+export function chat(uid: string, text: string, clientSessionId?: string): { reply: string; used: string[]; sessionId: string } {
+  const parked = getCabinetParkedMirror(uid); // the personal agent's parked gate, no status ping
+  const { session, isNew } = resolveSession(uid, clientSessionId);
+  if (isNew && !parked && !getOff(uid).some((a) => a === 'personal' || a === 'cm' || a === 'nordea')) {
+    const round = runRound(uid, 'session', { question: text, sessionId: session.id });
+    session.roundId = round.id;
+  }
+  let begin = beginChat(uid, text);
+  if (begin.kind === 'direct') { saveSession(uid, { ...session, lastActivityAt: now() }); return { ...begin.direct!, sessionId: session.id }; }
+  let answer = finishChat(uid, begin);
+  if (!parked && !isNew && answer.memoryHits === 0 && loadContext(uid)?.finalisedAt) {
+    // The document lacks CM-sourced content for this follow-up: top it up, then answer again.
+    const round = runRound(uid, 'topup', { question: text, sessionId: session.id });
+    if (!session.roundId) session.roundId = round.id;
+    begin = beginChat(uid, text);
+    if (begin.kind === 'direct') { saveSession(uid, { ...session, lastActivityAt: now() }); return { ...begin.direct!, sessionId: session.id }; }
+    answer = finishChat(uid, begin);
+  }
+  saveSession(uid, { ...session, lastActivityAt: now() });
+  return { reply: answer.reply, used: answer.used, sessionId: session.id };
 }
 
 // ---------- Agent-to-agent queries over the message bus (transport for the demo client) ----------
@@ -106,13 +148,14 @@ function readControlReply(uid: string, controlMessageId: string): Record<string,
   return (reply?.payload ?? {}) as Record<string, unknown>;
 }
 
-export function decideProposal(uid: string, messageId: string, accept: boolean): ArchEntry | { rejected: true } {
+export function decideProposal(uid: string, messageId: string, accept: boolean): ArchEntry | { rejected: true } | (ArchEntry & { duplicate: true }) {
   const msg = findMessage(uid, messageId);
   if (!msg || msg.type !== 'propose') throw new ArchError(404, 'No such proposal.');
   if (msg.status !== 'pending') throw new ArchError(409, `This proposal is already ${msg.status}.`);
   const reply = controlRoundTrip(uid, 'cm', `Review decision on proposal ${messageId}.`, { control: 'review-decision', messageId, accept });
   if ((reply as { rejected?: boolean }).rejected) return { rejected: true };
-  return (reply as { entry: ArchEntry }).entry;
+  const r = reply as { entry: ArchEntry; duplicate?: boolean };
+  return r.duplicate ? { ...r.entry, duplicate: true } : r.entry;
 }
 
 // ---------- Explain / dispute ----------

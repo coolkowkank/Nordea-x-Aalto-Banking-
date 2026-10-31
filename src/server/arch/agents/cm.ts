@@ -7,7 +7,7 @@
  */
 import { newId, now } from '../types.js';
 import type { AgentMessage, ArchEntry, StaleFlag } from '../types.js';
-import { words, overlaps } from '../text.js';
+import { words, overlaps, overlapScore } from '../text.js';
 import { loadCmDb, saveCmDb, storeRoundRecord, storeContextSnapshot } from '../store/cmStore.js';
 import { loadContext, readSectionRows, renderContextMd, writeHeader, writeMemorySection } from '../store/contextStore.js';
 import type { ContextRow } from '../store/contextStore.js';
@@ -35,17 +35,52 @@ function goalTitlesFromDoc(uid: string): Map<string, string> {
   return map;
 }
 
-/** The CM agent's section: relevant earlier entries from its own DB, as structured rows (AC4/B1a). */
-function writeMemoryFromEntries(uid: string, meta?: { roundId: string; trigger: string }) {
+/**
+ * Retrieval over the CM agent's own entries (AC4/F5): ranked by overlap score, deduped
+ * (same normalised title + same evidence total collapses), conflicts flagged (same
+ * normalised title, different evidence totals among active entries), observed|inferred markers.
+ */
+function retrieveRelevant(uid: string, queryWords: string[]): ContextRow[] {
   const cm = loadCmDb(uid);
+  const scored = cm.entries
+    .map((e) => ({ e, score: overlapScore(queryWords, words(`${e.title} ${e.detail}`)) }))
+    .filter((x) => x.score > 0)
+    .sort((a, b) => b.score - a.score || a.e.createdAt.localeCompare(b.e.createdAt));
+  const seen = new Set<string>();
+  const rows: ContextRow[] = [];
+  const norm = (t: string) => t.toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim();
+  const activeTotalsByTitle = new Map<string, Set<number>>();
+  for (const { e } of scored) {
+    if (e.status === 'active') {
+      const key = norm(e.title);
+      const totals = activeTotalsByTitle.get(key) ?? new Set<number>();
+      if (e.evidence?.total != null) totals.add(e.evidence.total);
+      activeTotalsByTitle.set(key, totals);
+    }
+  }
+  for (const { e } of scored) {
+    const key = `${norm(e.title)}|${e.evidence?.total ?? 'x'}|${e.status}`;
+    if (seen.has(key)) continue; // dedupe
+    seen.add(key);
+    const conflict = e.status === 'active' && (activeTotalsByTitle.get(norm(e.title))?.size ?? 0) > 1;
+    rows.push({
+      id: e.id, title: e.title, detail: e.detail, source: 'cm', status: e.status,
+      observed: e.observed ?? (e.evidence?.total != null ? 'observed' : 'inferred'),
+      evidence: (e.evidence ?? null) as Record<string, unknown> | null,
+      at: e.createdAt,
+      ...(conflict ? { conflict: true } : {}),
+    });
+  }
+  return rows;
+}
+
+/** The CM agent's section: relevant earlier entries from its own DB, as structured rows (AC4/B1a). */
+function writeMemoryFromEntries(uid: string, meta?: { roundId: string; trigger: string }, extraWords: string[] = [], merge = false) {
   const customerWords = readSectionRows(uid, 'customer').flatMap((r) => words(`${r.title} ${r.detail}`));
-  const relevant = customerWords.length ? cm.entries.filter((e) => overlaps(customerWords, words(`${e.title} ${e.detail}`))) : cm.entries;
-  const rows: ContextRow[] = relevant.map((e) => ({
-    id: e.id, title: e.title, detail: e.detail, source: 'cm', status: e.status,
-    evidence: (e.evidence ?? null) as Record<string, unknown> | null,
-    at: e.createdAt,
-  }));
-  writeMemorySection(uid, rows, meta);
+  const q = [...customerWords, ...extraWords];
+  const rows = q.length ? retrieveRelevant(uid, q) : [];
+  const merged = merge ? [...readSectionRows(uid, 'memory').filter((r) => !rows.some((n) => n.id === r.id)), ...rows] : rows;
+  writeMemorySection(uid, merged, meta);
 }
 
 /** Ask the Nordea agent to confirm or refresh the stored values behind decay candidates (AC8). */
@@ -106,9 +141,8 @@ function handleMessage(uid: string, msg: AgentMessage) {
       });
     } else {
       const q = words(payload.question);
-      const hits = cm.entries
-        .filter((e) => overlaps(q, words(`${e.title} ${e.detail}`)))
-        .map((e) => ({ id: e.id, title: e.title, detail: e.detail, status: e.status, evidence: e.evidence ?? null }));
+      const hits = retrieveRelevant(uid, q)
+        .map((r) => ({ id: r.id, title: r.title, detail: r.detail, status: r.status ?? 'active', evidence: (r.evidence ?? undefined) as { transactionIds?: string[]; total?: number; note?: string } | undefined, observed: r.observed, conflict: r.conflict ?? false }));
       appendMessage(uid, {
         from: 'cm', to: msg.from, type: 'reply',
         summary: `Context Memory agent returns ${hits.length} entr${hits.length === 1 ? 'y' : 'ies'} from the Context Memory DB.`,
@@ -116,6 +150,23 @@ function handleMessage(uid: string, msg: AgentMessage) {
       });
     }
     updateMessage(uid, msg.id, { status: 'answered' });
+    return;
+  }
+
+  // --- Top-up round (F15-7): add rows to the same session document, never a fresh one.
+  if (msg.type === 'round-start' && payload.trigger === 'topup' && typeof payload.roundId === 'string') {
+    const question = typeof payload.question === 'string' ? payload.question : '';
+    if (loadCmDb(uid).parked) {
+      roundDone(uid, payload.roundId, 'nordea');
+      roundDone(uid, payload.roundId, 'cm');
+      return;
+    }
+    writeMemoryFromEntries(uid, { roundId: payload.roundId, trigger: 'topup' }, words(question), true);
+    appendMessage(uid, {
+      from: 'cm', to: 'nordea', type: 'query', status: 'pending',
+      summary: 'Context Memory agent asks the Nordea agent to top up the session document with aggregates for a follow-up question.',
+      payload: { purpose: 'contribute', roundId: payload.roundId, topup: true, trigger: 'topup', ...(question ? { question } : {}) },
+    });
     return;
   }
 
@@ -132,13 +183,20 @@ function handleMessage(uid: string, msg: AgentMessage) {
     return;
   }
 
-  // --- The personal agent wrote the Customer section of context.md for this round.
+  // --- The personal agent wrote the Customer section of context.md for this round. A session
+  // round (F15) retrieves entries relevant to the session's opening question; a contribution
+  // round retrieves for the whole Customer section.
   if (msg.type === 'inform' && typeof payload.roundId === 'string') {
-    writeMemoryFromEntries(uid, { roundId: payload.roundId, trigger: 'contribution' });
+    const round = loadRound(uid, payload.roundId);
+    const isSession = round?.trigger === 'session';
+    const question = round?.question ?? '';
+    writeMemoryFromEntries(uid, { roundId: payload.roundId, trigger: round?.trigger ?? 'contribution' }, isSession && question ? words(question) : []);
     appendMessage(uid, {
       from: 'cm', to: 'nordea', type: 'query', status: 'pending',
-      summary: 'Context Memory agent asks the Nordea agent for transaction insights relevant to the Customer section of context.md.',
-      payload: { purpose: 'contribute', roundId: payload.roundId },
+      summary: isSession
+        ? 'Context Memory agent asks the Nordea agent for aggregates relevant to the session question and the Customer section.'
+        : 'Context Memory agent asks the Nordea agent for transaction insights relevant to the Customer section of context.md.',
+      payload: { purpose: 'contribute', roundId: payload.roundId, trigger: round?.trigger ?? 'contribution', ...(isSession && question ? { question } : {}) },
     });
     return;
   }
@@ -179,7 +237,9 @@ function handleMessage(uid: string, msg: AgentMessage) {
       saveCmDb(cm);
       appendMessage(uid, { from: 'cm', to: 'user', type: 'inform', summary: `Re-check before reuse: ${flags.length} accepted entr${flags.length === 1 ? 'y was' : 'ies were'} flagged stale against current bank data; refreshed figures wait in merge review.` });
     }
-    writeMemoryFromEntries(uid, { roundId: payload.roundId, trigger: 'decay' });
+    const round = loadRound(uid, payload.roundId);
+    // Keep the round's question context (F15): a session document must not lose its memory rows.
+    writeMemoryFromEntries(uid, { roundId: payload.roundId, trigger: round?.trigger ?? 'decay' }, round?.question ? words(round.question) : []);
     recordStaleFlags(uid, payload.roundId, flags);
     roundDone(uid, payload.roundId, 'cm');
     return;
@@ -238,22 +298,32 @@ function handleMessage(uid: string, msg: AgentMessage) {
         updateMessage(uid, msg.id, { status: 'answered' });
         return;
       }
+      const norm = (t: string) => t.toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim();
+      const existing = cm.entries.find((e) => e.status === 'active' && norm(e.title) === norm(proposal.summary));
+      if (existing) {
+        updateMessage(uid, messageId, { status: 'accepted' });
+        appendMessage(uid, { from: 'cm', to: 'user', type: 'inform', summary: `"${existing.title}" is already in your cabinet - I kept the existing entry instead of adding a duplicate.`, payload: { inReplyTo: proposal.id, entryId: existing.id, duplicate: true } });
+        appendMessage(uid, { from: 'cm', to: 'app', type: 'reply', summary: 'Proposal was a duplicate of an active entry.', payload: { inReplyTo: msg.id, duplicate: true, entry: existing } });
+        updateMessage(uid, msg.id, { status: 'answered' });
+        return;
+      }
       updateMessage(uid, messageId, { status: 'accepted' });
-      const p = (proposal.payload ?? {}) as { goalIds?: string[]; detail?: string; transactionIds?: string[]; total?: number };
+      const p = (proposal.payload ?? {}) as { goalIds?: string[]; detail?: string; transactionIds?: string[]; total?: number; observed?: 'observed' | 'inferred' };
       const entry: ArchEntry = {
         id: newId('entry'),
         title: proposal.summary,
         detail: p.detail ?? '',
         goalIds: p.goalIds ?? [],
-        proposedBy: 'nordea',
+        // F4: any agent can propose; provenance records who (only agents send proposals)
+        proposedBy: proposal.from === 'personal' ? 'personal' : 'nordea',
         viaMessageId: proposal.id,
         evidence: { transactionIds: p.transactionIds, total: p.total },
+        observed: p.observed ?? (p.total != null ? 'observed' : 'inferred'),
         status: 'active',
         createdAt: now(),
       };
       cm.entries.push(entry); // only the CM agent writes the Context Memory DB
       saveCmDb(cm);
-      writeMemoryFromEntries(uid); // keep the shared document's memory section current
       appendMessage(uid, { from: 'cm', to: 'user', type: 'inform', summary: `Context Memory agent added "${entry.title}" to the cabinet after your approval.` });
       appendMessage(uid, { from: 'cm', to: 'app', type: 'reply', summary: 'Proposal accepted into the cabinet.', payload: { inReplyTo: msg.id, entry } });
       updateMessage(uid, msg.id, { status: 'answered' });
@@ -273,7 +343,6 @@ function handleMessage(uid: string, msg: AgentMessage) {
       entry.status = 'disputed';
       entry.disputeReason = reason;
       saveCmDb(cm);
-      writeMemoryFromEntries(uid); // keep the shared document's memory section current
       appendMessage(uid, { from: 'cm', to: 'user', type: 'inform', summary: `You disputed "${entry.title}": ${entry.disputeReason}. It stays visible, marked disputed, until you resolve or delete it.` });
       appendMessage(uid, { from: 'cm', to: 'app', type: 'reply', summary: 'Entry disputed.', payload: { inReplyTo: msg.id, entry } });
       updateMessage(uid, msg.id, { status: 'answered' });

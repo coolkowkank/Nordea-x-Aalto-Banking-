@@ -26,7 +26,8 @@ export function registerArchRoutes(app: Express) {
   app.post('/api/arch/:uid/chat', h((req, res) => {
     const text = String(req.body?.text ?? '').trim();
     if (!text) { res.status(400).json({ error: 'Say something first.' }); return; }
-    res.json(chat(uid(req), text));
+    const sessionId = typeof req.body?.sessionId === 'string' && req.body.sessionId.trim() ? req.body.sessionId.trim() : undefined;
+    res.json(chat(uid(req), text, sessionId));
   }));
 
   // Agent-to-agent query transport: the personal agent (in-app or the separate demo client

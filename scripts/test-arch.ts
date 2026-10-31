@@ -79,10 +79,11 @@ const busMsgs = S.loadBus(UID).messages;
 check('goal titles reached the Nordea agent via explicit messages', busMsgs.some((m) => m.from === 'personal' && m.to === 'cm') && busMsgs.some((m) => m.from === 'cm' && m.to === 'nordea' && m.type === 'query'));
 
 const queue = A.reviewQueue(UID);
-check('merge review queue holds the pending proposal', queue.length === 1);
-const entry = A.decideProposal(UID, queue[0].id, true) as { id: string };
+check('merge review queue holds both pending proposals (Nordea insight + F4 personal goal proposal)', queue.length === 2 && queue.some((m) => m.from === 'nordea') && queue.some((m) => m.from === 'personal'), JSON.stringify(queue.map((m) => m.from)));
+const entry = A.decideProposal(UID, queue.find((m) => m.from === 'nordea')!.id, true) as { id: string };
 check('accepting writes the cabinet entry to the Context Memory DB', S.loadCmDb(UID).entries.length === 1);
 check('the entry carries provenance (proposedBy + viaMessageId)', S.loadCmDb(UID).entries[0].proposedBy === 'nordea' && !!S.loadCmDb(UID).entries[0].viaMessageId);
+check('F4: the personal agent proposed the customer goal to the cabinet (pending review)', queue.some((m) => m.from === 'personal' && (m.payload as { observed?: string } | undefined)?.observed === 'observed'));
 
 const docChat = A.chat(UID, 'how much have I saved for the car?');
 check('B1c: chat answers from the finished context.md', docChat.reply.includes('83.5') && docChat.used.includes('context-memory-db'), docChat.reply);
@@ -148,7 +149,7 @@ const sc2 = A.contribute(UID2);
 check('changed facts flag the accepted entry stale', S.loadCmDb(UID2).entries[0].status === 'stale');
 const staleBus = S.loadBus(UID2).messages;
 check('flag-stale and refresh messages were exchanged', staleBus.some((m) => m.type === 'flag-stale' && m.from === 'cm' && m.to === 'personal') && staleBus.some((m) => m.type === 'refresh' && m.from === 'cm' && m.to === 'nordea'));
-check('a refreshed proposal waits in merge review', (sc2.staleFlags?.length ?? 0) === 1 && A.reviewQueue(UID2).length === 1, JSON.stringify(sc2.staleFlags));
+check('a refreshed proposal waits in merge review', (sc2.staleFlags?.length ?? 0) === 1 && A.reviewQueue(UID2).some((m) => m.from === 'nordea' && (m.payload as { total?: number } | undefined)?.total === 150), JSON.stringify(sc2.staleFlags));
 
 
 // --- Agent-to-agent query transport (demo client): each agent answers only from its own DB
@@ -233,7 +234,7 @@ check('a parked cabinet denies new contributions', threw.includes('parked'), thr
 threw = '';
 try { A.decideProposal(UID4, pc.proposals[0].messageId, true); } catch (e) { threw = (e as Error).message; }
 check('a parked cabinet denies accepting proposals (no supply while parked)', threw.includes('parked'), threw);
-check('the denied acceptance left the proposal pending (no half-mutated review)', A.reviewQueue(UID4).length === 1);
+check('the denied acceptance left the proposal pending (no half-mutated review)', A.reviewQueue(UID4).some((m) => m.id === pc.proposals[0].messageId));
 const rejected = A.decideProposal(UID4, pc.proposals[0].messageId, false) as { rejected: boolean };
 check('the user can still REJECT a proposal while parked (review is the user\'s, not agent supply)', rejected.rejected === true);
 A.connectExternalAgent(UID4, 'Meta Muse');
@@ -365,21 +366,67 @@ A.decideProposal(UID10, lc10.proposals[0].messageId, true);
 const limited = R.runRound(UID10, 'decay', { maxSteps: 1 });
 check('AC6: a round that cannot finish ends at its step limit', limited.state === 'step-limit', limited.state);
 
-// --- Chat boundary (B1c): after a round finalises, chat answers from the finished context.md;
-// the cabinet content is the CM-written memory section, never the personal agent opening cm.db.
-const accepted = A.decideProposal(UID9, A.reviewQueue(UID9)[0].id, true) as { id: string };
+// --- Chat boundary (B1c/F15): chat is session-scoped. The first question of a session opens a
+// session round with an empty document; the CM agent retrieves question-relevant entries into
+// the document's memory section; the answer draws on that finished document.
+const accepted = A.decideProposal(UID9, A.reviewQueue(UID9).find((m) => m.from === 'nordea')!.id, true) as { id: string };
+const docBefore = S.loadContext(UID9)!;
+check('F15-8: accepting a proposal does NOT patch the finished document between rounds', !docBefore.sections.memory.rows.some((r) => r.id === accepted.id));
 const chatAns = A.chat(UID9, 'what do you know about my car saving?');
 const doc9 = S.loadContext(UID9)!;
+check('F15: the first chat question opened a session round (new document)', doc9.roundId !== docBefore.roundId && !!chatAns.sessionId, doc9.roundId + ' vs ' + docBefore.roundId);
+check('F15: the session round is visible on the bus with the question', S.loadBus(UID9).messages.some((m) => m.type === 'round-start' && (m.payload as { trigger?: string; question?: string } | undefined)?.trigger === 'session' && (m.payload as { question?: string } | undefined)?.question === 'what do you know about my car saving?'));
 check('the chat answer draws on the CM-written memory section of the finished context.md', doc9.finalisedAt !== null && chatAns.reply.includes('Shared context (via the Context Memory agent)'), chatAns.reply.slice(0, 100));
 check('the memory section carries the accepted entry with provenance', doc9.sections.memory.rows.some((r) => r.id === accepted.id && r.source === 'cm' && typeof r.evidence?.total === 'number'));
 
-// --- Chat boundary (legacy path): before the first round finalises, chat still asks the CM
-// agent over the bus and the reply is a real CM-authored message.
-const UID11 = 'freshuser';
-A.addGoalDirect(UID11, 'Save for a car');
-A.chat(UID11, 'what do you know about my car saving?');
-const legacyReply = S.loadBus(UID11).messages.find((m) => m.type === 'reply' && m.from === 'cm' && m.to === 'personal');
-check('before the first round, chat still draws on a real CM-authored bus reply', !!legacyReply && S.loadBus(UID11).messages.some((m) => m.type === 'query' && m.from === 'personal' && m.to === 'cm' && m.status === 'answered'));
+// --- F15: a follow-up question in the same session is answered from the SAME document.
+const follow = A.chat(UID9, 'tell me about the car saving again');
+const docFollow = S.loadContext(UID9)!;
+check('F15: a same-session follow-up keeps the same document (no new round)', docFollow.roundId === doc9.roundId && follow.sessionId === chatAns.sessionId, docFollow.roundId + ' vs ' + doc9.roundId);
+
+// --- F15-7: a follow-up the document has no memory row for triggers a top-up round on the
+// SAME document (a new round id, never a fresh document).
+const topupAns = A.chat(UID9, 'any grocery insights?');
+const docTop = S.loadContext(UID9)!;
+check('F15-7: an unanswered follow-up runs a top-up round on the same document', docTop.roundId !== doc9.roundId && docTop.trigger === 'topup' && S.loadBus(UID9).messages.some((m) => m.type === 'round-start' && (m.payload as { trigger?: string } | undefined)?.trigger === 'topup'), docTop.roundId + ' trigger ' + docTop.trigger);
+void topupAns;
+
+// --- F15: a different client session id ends the session and rebuilds the document.
+const other = A.chat(UID9, 'what do you know about my car saving?', 'client-session-2');
+const docNew = S.loadContext(UID9)!;
+check('F15: a new client session id starts a new session document', other.sessionId === 'client-session-2' && docNew.roundId !== docTop.roundId && docNew.trigger === 'session');
+
+// --- F5: the CM retrieval dedupes same-titled accepts and flags conflicting totals.
+const UID12 = 'cmretrieve';
+A.addGoalDirect(UID12, 'Save for a car');
+S.saveNordeaDb({ userId: UID12, accounts: [], transactions: [{ id: 'c1', userId: UID12, date: '2026-10-01', category: 'transport', amount: -100, account: 'current', description: 'Fuel for the car' }] });
+const c12 = A.contribute(UID12);
+A.decideProposal(UID12, c12.proposals[0].messageId, true); // Nordea insight: 100 EUR
+const q12 = A.reviewQueue(UID12);
+const pEntryRes = A.decideProposal(UID12, q12.find((m) => m.from === 'personal')!.id, true) as { id: string };
+const pStored = S.loadCmDb(UID12).entries.find((e) => e.id === pEntryRes.id)!;
+check('F4: a personal-agent goal proposal lands in the cabinet with its own provenance', pStored.proposedBy === 'personal' && !!pStored.viaMessageId, JSON.stringify(pStored).slice(0, 140));
+check('F5: an observed entry keeps its observed status through review', pStored.observed === 'observed', JSON.stringify(pStored.observed));
+const acceptedTitle = S.loadCmDb(UID12).entries[0].title;
+S.appendMessage(UID12, { from: 'nordea', to: 'cm', type: 'propose', status: 'pending', summary: acceptedTitle, payload: { detail: 'a duplicate proposal', total: 100 } });
+const dupQueue = A.reviewQueue(UID12);
+const dupRes = A.decideProposal(UID12, dupQueue[0].id, true) as { duplicate?: boolean };
+check('F5: accepting a same-titled proposal does not duplicate the entry', dupRes.duplicate === true && S.loadCmDb(UID12).entries.filter((e) => e.title === acceptedTitle && e.status === 'active').length === 1, JSON.stringify(dupRes).slice(0, 100));
+// Two active entries with the same title but different totals, NOT matching any goal or
+// transaction (so no staleness re-check touches them): both must be served, flagged in conflict.
+const cm12 = S.loadCmDb(UID12);
+cm12.entries.push(
+  { id: 'entry-conf1', title: 'Portugal holiday fund', detail: 'first estimate', goalIds: [], proposedBy: 'nordea', viaMessageId: 'msg-seed1', evidence: { total: 100 }, status: 'active', createdAt: new Date().toISOString() },
+  { id: 'entry-conf2', title: 'Portugal holiday fund', detail: 'second estimate', goalIds: [], proposedBy: 'personal', viaMessageId: 'msg-seed2', evidence: { total: 999 }, status: 'active', createdAt: new Date().toISOString() },
+);
+cm12.entries.push({ id: 'entry-weak', title: 'Holiday ideas', detail: 'maybe somewhere sunny', goalIds: [], proposedBy: 'personal', viaMessageId: 'msg-seed3', status: 'active', createdAt: new Date().toISOString() });
+S.saveCmDb(cm12);
+// Retrieval serves both conflicting entries, flags the conflict, and ranks the best match first.
+const cmAns5 = A.agentQuery(UID12, 'cm', 'portugal holiday fund');
+const hits5 = (cmAns5.reply as { matchedEntries: { title: string; conflict?: boolean }[] }).matchedEntries;
+const conflictHits = hits5.filter((h) => h.title === 'Portugal holiday fund');
+check('F5: conflicting totals for one title are both served and flagged', conflictHits.length === 2 && conflictHits.every((h) => h.conflict === true), JSON.stringify(hits5).slice(0, 200));
+check('F5: retrieval ranks the best question match first', hits5.length >= 3 && hits5[0].title === 'Portugal holiday fund' && hits5[hits5.length - 1].title === 'Holiday ideas', JSON.stringify(hits5.map((h) => h.title)));
 
 console.log(`\n${passed} passed, ${failed} failed`);
 process.exit(failed ? 1 : 0);

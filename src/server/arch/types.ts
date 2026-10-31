@@ -31,6 +31,7 @@ export interface ArchEntry {
   proposedBy: AgentId | 'user';
   viaMessageId?: string;
   evidence?: { transactionIds?: string[]; total?: number; note?: string };
+  observed?: 'observed' | 'inferred';
   status: 'active' | 'disputed' | 'stale';
   disputeReason?: string;
   createdAt: string;
@@ -65,9 +66,11 @@ export interface StaleFlag { entryId: string; title: string; was: number; nowIs:
 /** A build round: the lifecycle one shared-context build goes through (AC6). */
 export interface BuildRound {
   id: string;
-  trigger: 'contribution' | 'decay';
+  trigger: 'contribution' | 'decay' | 'session' | 'topup';
   state: 'open' | 'collecting' | 'finalizing' | 'stored' | 'step-limit' | 'failed';
   participants: AgentId[];
+  sessionId?: string;
+  question?: string;
   doneSignals: AgentId[];
   steps: number;
   maxSteps: number;

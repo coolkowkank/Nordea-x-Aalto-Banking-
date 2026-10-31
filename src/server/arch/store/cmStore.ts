@@ -8,11 +8,18 @@ import type { ArchEntry, CmDb } from '../types.js';
 
 const emptyCm = (userId: string): CmDb => ({ userId, entries: [] });
 
+/** F5: observed/inferred provenance landed after the first schema - add the column to old DBs. */
+function ensureObservedColumn(db: ReturnType<typeof openDb>) {
+  const cols = db.prepare('PRAGMA table_info(entries)').all() as { name: string }[];
+  if (!cols.some((c) => c.name === 'observed')) db.exec('ALTER TABLE entries ADD COLUMN observed TEXT');
+}
+
 export function loadCmDb(uid: string): CmDb {
   migrateLegacy(uid, 'cm', (data) => saveCmDb({ ...emptyCm(uid), ...data } as CmDb));
   if (!fs.existsSync(fileFor(uid, 'cm'))) return emptyCm(uid);
   const db = openDb(fileFor(uid, 'cm'), 'cm');
   try {
+    ensureObservedColumn(db);
     const entries = (db.prepare('SELECT * FROM entries ORDER BY created_at').all() as Record<string, string>[])
       .map((r) => ({
         id: r.id, title: r.title, detail: r.detail, goalIds: JSON.parse(r.goal_ids) as string[],
@@ -21,6 +28,7 @@ export function loadCmDb(uid: string): CmDb {
         ...(r.evidence ? { evidence: JSON.parse(r.evidence) } : {}),
         status: r.status as ArchEntry['status'],
         ...(r.dispute_reason ? { disputeReason: r.dispute_reason } : {}),
+        ...(r.observed ? { observed: r.observed as ArchEntry['observed'] } : {}),
         createdAt: r.created_at,
       }));
     const parked = kvGet(db, 'parked') === '1';
@@ -31,16 +39,17 @@ export function loadCmDb(uid: string): CmDb {
 export function saveCmDb(d: CmDb) {
   const db = openDb(fileFor(d.userId, 'cm'), 'cm');
   try {
+    ensureObservedColumn(db);
     kvSet(db, 'parked', d.parked ? '1' : null);
     db.exec('BEGIN');
     db.prepare('DELETE FROM entries').run();
     const ins = db.prepare(`INSERT INTO entries
-      (id, title, detail, goal_ids, proposed_by, via_message_id, evidence, status, dispute_reason, created_at)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`);
+      (id, title, detail, goal_ids, proposed_by, via_message_id, evidence, status, dispute_reason, created_at, observed)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`);
     for (const e of d.entries) {
       ins.run(e.id, e.title, e.detail, JSON.stringify(e.goalIds), e.proposedBy,
         e.viaMessageId ?? null, e.evidence ? JSON.stringify(e.evidence) : null,
-        e.status, e.disputeReason ?? null, e.createdAt);
+        e.status, e.disputeReason ?? null, e.createdAt, e.observed ?? null);
     }
     db.exec('COMMIT');
   } finally { db.close(); }

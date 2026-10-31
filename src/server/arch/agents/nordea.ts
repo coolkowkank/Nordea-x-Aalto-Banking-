@@ -57,13 +57,21 @@ function handleMessage(uid: string, msg: AgentMessage) {
   // --- Contribution query from the Context Memory agent (inside a build round).
   if (msg.type === 'query' && payload.purpose === 'contribute' && typeof payload.roundId === 'string') {
     // The Nordea agent reads the shared context.md - never the User DB - to decide what is
-    // relevant (F6): the goals arrive via the Customer section, not inside the message.
+    // relevant (F6): the goals arrive via the Customer section, not inside the message. A
+    // session/top-up query may also carry the customer's question to match against.
     const goals = readSectionRows(uid, 'customer').map((r) => ({ id: r.id, title: r.title }));
+    const questionWords = typeof payload.question === 'string' ? words(payload.question as string) : [];
     prepare(uid);
     const nordea = loadNordeaDb(uid)!;
     const alreadyPending = pendingProposalSummaries(uid);
     const proposals: { messageId: string; title: string; detail: string; matched: number; total: number }[] = [];
     const sectionRows: ContextRow[] = [];
+    if (questionWords.length) {
+      const hinted = new Set(questionWords.flatMap((w) => CATEGORY_HINTS[w] ?? []));
+      const qm = nordea.transactions.filter((t) =>
+        overlaps(questionWords, words(`${t.description ?? ''} ${t.counterparty ?? ''}`)) || hinted.has(t.category));
+      if (qm.length) sectionRows.push({ id: `nq-${payload.roundId as string}`, title: 'Relevant to your question', detail: `${qm.length} transaction${qm.length === 1 ? '' : 's'} totalling ${totalOf(qm)} EUR`, source: 'nordea', observed: 'observed', evidence: { total: totalOf(qm), matched: qm.length, transactionIds: qm.slice(0, 25).map((t) => t.id) }, at: now() });
+    }
     for (const goal of goals) {
       const matches = matchForTitles(nordea, [goal.title]);
       if (!matches.length) continue;
@@ -80,7 +88,11 @@ function handleMessage(uid: string, msg: AgentMessage) {
       proposals.push({ messageId: posted.id, title, detail, matched: matches.length, total });
     }
     // The Nordea agent's section of the shared document (AC5): aggregates + evidence only.
-    writeNordeaSection(uid, sectionRows, { roundId: payload.roundId, trigger: 'contribution' });
+    // A top-up round adds rows to the same session document, never a fresh one (F15-7).
+    const merged = payload.topup === true
+      ? [...readSectionRows(uid, 'nordea').filter((r) => !sectionRows.some((n) => n.id === r.id)), ...sectionRows]
+      : sectionRows;
+    writeNordeaSection(uid, merged, { roundId: payload.roundId as string, trigger: String(payload.trigger ?? 'contribution') });
     recordProposals(uid, payload.roundId, proposals);
     appendMessage(uid, {
       from: 'nordea', to: 'cm', type: 'reply', status: 'pending',

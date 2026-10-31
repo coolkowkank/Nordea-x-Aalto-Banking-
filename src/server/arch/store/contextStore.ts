@@ -23,6 +23,7 @@ export interface ContextRow {
   source: 'personal' | 'cm' | 'nordea';
   status?: string;
   observed?: 'observed' | 'inferred';
+  conflict?: boolean;
   evidence?: Record<string, unknown> | null;
   at: string;
 }
@@ -59,7 +60,7 @@ function renderRows(section: ContextSection, rows: ContextRow[]): string {
   if (!rows.length) return section === 'customer' ? '_nothing shared yet_' : section === 'memory' ? '_nothing relevant stored yet_' : '_no bank aggregates yet_';
   return rows.map((r) => {
     if (section === 'customer') return `- Goal: ${r.title} (${r.id})${r.detail ? ` - ${r.detail}` : ''}`;
-    if (section === 'memory') return `- [${r.status ?? 'active'}] ${r.title}: ${r.detail} (source: ${r.source}, ${r.at.slice(0, 10)})`;
+    if (section === 'memory') return `- [${r.status ?? 'active'}${r.conflict ? ', conflict' : ''}] ${r.title}: ${r.detail} (${r.observed ?? 'observed'}, source: ${r.source}, ${r.at.slice(0, 10)})`;
     return `- ${r.title}: ${r.detail} (aggregates only - no account identifiers, no raw transactions).`;
   }).join('\n');
 }

@@ -14,6 +14,8 @@ import type { AgentId, BuildRound, StaleFlag } from './types.js';
 const PARTICIPANTS: Record<BuildRound['trigger'], AgentId[]> = {
   contribution: ['personal', 'cm', 'nordea'],
   decay: ['cm', 'nordea'],
+  session: ['personal', 'cm', 'nordea'],
+  topup: ['cm', 'nordea'],
 };
 
 export function loadRound(uid: string, id: string): BuildRound | null {
@@ -55,7 +57,7 @@ export function recordStaleFlags(uid: string, roundId: string, flags: StaleFlag[
  * Run one build round to completion (or to its step limit). The kickoff message goes to the
  * first actor; the dispatcher then delivers every message the agents post to each other.
  */
-export function runRound(uid: string, trigger: BuildRound['trigger'], opts?: { maxSteps?: number }): BuildRound {
+export function runRound(uid: string, trigger: BuildRound['trigger'], opts?: { maxSteps?: number; question?: string; sessionId?: string }): BuildRound {
   const round: BuildRound = {
     id: newId('round'),
     trigger,
@@ -67,15 +69,17 @@ export function runRound(uid: string, trigger: BuildRound['trigger'], opts?: { m
     proposals: [],
     staleFlags: [],
     startedAt: now(),
+    ...(opts?.sessionId ? { sessionId: opts.sessionId } : {}),
+    ...(opts?.question ? { question: opts.question } : {}),
   };
   saveRound(uid, round);
 
-  const firstActor: AgentId = trigger === 'contribution' ? 'personal' : 'cm';
+  const firstActor: AgentId = trigger === 'contribution' || trigger === 'session' ? 'personal' : 'cm';
   appendMessage(uid, {
     from: 'app',
     to: firstActor, type: 'round-start', status: 'pending',
     summary: `Build round ${round.id} opens (${trigger}).`,
-    payload: { roundId: round.id, trigger },
+    payload: { roundId: round.id, trigger, ...(opts?.question ? { question: opts.question } : {}), ...(opts?.sessionId ? { sessionId: opts.sessionId } : {}) },
   });
   round.state = 'collecting';
   saveRound(uid, round);
