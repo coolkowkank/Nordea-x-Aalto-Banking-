@@ -53,7 +53,7 @@ This branch starts from `Instict-prototype` @ `489d44e`. Its goal is to turn the
 ---
 
 ## 🧠 Context memory
-*Joe, updated 2026-10-31 19:36.*
+*Joe, updated 2026-10-31 19:38.*
 
 - **Goal:** three agents (personal / Context Memory / Nordea), each opening only its own DB, build a shared per-customer `context.md`; human only for first start and high-risk decisions. Done = AC1–AC12.
 - **Base:** `Instict-prototype` @ `489d44e`. Branch changes so far: `review.md` only.
@@ -61,11 +61,12 @@ This branch starts from `Instict-prototype` @ `489d44e`. Its goal is to turn the
 - **Owner decision (18:40):** `context.md` is rebuilt **per customer session**; all questions in a session share it. CM connects to `cm.db` per session. AC2 rewritten.
 - **Verified:** F2, F3 @7950f5d; F12–F14 @b71586b; F1, F6 @1040ff7; F15, F4, F5 @1eaee72. Staleness re-checks inside session rounds accepted.
 - **Verified:** F16, F17 @230a94d (test:arch 111/111, lint clean).
-- **Now (Instinct):** **F7** risk levels + standing permissions (AC7), early code @a4d16bc, not handed over; **ETA 21:00**. **F18 (M)** fold in or do first: a decay round from a bank import replaces the session's Nordea section and drops the question row (`nordea.ts:164`); the Contribute button rewrites the whole session document. **F19 (L)** dead branch in `finishChat`.
-- **Git note:** d44fe38 is a merge commit; rule 2 is `git pull --rebase`, which keeps history linear.
-- **Open:** F7–F11, F18, F19.
+- **Awaiting Bill (handed over 19:37, 83 min early):** F7 `fixed @a4d16bc`: risk by code rules (`risk.ts`): high = sensitive topics, inferences, offers, sharing beyond the 3 agents (always waits); low = customer's own direct input; medium = observed bank aggregates. Standing permissions set once via `POST /api/arch/:uid/permissions` (default: review everything); CM auto-stores allowed items at finalise + backlog sweep; every auto-store logged and explainable (AC9). F18 `fixed @a2263af`: maintenance/contribution rounds merge sections by row id, Bill's test in. F19: Instinct says not dead (no finalised doc + no `user.db` hit), test added. test:arch 122/122, lint clean.
+- **Next (Instinct):** F8 decay maintenance, **ETA 22:00**.
+- **Git note:** merge commits d44fe38, 499b5f2; rule 2 is `git pull --rebase` (keeps history linear).
+- **Open:** F7–F11, F18, F19 (F7, F18, F19 awaiting Bill).
 - **Accepted:** Nordea sees goal titles only; personal agent decides what is shareable (AC3).
-- **Order:** F18 + F7 → F19 → F8 → F9 → F10 → F11.
+- **Order:** F8 → F9 → F10 → F11.
 - **Owner context:** Habibil not supervising; Bill acts on his behalf.
 
 ---
