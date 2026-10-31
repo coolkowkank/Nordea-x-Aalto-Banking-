@@ -82,7 +82,7 @@
   <div class="windows">
     <div class="window w-user">
       <div class="wtitle"><div class="dots"><div class="dot" style="background:#ff5f57"></div><div class="dot" style="background:#febc2e"></div><div class="dot" style="background:#28c840"></div></div><h2>User context</h2></div>
-      <div class="agentline"><span>Managing agent: <b>Abel</b> (user agent) - configured role; a running agent process is not instrumented<br><span id="abel-activity">observed activity: …</span></span></div>
+      <div class="agentline"><span>Managing agent: <b>Abel</b> (user agent) - configured role; a running agent process is not instrumented<br><span id="abel-activity">observed activity: …</span><br><span id="abel-ai">AI model: …</span></span></div>
       <div class="cards" id="user-cards"></div>
       <div class="statusbar" id="user-db"></div>
     </div>
@@ -97,7 +97,7 @@
 
     <div class="window w-nordea">
       <div class="wtitle"><div class="dots"><div class="dot" style="background:#ff5f57"></div><div class="dot" style="background:#febc2e"></div><div class="dot" style="background:#28c840"></div></div><h2>Nordea agent context</h2></div>
-      <div class="agentline"><span>Managing agent: <b>Nordea adviser</b> - configured role; a running agent process is not instrumented<br><span id="adviser-activity">observed activity: …</span></span></div>
+      <div class="agentline"><span>Managing agent: <b>Nordea adviser</b> - configured role; a running agent process is not instrumented<br><span id="adviser-activity">observed activity: …</span><br><span id="adviser-ai">AI model: …</span></span></div>
       <div class="cards" id="nordea-cards"></div>
       <div class="statusbar" id="nordea-db"></div>
     </div>
@@ -106,6 +106,7 @@
   <div class="streams">
     <div class="stream"><h3>Context flow (entry history, newest first)</h3><div class="rows" id="events"></div></div>
     <div class="stream"><h3>Gateway reads (audited, newest first)</h3><div class="rows" id="reads"></div></div>
+    <div class="stream"><h3>Abel's replies (model per reply, newest first)</h3><div class="rows" id="replies"></div></div>
   </div>
 
   <div class="footnote">
@@ -176,6 +177,22 @@ async function tick() {
   };
   document.getElementById('abel-activity').textContent = 'Observed activity: ' + act(d.activity && d.activity.abel);
   document.getElementById('adviser-activity').textContent = 'Observed activity: ' + act(d.activity && d.activity.adviser);
+  // The AI behind Abel (live status from the server). Only Abel uses a language model.
+  const aiLine = (ai) => {
+    if (!ai) return 'AI model: unknown';
+    if (!ai.keyPresent) return 'AI model: none set up (no key) - the bank's code answers';
+    const parts = ['AI model: ' + (ai.model || 'unknown') + (ai.lastOk ? ' (answered last at ' + fmtTime(ai.lastOk.at) + ')' : ' (no answer yet in this run)')];
+    if (ai.members && ai.members.length > 1) {
+      parts.push('fallback order: ' + ai.members.map((m) => m.name + (!m.configured ? ' (not set up)' : m.restingFor ? ' (resting ' + m.restingFor + ' s)' : '')).join(' → '));
+    } else if (ai.candidates && ai.candidates.length > 1) {
+      parts.push('tries: ' + ai.candidates.join(' → '));
+    }
+    if (ai.thinking) parts.push('thinking: ' + ai.thinking);
+    if (ai.lastError) parts.push('last error ' + fmtTime(ai.lastError.at) + (ai.lastError.model ? ' (' + ai.lastError.model + ')' : '') + ': ' + ai.lastError.message);
+    return parts.join(' · ');
+  };
+  document.getElementById('abel-ai').textContent = aiLine(d.ai);
+  document.getElementById('adviser-ai').textContent = d.usesLlm && d.usesLlm.adviser ? aiLine(d.ai) : 'AI model: none - the adviser role is rules and code, no language model';
 
   // User panel
   renderCards(document.getElementById('user-cards'), d.panels.user.entries,
@@ -223,6 +240,10 @@ async function tick() {
   document.getElementById('reads').innerHTML = (d.accessLog || []).map((l) =>
     `<div class="ev"><time>${fmtTime(l.timestamp)}</time><span class="who who-abel">${esc(l.agentName)}</span><span>read ${l.itemsReadCount} card(s)${l.blockedCount ? `, ${l.blockedCount} blocked` : ''}</span></div>`).join('')
     || '<div class="ev">No gateway reads recorded yet.</div>';
+  document.getElementById('replies').innerHTML = (d.replies || []).map((m) => {
+    const who = m.model ? m.model : m.answeredBy === 'bank_code' ? 'bank code (no AI)' : 'model not recorded';
+    return `<div class="ev"><time>${fmtTime(m.at)}</time><span class="who who-abel">${esc(who)}</span><span>${esc(m.text)}${m.errorInfo ? ' · ' + esc(m.errorInfo) : ''}</span></div>`;
+  }).join('') || '<div class="ev">No replies from Abel yet.</div>';
 
   knownIds = new Set([
     ...d.panels.user.entries.map((e) => e.id),

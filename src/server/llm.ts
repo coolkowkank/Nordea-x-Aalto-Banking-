@@ -26,6 +26,8 @@ export interface StepResult {
   calls: ToolCall[];
   text?: string;
   raw?: unknown;
+  /** Which model answered this step, e.g. "Gemini gemini-3.8-flash" (shown in the developer monitor). */
+  model?: string;
 }
 
 export interface LlmProvider {
@@ -218,7 +220,8 @@ export const gemini: LlmProvider = {
     }
     const res = await generate({ system, contents, tools, temperature, timeoutMs });
     const calls: ToolCall[] = (res.functionCalls || []).map((c: any) => ({ id: c.id, name: c.name || '', args: (c.args as any) || {} }));
-    return { calls, text: res.text, raw: res.candidates?.[0]?.content };
+    // generate() remembers the model that answered as activeModel.
+    return { calls, text: res.text, raw: res.candidates?.[0]?.content, model: activeModel || undefined };
   },
 };
 
