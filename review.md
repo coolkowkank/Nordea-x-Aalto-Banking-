@@ -1,4 +1,4 @@
-TURN: Instinct
+TURN: Bill
 
 # review.md: quality control for `instinct-prototype-v2`
 
@@ -115,7 +115,7 @@ Baseline review of `Instict-prototype` @ `489d44e` against the expectation. Seve
 | F5 | H | AC4 | The Context Memory agent does no retrieval worth the name and no synthesis: keyword overlap, no ranking, no dedupe or conflict handling, no `observed` or `inferred` marker. | `agents.ts:112`, `:155` | verified @1eaee72 |
 | F6 | M | AC5, AC1 | The Nordea agent decides what to contribute from `user.db` goals it reads directly. It should read `context.md` instead. | `agents.ts:365` (`const goals = u.goals`) | verified @1040ff7 |
 | F7 | M | AC7 | Every Nordea entry needs customer approval (merge review); there are no risk levels and no standing permissions at first start. | `decideProposal`, `agents.ts:403` | verified @a4d16bc (levels, standing permissions, logging); gaps → F20–F22 |
-| F8 | M | AC8, AC1 | Decay detection runs inside the Context Memory path but reads `nordea.db` and `user.db` directly, and only detects a changed total, not age or missing evidence. | `detectStaleEntries`, `agents.ts:246–273` | open |
+| F8 | M | AC8, AC1 | Decay detection runs inside the Context Memory path but reads `nordea.db` and `user.db` directly, and only detects a changed total, not age or missing evidence. | `detectStaleEntries`, `agents.ts:246–273` | fixed @147b0b8 |
 | F9 | M | AC5 | `agent-query` to the Nordea agent returns up to 3 raw transactions (date, amount, description) to the personal agent. | `agents.ts:172` | open |
 | F10 | M | AC11 | The in-app Abel (the LLM) never reads `user.db` or any architecture store; it uses `abel_records` through the access gateway. In the prototype, "Abel" in the architecture is only a label. | `abel.ts:16`, `arch/agents.ts:22` | open |
 | F11 | L | AC12 | No tests yet for any of AC1–AC9 beyond what the current 74 checks cover. | `scripts/test-arch.ts` | open |
@@ -130,7 +130,7 @@ Baseline review of `Instict-prototype` @ `489d44e` against the expectation. Seve
 | F20 | M | AC7 | **Risk relies on labels the proposing agent sets itself.** `assessProposalRisk` treats a proposal as an inference only if its payload says `observed: 'inferred'`, while the stored entry is marked inferred when there is no evidence total. A proposal without evidence and without the flag is rated medium, auto-stored, and saved as `inferred`, so an inference skips the customer. Derive "observed" in the risk rule from the evidence (transaction ids and a total, or the customer's own direct input), not from the payload; same for the personal agent's `low`. | `risk.ts:14–20`; `agents/cm.ts:116`, `:365` | verified @19a2242 |
 | F21 | M | AC7 | **Sensitive-topic list is too narrow and matches substrings.** It misses the banking-relevant ones the app already guards (pregnancy, divorce or separation, gambling, debt collectors, addiction, illness, depression or anxiety, disability, surgery). `includes()` also hits inside words ("union" in "reunion", "drug" in "drugstore"). Use one shared word-boundary list, e.g. extend the one in `abel.ts:40`, and add tests for both kinds of miss. | `risk.ts:11`, `abel.ts:40` | verified @19a2242 for risk; side effect → F23 |
 | F22 | M | AC9 | **Automatic stores can't be undone one by one.** The customer is told "You can explain, dispute or delete it anytime", but the only delete is the whole database (`DELETE /api/arch/:uid/db/:which`). Add a per-entry undo (CM control, logged) for auto-stored entries, or change the wording. Undo should remove the entry and keep a log line. | `agents/cm.ts` (autoStoreRoundProposals message), `routes.ts:95` | verified @19a2242 |
-| F23 | M | AC7, AC10 | **The shared sensitive list changed Abel in the main app.** `abel.ts` now imports the wider list, so plain `debt`, `religion`, `church`, `politics`, `election`, `dating` and others now need the customer's "Save privately" tap. The old list was deliberately narrow (comment at `abel.ts:39`), and "debt" is everyday banking talk ("pay off my student loan debt"); a loan goal would stop saving silently. In the risk rule, plain `debt` also sends every loan-related entry to review. Fix: drop plain `debt` (keep `debt collectors`, add e.g. `can't pay`, `arrears`, `bankrupt`), and either keep Abel on its original narrow list or run "Check Abel's answers" and add a test that a loan or debt goal still saves. | `src/server/sensitive.ts:6`, `abel.ts:39–41` | open |
+| F23 | M | AC7, AC10 | **The shared sensitive list changed Abel in the main app.** `abel.ts` now imports the wider list, so plain `debt`, `religion`, `church`, `politics`, `election`, `dating` and others now need the customer's "Save privately" tap. The old list was deliberately narrow (comment at `abel.ts:39`), and "debt" is everyday banking talk ("pay off my student loan debt"); a loan goal would stop saving silently. In the risk rule, plain `debt` also sends every loan-related entry to review. Fix: drop plain `debt` (keep `debt collectors`, add e.g. `can't pay`, `arrears`, `bankrupt`), and either keep Abel on its original narrow list or run "Check Abel's answers" and add a test that a loan or debt goal still saves. | `src/server/sensitive.ts:6`, `abel.ts:39–41` | fixed @147b0b8 |
 
 **Suggested order:** F1 (`context.md`) with F12 → F4, F5, F6 → F7 → F8 → F9 → F10 → F11, F13, F14 alongside.
 
@@ -187,4 +187,16 @@ F21: verified for the risk side (word-bounded, extended)
 F22: verified; per-entry undo for auto-stored entries, logged; manual entries go to dispute
 OPEN: F23 (M) the shared list also widens Abel's private-topic guard in the main app; plain "debt" catches everyday loan talk
 NEXT: Instinct (F23 is small; then F8, ETA 22:30 ok)
+```
+
+### [Instinct] 2026-10-31 20:18
+
+```
+DID: F23 + F8 together (F23 was small as you said)
+F23: fixed @147b0b8 - plain "debt" dropped from the risk list (kept debt collector, added arrears, bankrupt, can't pay); Abel back on its original narrow list, now exported from sensitive.ts as ABEL_PRIVATE_TOPIC so there is still no copy; the wide SENSITIVE_TOPIC serves the AC7 risk rules only. Chose your narrow-list option - "Check Abel's answers" costs real AI requests.
+F8: fixed @147b0b8 - decay candidacy from the CM DB only (AC1 scan already pins that; the direct-read half died in the F12 refactor). New detections: (a) churned transactions, same total different payments (stored vs current ids); (b) age: entries past 30 days whose stored total has NO transaction ids to verify are flagged so the refresh stores verifiable evidence; (c) missing evidence: active Nordea entries stored without evidence are candidates now. Flag messages name the reason. Personal entries without evidence carry no figure - never candidates.
+FACT: test:arch 144/144 (F8: churn/aged/aged-confirmed/missing-evidence e2e, F23: risk + Abel guard units), lint clean, npm test green, check:feed green
+FACT: found while testing F8: Nordea's propose payloads carried no roundId, so the round-finalise auto-store skipped them (only the backlog sweep caught them). Fixed in the same commit; say if you want it logged as a finding.
+ETA: F9 next; hand-back ETA 21:30
+NEXT: Bill
 ```
