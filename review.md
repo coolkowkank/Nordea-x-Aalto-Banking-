@@ -1,4 +1,4 @@
-TURN: Bill
+TURN: Instinct
 
 # review.md: quality control for `instinct-prototype-v2`
 
@@ -106,7 +106,7 @@ Baseline review of `Instict-prototype` @ `489d44e` against the expectation. Seve
 
 | Id | Sev | AC | Finding | Evidence | Status |
 |:-:|:-:|:-:|---|---|:-:|
-| F1 | H | AC2 | There is no `context.md` or any shared working document. The cabinet is rows in `cm.db`; no agent sees the context as a whole. | `src/server/arch/store.ts` (only `.db` files); no markdown rendering anywhere in `src/server` | open |
+| F1 | H | AC2 | There is no `context.md` or any shared working document. The cabinet is rows in `cm.db`; no agent sees the context as a whole. | `src/server/arch/store.ts` (only `.db` files); no markdown rendering anywhere in `src/server`. **Design accepted (#B1) with conditions:** (a) the sections are stored as structured rows (agent, title, detail, evidence, observed/inferred) and `context.md` is *rendered* from them; the CM agent stores from those rows at finalise, never by parsing markdown; (b) section ownership is enforced, not by convention: one writer module per section, so the AC1 allowlist pins each agent to its own section, plus a test; (c) the personal agent answers chat from the finished `context.md` (AC3). | open |
 | F2 | H | AC1 | Isolation is by convention only. All three agents are functions in one module, and several functions open other agents' databases: the personal agent's `chat()` opens `cm.db`; `contribute()` opens `user.db`, `cm.db` and `nordea.db`; `explainEntry()` opens `cm.db`, `user.db` and the bus. | `arch/agents.ts` lines 86, 111, 361–367, 442–447; `store.ts` header comment ("enforced by code convention") | verified @7950f5d (agent modules); app layer → F12 |
 | F3 | H | AC6 | No build-round lifecycle and no real messaging. `postMessage` only appends to a log; nothing reads pending messages and dispatches them to an agent. HTTP routes call agent functions in a fixed order. | `store.ts:311`; `arch/routes.ts` | verified @7950f5d; edge case → F13 |
 | F4 | H | AC3 | The personal agent never contributes to the shared context. Only the Nordea agent can create a cabinet entry. | `agents.ts:426` (`proposedBy: 'nordea'` is the only writer) | open |
@@ -117,9 +117,9 @@ Baseline review of `Instict-prototype` @ `489d44e` against the expectation. Seve
 | F9 | M | AC5 | `agent-query` to the Nordea agent returns up to 3 raw transactions (date, amount, description) to the personal agent. | `agents.ts:172` | open |
 | F10 | M | AC11 | The in-app Abel (the LLM) never reads `user.db` or any architecture store; it uses `abel_records` through the access gateway. In the prototype, "Abel" in the architecture is only a label. | `abel.ts:16`, `arch/agents.ts:22` | open |
 | F11 | L | AC12 | No tests yet for any of AC1–AC9 beyond what the current 74 checks cover. | `scripts/test-arch.ts` | open |
-| F12 | M | AC1, AC6 | The app layer still makes agent decisions from direct database reads. `contribute()` checks parking and counts goals by opening `cm.db` and `user.db`; `recheckBeforeReuse()` reads goals and active entries to decide whether a decay round runs. The customer dashboard (`archState`, `listEntries`) reading every store is fine; deciding *for* an agent is not. Ask the agent by control message, or let the round itself decide (a decay round with nothing to check already ends cleanly). | `arch/orchestrator.ts:68`, `:71`, `:77`, `:163–165` | fixed @b71586b |
-| F13 | L | AC6 | `runRound` marks a round `stored` after the finalise dispatch without checking that the CM agent actually stored it (e.g. 0 messages delivered). Set `stored` only on the CM agent's finalise reply; otherwise `step-limit` or `failed`. | `arch/rounds.ts:114–115` | fixed @b71586b |
-| F14 | L | AC1, AC12 | The AC1 test is a blocklist on three store names. An agent importing `store/common.ts` (generic `openDb` by path), `node:sqlite` or `fs` would still pass. Make it an allowlist: each agent may import only its own store, `busStore`, `dispatcher`, `rounds`, `text` and `types`. Accepted exception: `nordea.ts` importing the app's `db.ts` as Nordea's core bank source. | `scripts/test-arch.ts:318–322` | fixed @b71586b |
+| F12 | M | AC1, AC6 | The app layer still makes agent decisions from direct database reads. `contribute()` checks parking and counts goals by opening `cm.db` and `user.db`; `recheckBeforeReuse()` reads goals and active entries to decide whether a decay round runs. The customer dashboard (`archState`, `listEntries`) reading every store is fine; deciding *for* an agent is not. Ask the agent by control message, or let the round itself decide (a decay round with nothing to check already ends cleanly). | `arch/orchestrator.ts:68`, `:71`, `:77`, `:163–165` | verified @b71586b |
+| F13 | L | AC6 | `runRound` marks a round `stored` after the finalise dispatch without checking that the CM agent actually stored it (e.g. 0 messages delivered). Set `stored` only on the CM agent's finalise reply; otherwise `step-limit` or `failed`. | `arch/rounds.ts:114–115` | verified @b71586b |
+| F14 | L | AC1, AC12 | The AC1 test is a blocklist on three store names. An agent importing `store/common.ts` (generic `openDb` by path), `node:sqlite` or `fs` would still pass. Make it an allowlist: each agent may import only its own store, `busStore`, `dispatcher`, `rounds`, `text` and `types`. Accepted exception: `nordea.ts` importing the app's `db.ts` as Nordea's core bank source. | `scripts/test-arch.ts:318–322` | verified @b71586b |
 
 **Suggested order:** F1 (`context.md`) with F12 → F4, F5, F6 → F7 → F8 → F9 → F10 → F11, F13, F14 alongside.
 
@@ -227,3 +227,16 @@ FACT: TURN stays Bill; Bill reviews F12-F14 @b71586b; F1 @f868aba is reviewed af
 NEXT: Bill
 ```
 
+### [Bill] 2026-10-31 18:10
+```
+FACT: test:arch 86/86, lint clean, rerun by Bill @b71586b
+F12: verified; remaining direct reads are the customer dashboard, the one-time agentsOff migration and the "architecture in use" check (orchestrator.ts:28,186,220-228), all accepted
+F13: verified; stored only on the CM's stored:true reply, else failed (rounds.ts:109-121)
+F14: verified; per-agent import allowlist (test-arch.ts). Note: it reads only `from '...'` imports, which is fine while no dynamic import() or require is used
+ANS #B1: design accepted with 3 conditions, now in the F1 row
+B1a: store structured section rows and render context.md from them; CM stores from the rows, never by parsing markdown (keeps evidence and provenance exact)
+B1b: if all three agents import one contextStore with writeCustomer/Memory/NordeaSection, the allowlist can't stop an agent writing another section; use one writer module per section, or a test that pins each agent to its own writer
+B1c: the personal agent's chat reply should come from context.md in this batch, not later
+FACT: f868aba not reviewed yet (rule 3a); I'll review F1 at the commit you hand over
+NEXT: Instinct
+```
