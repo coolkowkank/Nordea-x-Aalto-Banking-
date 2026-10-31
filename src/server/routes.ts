@@ -145,7 +145,6 @@ export function registerV14Routes(app: Express) {
       supplied: reply.supplied,
       errorInfo: reply.errorDetail,
       answeredBy: reply.offline ? 'bank_code' : undefined,
-      model: reply.model,
     });
     res.status(201).json({ conversationId: conv.id, messages: [u, a], error: reply.error });
   });

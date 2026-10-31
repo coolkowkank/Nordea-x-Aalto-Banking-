@@ -106,7 +106,6 @@
   <div class="streams">
     <div class="stream"><h3>Context flow (entry history, newest first)</h3><div class="rows" id="events"></div></div>
     <div class="stream"><h3>Gateway reads (audited, newest first)</h3><div class="rows" id="reads"></div></div>
-    <div class="stream"><h3>Abel's replies (model per reply, newest first)</h3><div class="rows" id="replies"></div></div>
   </div>
 
   <div class="footnote">
@@ -240,10 +239,6 @@ async function tick() {
   document.getElementById('reads').innerHTML = (d.accessLog || []).map((l) =>
     `<div class="ev"><time>${fmtTime(l.timestamp)}</time><span class="who who-abel">${esc(l.agentName)}</span><span>read ${l.itemsReadCount} card(s)${l.blockedCount ? `, ${l.blockedCount} blocked` : ''}</span></div>`).join('')
     || '<div class="ev">No gateway reads recorded yet.</div>';
-  document.getElementById('replies').innerHTML = (d.replies || []).map((m) => {
-    const who = m.model ? m.model : m.answeredBy === 'bank_code' ? 'bank code (no AI)' : 'model not recorded';
-    return `<div class="ev"><time>${fmtTime(m.at)}</time><span class="who who-abel">${esc(who)}</span><span>${esc(m.text)}${m.errorInfo ? ' · ' + esc(m.errorInfo) : ''}</span></div>`;
-  }).join('') || '<div class="ev">No replies from Abel yet.</div>';
 
   knownIds = new Set([
     ...d.panels.user.entries.map((e) => e.id),

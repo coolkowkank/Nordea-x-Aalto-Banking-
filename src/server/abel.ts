@@ -553,19 +553,15 @@ export interface AbelReply {
   offline?: boolean;
   /** What Abel was given for this reply: the approved notes the gateway returned, and the demo account data. */
   supplied?: { notes: number; accountData: boolean };
-  /** Which AI model answered (the last successful step). Not set when the bank's code answered. */
-  model?: string;
 }
-
-type Seen = { supplied?: AbelReply['supplied']; model?: string };
 
 export async function abelTurn(userId: string, conversationId: string, helperId: string, userText: string): Promise<AbelReply> {
-  const seen: Seen = {};
+  const seen: { supplied?: AbelReply['supplied'] } = {};
   const reply = await abelTurnInner(userId, conversationId, helperId, userText, seen);
-  return { ...reply, supplied: seen.supplied, model: reply.offline ? undefined : seen.model };
+  return { ...reply, supplied: seen.supplied };
 }
 
-async function abelTurnInner(userId: string, conversationId: string, helperId: string, userText: string, seen: Seen): Promise<AbelReply> {
+async function abelTurnInner(userId: string, conversationId: string, helperId: string, userText: string, seen: { supplied?: AbelReply['supplied'] }): Promise<AbelReply> {
   const provider = getProvider();
 
   // Guardrail 1: read the cabinet through the gateway before every reply.
@@ -679,7 +675,6 @@ async function abelTurnInner(userId: string, conversationId: string, helperId: s
     try {
       modelCalls++;
       res = await provider.step({ system, turns, tools: TOOLS, temperature: 0.3 });
-      seen.model = res.model || [provider.label || provider.name, provider.model].filter(Boolean).join(' ');
     } catch (err: any) {
       console.error('LLM error:', err?.message || err);
       const detail = lastErrorText() || String(err?.message || err).slice(0, 300);

@@ -186,8 +186,6 @@ export interface ChatMessage {
   };
   /** Set when no AI answered and the bank's own code did (shown as a small label, so it's never mistaken for the AI). */
   answeredBy?: 'bank_code';
-  /** Which AI model wrote this reply (the last one that answered in this turn). Missing for code answers and older messages. */
-  model?: string;
   /** What Abel was given for this reply (not proof of what it used): approved notes and the demo account data. */
   supplied?: { notes: number; accountData: boolean };
   /** Technical reason when Abel couldn't answer (shown small, for debugging the demo). */

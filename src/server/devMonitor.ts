@@ -84,11 +84,6 @@ export function registerDevMonitor(app: Express) {
       // Only Abel calls a language model; the adviser and partner offers are rules and code.
       ai: aiStatus(),
       usesLlm: { abel: true, adviser: false, offers: false },
-      // Abel's latest replies with the model that wrote each (recorded per message; older ones have none).
-      replies: db.getState().messages
-        .filter((m) => m.userId === userId && m.sender === 'agent' && m.agentId === 'abel')
-        .slice(-10).reverse()
-        .map((m) => ({ at: m.createdAt, text: m.text.slice(0, 140), model: m.model || null, answeredBy: m.answeredBy || null, errorInfo: m.errorInfo || null })),
       share: { agentId: 'adviser', active: shareActive },
       panels: {
         // User role's context cards (customer/document sourced), annotated with
