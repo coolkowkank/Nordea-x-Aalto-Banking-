@@ -140,5 +140,18 @@ const staleBus = S.loadBus(UID2).messages;
 check('flag-stale and refresh messages were exchanged', staleBus.some((m) => m.type === 'flag-stale' && m.from === 'cm' && m.to === 'personal') && staleBus.some((m) => m.type === 'refresh' && m.from === 'personal' && m.to === 'nordea'));
 check('a refreshed proposal waits in merge review', (sc2.staleFlags?.length ?? 0) === 1 && A.reviewQueue(UID2).length === 1, JSON.stringify(sc2.staleFlags));
 
+
+// --- Agent-to-agent query transport (demo client): each agent answers only from its own DB
+const cmAns = A.agentQuery(UID2, 'cm', 'car');
+check('the CM agent answers from the Context Memory DB', (cmAns.reply as { matchedEntries: unknown[] }).matchedEntries.length >= 1, JSON.stringify(cmAns.reply).slice(0, 120));
+const noAns = A.agentQuery(UID, 'nordea', 'car');
+const noReply = noAns.reply as { matchCount: number; totalAbsEur: number; sample: { description: string | null }[] };
+check('the Nordea agent answers with an aggregate from the Nordea DB', noReply.matchCount > 0 && noReply.totalAbsEur > 0, JSON.stringify(noAns.reply).slice(0, 120));
+check('the Nordea reply carries no account identifiers', !JSON.stringify(noAns.reply).match(/iban|balance/i));
+const busAfter = S.loadBus(UID);
+check('both queries and replies are explicit bus messages',
+  busAfter.messages.some((m) => m.type === 'query' && m.from === 'personal' && m.to === 'nordea')
+  && busAfter.messages.some((m) => m.type === 'reply' && m.from === 'nordea' && m.to === 'personal'));
+
 console.log(`\n${passed} passed, ${failed} failed`);
 process.exit(failed ? 1 : 0);

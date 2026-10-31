@@ -123,6 +123,49 @@ export function chat(uid: string, text: string): { reply: string; used: string[]
   return { reply: grounded.reply, used };
 }
 
+// ---------- Agent-to-agent queries over the message bus (transport for the demo client) ----------
+
+/**
+ * One agent asks another a question; the answering agent reads ONLY its own database and
+ * replies on the bus. This is the transport the separate personal-agent client process uses:
+ * the server never composes the client's final answer - it only relays these messages.
+ */
+export function agentQuery(uid: string, to: 'cm' | 'nordea', question: string): { reply: Record<string, unknown>; messageId: string } {
+  const u = loadUserDb(uid);
+  requireAgentOn(u, 'personal');
+  requireAgentOn(u, to);
+  const q = words(question);
+  const bus = loadBus(uid);
+  const query = postMessage(bus, { from: 'personal', to, type: 'query', summary: `${personalLabel(u)} asks the ${to === 'cm' ? 'Context Memory' : 'Nordea'} agent: ${question.slice(0, 80)}` });
+
+  let replyPayload: Record<string, unknown>;
+  if (to === 'cm') {
+    const cm = loadCmDb(uid);
+    const hits = cm.entries
+      .filter((e) => overlaps(q, words(`${e.title} ${e.detail}`)))
+      .map((e) => ({ id: e.id, title: e.title, detail: e.detail, status: e.status, evidence: e.evidence ?? null }));
+    replyPayload = { from: 'cm-db', matchedEntries: hits };
+    postMessage(bus, { from: 'cm', to: 'personal', type: 'reply', summary: `Context Memory agent returns ${hits.length} entr${hits.length === 1 ? 'y' : 'ies'} from the Context Memory DB.`, payload: { inReplyTo: query.id, ...replyPayload }, status: 'answered' });
+  } else {
+    const nordea = ensureNordeaDb(uid);
+    const hinted = new Set(q.flatMap((w) => CATEGORY_HINTS[w] ?? []));
+    const matches = nordea.transactions.filter((t) =>
+      hinted.has(t.category) || overlaps(q, words(`${t.category} ${t.description ?? ''}`)));
+    const total = Math.round(matches.reduce((s2, t) => s2 + Math.abs(t.amount), 0) * 100) / 100;
+    const categories = [...new Set(matches.map((t) => t.category))];
+    replyPayload = {
+      from: 'nordea-db',
+      matchCount: matches.length,
+      totalAbsEur: total,
+      categories,
+      sample: matches.slice(0, 3).map((t) => ({ date: t.date, category: t.category, amount: t.amount, description: t.description ?? null })),
+    };
+    postMessage(bus, { from: 'nordea', to: 'personal', type: 'reply', summary: `Nordea agent returns an aggregate over ${matches.length} transaction${matches.length === 1 ? '' : 's'} from the Nordea DB (no account identifiers).`, payload: { inReplyTo: query.id, ...replyPayload }, status: 'answered' });
+  }
+  saveBus(uid, bus);
+  return { reply: replyPayload, messageId: query.id };
+}
+
 // ---------- Connect / disconnect the personal agent ----------
 
 export function connectExternalAgent(uid: string, name: string) {

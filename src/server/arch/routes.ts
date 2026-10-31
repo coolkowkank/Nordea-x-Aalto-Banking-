@@ -1,5 +1,5 @@
 import type { Express, Request, Response } from 'express';
-import {
+import { agentQuery,
   archState, chat, addGoalDirect, connectExternalAgent, disconnectPersonalAgent,
   stageSync, decideAirlock, contribute, reviewQueue, decideProposal,
   explainEntry, disputeEntry, setAgentOff, deleteDatabase, ArchError,
@@ -27,6 +27,16 @@ export function registerArchRoutes(app: Express) {
     const text = String(req.body?.text ?? '').trim();
     if (!text) { res.status(400).json({ error: 'Say something first.' }); return; }
     res.json(chat(uid(req), text));
+  }));
+
+  // Agent-to-agent query transport: the personal agent (in-app or the separate demo client
+  // process) asks the CM or Nordea agent; the answering agent reads only its own DB.
+  app.post('/api/arch/:uid/agent-query', h((req, res) => {
+    const to = String(req.body?.to ?? '');
+    const question = String(req.body?.question ?? '').trim();
+    if (to !== 'cm' && to !== 'nordea') { res.status(400).json({ error: "to must be 'cm' or 'nordea'." }); return; }
+    if (!question) { res.status(400).json({ error: 'A question is required.' }); return; }
+    res.json(agentQuery(uid(req), to, question));
   }));
 
   // Direct manual goal input - never through the sync airlock.
