@@ -8,6 +8,7 @@ import { readCabinetThroughGateway } from './src/server/accessGateway.js';
 import { getAllAgents, getAgentManifest } from './src/server/agentRegistry.js';
 import { CabinetEntry, UndoRecord } from './src/types.js';
 import { registerV14Routes } from './src/server/routes.js';
+import { registerDevMonitor } from './src/server/devMonitor.js';
 import { startFeedWatcher } from './src/server/nordeaFeed.js';
 import { setProvider } from './src/server/llm.js';
 import { mockProvider } from './src/server/llmMock.js';
@@ -295,6 +296,9 @@ app.get('/api/transactions', (req, res) => {
 
 // 9. Chat, button actions and everything new in v14 live in routes.ts
 registerV14Routes(app);
+
+// Read-only developer monitoring panel (display only, no controls): /dev-monitor.html
+registerDevMonitor(app);
 
 // Vite Middleware Mounting (Development) or Static File Serving (Production)
 async function startServer() {
