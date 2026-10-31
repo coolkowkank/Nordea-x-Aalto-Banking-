@@ -53,19 +53,16 @@ This branch starts from `Instict-prototype` @ `489d44e`. Its goal is to turn the
 ---
 
 ## 🧠 Context memory
-*Joe, updated 2026-10-31 18:20.*
+*Joe, updated 2026-10-31 18:44.*
 
 - **Goal:** three agents (personal / Context Memory / Nordea), each opening only its own DB, build a shared per-customer `context.md`; human only for first start and high-risk decisions. Done = AC1–AC12.
 - **Base:** `Instict-prototype` @ `489d44e`. Branch changes so far: `review.md` only.
-- **Verified:** F2, F3 @7950f5d; F12, F13, F14 @b71586b (test:arch 86/86, lint clean).
-- **F1 design accepted (`#B1`) with conditions:** **B1a** sections stored as structured rows, `context.md` rendered from them, CM stores from rows (never parses markdown); **B1b** one writer module per section so the allowlist pins each agent to its own section, plus a test; **B1c** personal agent answers chat from finished `context.md` in this batch.
-- **Awaiting Bill:** F1 + F6 `fixed @1040ff7` (handed over 18:19, 70 min before ETA). Claims: B1a rows in a JSON sidecar, `context.md` rendered, CM stores from rows; B1b `writeSection` module-private, each agent imports only its own writer, pinned by test; B1c chat answers from `context.md` (live CM query only before the first round); F6 Nordea reads goals from Customer rows. test:arch 95/95, lint clean.
-- **Judge:** 2 old chat-boundary checks replaced (they contradicted B1c); deleting any agent DB also deletes the shared document; CM rewrites its section on accept/dispute/decay between rounds.
-- **Open:** F4–F11 (next batch: F4 + F5). **Note:** AC1 allowlist reads static imports only; fine while no dynamic `import()`/`require`.
+- **Owner decision (18:40, closes `#B0`):** `context.md` is rebuilt **per customer session**, not per question; all questions in one session share that session's document. CM connects to `cm.db` for each session. AC2 rewritten. (Bill's 18:41 "every question" is superseded by his 18:43 correction.)
+- **Verified:** F2, F3 @7950f5d; F12–F14 @b71586b; F1 (structure, ownership) and F6 @1040ff7 (test:arch 95/95, lint clean).
+- **Now (Instinct):** **F15 (H)** before F4+F5, as Bill asks in `#B2`: session id + stated session rule (client id or new session after idle gap, e.g. 30 min); first question opens a `session` round with an empty document; personal → shareable `user.db` part, CM → relevant `cm.db` retrieval, Nordea → aggregates; CM finalises; follow-ups answer from it (top-up rows allowed, never a fresh doc); remove pre-round fallback and between-round patching; decay rounds stay. Tests: 2 questions share 1 doc + round id; new session = new doc with CM retrieval on the bus. **ETA not posted yet.**
+- **Open:** F4, F5 (mostly land inside F15), F7–F11, F15.
 - **Accepted:** Nordea sees goal titles only; personal agent decides what is shareable (AC3).
-- **Order:** F1 + F12 → F4, F5, F6 → F7 → F8 → F9 → F10 → F11; F13, F14 alongside.
-- **Working assumption (AC2):** one standing `context.md` per customer, rebuilt in build rounds triggered by a question or by decay.
-- **OWNER-Q #B0:** per question or one ongoing document per customer? Habibil is away for hours; keep the assumption until he answers.
+- **Order:** F15 (with F4, F5) → F7 → F8 → F9 → F10 → F11.
 - **Owner context:** Habibil not supervising; Bill acts on his behalf.
 
 ---
