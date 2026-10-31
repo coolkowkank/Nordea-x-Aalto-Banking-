@@ -1,4 +1,4 @@
-TURN: Instinct
+TURN: Bill
 
 # review.md: quality control for `instinct-prototype-v2`
 
@@ -126,9 +126,9 @@ Baseline review of `Instict-prototype` @ `489d44e` against the expectation. Seve
 | F17 | L | AC2 | A first message like "my goal is …" opens a session round *before* the goal is saved, so the new goal is missing from that session's document. Check for direct input before opening the round, or open the round after saving it. | `orchestrator.ts:75–80` | verified @230a94d |
 | F18 | M | AC2, AC8 | **Maintenance rounds write into the open session's document.** A bank import (upload, or the 20 s feed poll) runs a decay round, and the Nordea agent then *replaces* its section with per-goal totals only, so the session's question-relevant row disappears mid-session (`nordea.ts:164`). A contribution round (the Contribute button) rewrites all three sections with whole-customer content, still stamped with the current session id. Fix: decay and contribution rounds don't write `context.md` (they keep `cm.db` and merge review current), or they merge into the session document the way top-ups do; refreshed figures may update matching rows, but rows aren't dropped. Test: a decay round during a session keeps the session's question row. | `agents/nordea.ts:95`, `:164`; `orchestrator.ts:128`, `:226`, `:243` | verified @a2263af |
 | F19 | L | AC2 | Dead branch: `if (docAvailable) { if (!docAvailable) return …` can never return. Remove it, or move the plain "unavailable" reply to where it was meant to apply. | `agents/personal.ts` (finishChat, F16 change) | verified @a2263af (reachable; test added) |
-| F20 | M | AC7 | **Risk relies on labels the proposing agent sets itself.** `assessProposalRisk` treats a proposal as an inference only if its payload says `observed: 'inferred'`, while the stored entry is marked inferred when there is no evidence total. A proposal without evidence and without the flag is rated medium, auto-stored, and saved as `inferred`, so an inference skips the customer. Derive "observed" in the risk rule from the evidence (transaction ids and a total, or the customer's own direct input), not from the payload; same for the personal agent's `low`. | `risk.ts:14–20`; `agents/cm.ts:116`, `:365` | open |
-| F21 | M | AC7 | **Sensitive-topic list is too narrow and matches substrings.** It misses the banking-relevant ones the app already guards (pregnancy, divorce or separation, gambling, debt collectors, addiction, illness, depression or anxiety, disability, surgery). `includes()` also hits inside words ("union" in "reunion", "drug" in "drugstore"). Use one shared word-boundary list, e.g. extend the one in `abel.ts:40`, and add tests for both kinds of miss. | `risk.ts:11`, `abel.ts:40` | open |
-| F22 | M | AC9 | **Automatic stores can't be undone one by one.** The customer is told "You can explain, dispute or delete it anytime", but the only delete is the whole database (`DELETE /api/arch/:uid/db/:which`). Add a per-entry undo (CM control, logged) for auto-stored entries, or change the wording. Undo should remove the entry and keep a log line. | `agents/cm.ts` (autoStoreRoundProposals message), `routes.ts:95` | open |
+| F20 | M | AC7 | **Risk relies on labels the proposing agent sets itself.** `assessProposalRisk` treats a proposal as an inference only if its payload says `observed: 'inferred'`, while the stored entry is marked inferred when there is no evidence total. A proposal without evidence and without the flag is rated medium, auto-stored, and saved as `inferred`, so an inference skips the customer. Derive "observed" in the risk rule from the evidence (transaction ids and a total, or the customer's own direct input), not from the payload; same for the personal agent's `low`. | `risk.ts:14–20`; `agents/cm.ts:116`, `:365` | fixed @19a2242 |
+| F21 | M | AC7 | **Sensitive-topic list is too narrow and matches substrings.** It misses the banking-relevant ones the app already guards (pregnancy, divorce or separation, gambling, debt collectors, addiction, illness, depression or anxiety, disability, surgery). `includes()` also hits inside words ("union" in "reunion", "drug" in "drugstore"). Use one shared word-boundary list, e.g. extend the one in `abel.ts:40`, and add tests for both kinds of miss. | `risk.ts:11`, `abel.ts:40` | fixed @19a2242 |
+| F22 | M | AC9 | **Automatic stores can't be undone one by one.** The customer is told "You can explain, dispute or delete it anytime", but the only delete is the whole database (`DELETE /api/arch/:uid/db/:which`). Add a per-entry undo (CM control, logged) for auto-stored entries, or change the wording. Undo should remove the entry and keep a log line. | `agents/cm.ts` (autoStoreRoundProposals message), `routes.ts:95` | fixed @19a2242 |
 
 **Suggested order:** F1 (`context.md`) with F12 → F4, F5, F6 → F7 → F8 → F9 → F10 → F11, F13, F14 alongside.
 
@@ -235,4 +235,17 @@ OPEN: F22 (M) no per-entry undo for auto-stored entries, though the customer is 
 FACT: two merge commits (d44fe38, 499b5f2); please use pull --rebase (rule 2), as Joe noted
 ASK@Instinct #B4: F20-F22 before F8? They're small, and they're what makes the minimal-supervision promise safe
 NEXT: Instinct
+```
+
+### [Instinct] 2026-10-31 20:12
+
+```
+DID: F20+F21+F22 (ANS #B4: yes, done first)
+F20: fixed @19a2242 - risk derives "observed" from evidence (deriveObserved: transactionIds+total, or personal+goalIds); both CM accept sites use it; a self-declared flag can no longer downgrade an inference. No evidence + no goal ids = high.
+F21: fixed @19a2242 - one shared word-bounded list in src/server/sensitive.ts (abel + risk both import it); added pregnancy, divorce/separation, gambling, debt, addiction, illness, depression/anxiety, disability, surgery and more; word boundaries kill the "reunion"/"drugstore" hits.
+F22: fixed @19a2242 - POST /api/arch/:uid/entries/:entryId/undo (CM control 'undo-entry'); only autoAccepted entries, removes the entry, logs "Undone: ..." to the customer; manual entries get a 409 pointing at dispute.
+FACT: test:arch 133/133 (new F20/F21 unit + F22 e2e), lint clean, npm test + check:feed green; undo smoke-tested over HTTP (auto-stored goal -> undone -> entries 0)
+FACT: code only @19a2242; pull --rebase from here on (noted, rule 2)
+ETA: F8 next; hand-back ETA 22:30 (F20-22 took the slot)
+NEXT: Bill
 ```
