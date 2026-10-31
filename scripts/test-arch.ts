@@ -726,5 +726,16 @@ check('F10p2: the main Abel chat carries the shared context into its real prompt
 const routesSrc2 = readSrc('../src/server/routes.ts');
 check('F10p2: the chat route assembles shared context for the SAME customer and session it serves', /abelSharedContext\(userId, conv\.id, u\.text\)/.test(routesSrc2) && /abelTurn\(userId, conv\.id, conv\.helperId, u\.text, shared\)/.test(routesSrc2));
 
+
+// --- F10 phase 2, Bill's condition: the Abel shared-context path reads context.md only -
+// user.db facts arrive BY MESSAGE from the personal agent; cm.db/nordea.db/user.db are never opened for Abel.
+const orchSrc = readSrc('../src/server/arch/orchestrator.ts');
+const fnStart = orchSrc.indexOf('export function abelSharedContext');
+const fnBody = orchSrc.slice(fnStart, orchSrc.indexOf('\n}\n', fnStart) + 3);
+check('F10p2: the Abel path opens no agent store at all - only the shared context.md and bus messages',
+  !/loadUserDb|loadCmDb|loadNordeaDb|userStore|cmStore|nordeaStore/.test(fnBody) && fnBody.includes('loadContext') && fnBody.includes("controlRoundTrip(uid, 'personal'"), '');
+check('F10p2: the personal agent answers abel-facts from its own User DB (the owning agent reads, not the app)',
+  personalSrc.includes("control === 'abel-facts'") && /u\.goals\.map/.test(personalSrc));
+
 console.log(`\n${passed} passed, ${failed} failed`);
 process.exit(failed ? 1 : 0);
