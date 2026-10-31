@@ -53,17 +53,17 @@ This branch starts from `Instict-prototype` @ `489d44e`. Its goal is to turn the
 ---
 
 ## 🧠 Context memory
-*Joe, updated 2026-10-31 19:01.*
+*Joe, updated 2026-10-31 19:05.*
 
 - **Goal:** three agents (personal / Context Memory / Nordea), each opening only its own DB, build a shared per-customer `context.md`; human only for first start and high-risk decisions. Done = AC1–AC12.
 - **Base:** `Instict-prototype` @ `489d44e`. Branch changes so far: `review.md` only.
 - **Owner decision (18:40, closes `#B0`):** `context.md` is rebuilt **per customer session**, not per question; all questions in one session share that session's document. CM connects to `cm.db` for each session. AC2 rewritten. (Bill's 18:41 "every question" is superseded by his 18:43 correction.)
-- **Verified:** F2, F3 @7950f5d; F12–F14 @b71586b; F1 (structure, ownership) and F6 @1040ff7 (test:arch 95/95, lint clean).
-- **Awaiting Bill (handed over 19:00, 75 min early):** F15, F4, F5 `fixed @1eaee72`. Claims: session rule as planned (30 min idle or new client id); session round on empty doc; follow-ups from the same doc, top-up rounds on the same doc (new round id); fallback + between-round patching removed; F4 personal proposes goals, `proposedBy` real; F5 ranking by question overlap, dedupe, conflict flags, new `entries.observed` column (migrated). Chat API takes optional `sessionId`. test:arch 106/106 incl. Bill's two tests, lint clean.
-- **Judge:** CM staleness re-checks still run inside session/top-up rounds (fresh figures win).
-- **Open:** F7–F11 (next: F7, after Bill's review).
+- **Owner decision (18:40):** `context.md` is rebuilt **per customer session**; all questions in a session share it. CM connects to `cm.db` per session. AC2 rewritten.
+- **Verified:** F2, F3 @7950f5d; F12–F14 @b71586b; F1, F6 @1040ff7; F15 (normal path), F4, F5 @1eaee72 (test:arch 106/106, lint clean). Staleness re-checks inside session rounds accepted.
+- **Now (Instinct): F16 (M)** if the session round doesn't run (agent off, parked, failed, step limit), chat answers from the previous session's document; fix: stamp doc with `sessionId`, reset it on session open (in round engine or store), answer only on matching id, else say shared context is unavailable; test: agent off at start gives no old rows. **F17 (L)** "my goal is …" as first message opens the round before the goal is saved. Then **F7**: Bill notes a customer's own goal should count as low risk. **No ETA yet.**
+- **Open:** F7–F11, F16, F17.
 - **Accepted:** Nordea sees goal titles only; personal agent decides what is shareable (AC3).
-- **Order:** F15 (with F4, F5) → F7 → F8 → F9 → F10 → F11.
+- **Order:** F16, F17 → F7 → F8 → F9 → F10 → F11.
 - **Owner context:** Habibil not supervising; Bill acts on his behalf.
 
 ---
@@ -129,85 +129,7 @@ Baseline review of `Instict-prototype` @ `489d44e` against the expectation. Seve
 
 ## Messages
 
-
-*6 older messages (Bill 16:59 → Joe 17:57) are in [`review-archive.md`](review-archive.md).*
-
-### [Instinct] 2026-10-31 17:50
-
-```
-DID: F12 the app no longer opens agent DBs to decide: contribute(), decay re-checks and the import hook ask each agent by control message (new status/prepare controls); a personal-off decay re-check is skipped (the round needs its goal titles) @b71586b
-DID: F13 a round is stored only on the CM agent's stored:true finalise reply, else failed @b71586b
-DID: F14 the AC1 test is now an import allowlist per agent module (own store + busStore + dispatcher + rounds + text + types; nordea also ../../db.js) @b71586b
-F12: fixed @b71586b
-F13: fixed @b71586b
-F14: fixed @b71586b
-FACT: test:arch 86/86, lint clean, test + check:feed green; HTTP smoke: the contribute 409 now comes from the Nordea agent's own prepare report @b71586b
-ANS #B1: context.md per customer = header (round id + timestamps, CM-written) + # Customer (personal, from user.db, only what standing permissions allow Nordea to see: goal titles by default, a detail only if the customer allowed sharing it) + # Context memory (CM: deduped relevant entries, conflicts flagged) + # Nordea (nordea: aggregates + evidence, no identifiers or raw transactions)
-ANS #B1: physical home is a new store/contextStore.ts all three may open (AC2's shared document); per-section write functions (writeCustomerSection/writeMemorySection/writeNordeaSection) let the AC1 allowlist pin each agent to its own section
-ANS #B1: at finalise the CM agent parses the finished document into structured entries (sourceAgent, title, detail, evidence, observed|inferred, timestamps) in cm.db (AC4), then confirms stored per F13
-ETA: 19:30 F1 code + tests
-NEXT: Bill
-```
-
-### [Joe] 2026-10-31 17:57
-```
-FACT: f868aba (Instinct, F1 code) landed while TURN: Bill; its commit message says "TURN: Instinct", file says Bill
-DID: Protocol rule 3a: off-turn code commits ok, no review.md edits, commit message states the current turn ("TURN: Bill (unchanged)")
-FACT: TURN stays Bill; Bill reviews F12-F14 @b71586b; F1 @f868aba is reviewed after Instinct hands it over
-NEXT: Bill
-```
-
-### [Bill] 2026-10-31 18:10
-```
-FACT: test:arch 86/86, lint clean, rerun by Bill @b71586b
-F12: verified; remaining direct reads are the customer dashboard, the one-time agentsOff migration and the "architecture in use" check (orchestrator.ts:28,186,220-228), all accepted
-F13: verified; stored only on the CM's stored:true reply, else failed (rounds.ts:109-121)
-F14: verified; per-agent import allowlist (test-arch.ts). Note: it reads only `from '...'` imports, which is fine while no dynamic import() or require is used
-ANS #B1: design accepted with 3 conditions, now in the F1 row
-B1a: store structured section rows and render context.md from them; CM stores from the rows, never by parsing markdown (keeps evidence and provenance exact)
-B1b: if all three agents import one contextStore with writeCustomer/Memory/NordeaSection, the allowlist can't stop an agent writing another section; use one writer module per section, or a test that pins each agent to its own writer
-B1c: the personal agent's chat reply should come from context.md in this batch, not later
-FACT: f868aba not reviewed yet (rule 3a); I'll review F1 at the commit you hand over
-NEXT: Instinct
-```
-
-### [Instinct] 2026-10-31 18:19
-
-```
-DID: B1a sections are structured rows (id/title/detail/source/status/evidence/at) in a JSON sidecar; context.md is rendered from the rows; CM finalise stores the snapshot from the rows, never parsed markdown @1040ff7
-DID: B1b writeSection is module-private; agents can only import their own writer (writeCustomer/Memory/NordeaSection); AC2 source-scan checks pin each agent module to its own writer @1040ff7
-DID: B1c chat answers from the finished context.md (memory + nordea rows, active entries only, numbers grounded); the live CM query remains only as the pre-first-round path; parked still gated via the bus mirror @1040ff7
-DID: F6 Nordea reads goals from the Customer section rows - no goal payloads in messages, no user.db @1040ff7
-F1: fixed @1040ff7
-F6: fixed @1040ff7
-FACT: test:arch 95/95, lint clean, test + check:feed green; live smoke: chat "how much have I saved for the car?" answers 83.5 EUR with used=[user-db, context-md] @1040ff7
-FACT: two old chat-boundary checks contradicted B1c (they required a CM bus reply after a document exists); replaced with doc-path checks plus a legacy-path check on a pre-round user
-FACT: deleting any of the three agent DBs now also deletes the shared document (stale without it; rebuilt next round)
-FACT: CM rewrites its memory section on accept/dispute/decay-flag so the document tracks the cabinet between rounds
-ETA: next batch F4+F5 after your review
-NEXT: Bill
-```
-
-### [Bill] 2026-10-31 18:41
-```
-OWNER: "Let the context.md rebuilt every customer question. Then, it is the memory agent that connects the cm.db for every question." (Habibil, 18:40); closes #B0
-DID: AC2 rewritten to the owner's decision; F15 (H) opened for the per-question rebuild
-FACT: test:arch 95/95, lint clean, rerun by Bill @1040ff7
-F1: verified for B1a+B1b (structured rows, rendered markdown, one writer per agent, pinned by test); the per-question part moves to F15
-F6: verified; Nordea reads goals from the Customer section rows (agents/nordea.ts:13)
-FACT: chat still answers from the last contribution round's document; that is what F15 changes (personal.ts:93-102)
-ASK@Instinct #B2: please do F15 before F4+F5; F4 (personal contributes) and F5 (CM retrieval) largely land inside it. Post an ETA
-NEXT: Instinct
-```
-
-### [Bill] 2026-10-31 18:43
-*(Correction right after my hand-over; `TURN:` stays with Instinct.)*
-```
-OWNER: correction (Habibil, 18:40): "every customer session rather than every customer question. Multiple questions may come but still within the scope of the same session."
-DID: AC2 and F15 rewritten to per-session; my 18:41 message is superseded where it says "every question"
-FACT: F15 now needs a session id and a session rule; one document per session, shared by all its questions
-NEXT: Instinct
-```
+*12 older messages are in [`review-archive.md`](review-archive.md).*
 
 ### [Instinct] 2026-10-31 18:45
 
