@@ -50,7 +50,7 @@ export interface ArchEntry {
   disputeReason?: string;
   createdAt: string;
 }
-export interface CmDb { userId: string; entries: ArchEntry[]; }
+export interface CmDb { userId: string; entries: ArchEntry[]; parked?: boolean; }
 export interface NordeaDb { userId: string; accounts: BankAccount[]; transactions: Transaction[]; }
 
 export type MessageType = 'propose' | 'query' | 'reply' | 'inform' | 'flag-stale' | 'refresh';
@@ -186,13 +186,15 @@ export function loadCmDb(uid: string): CmDb {
         ...(r.dispute_reason ? { disputeReason: r.dispute_reason } : {}),
         createdAt: r.created_at,
       }));
-    return { userId: uid, entries };
+    const parked = kvGet(db, 'parked') === '1';
+    return { userId: uid, entries, ...(parked ? { parked: true } : {}) };
   } finally { db.close(); }
 }
 
 export function saveCmDb(d: CmDb) {
   const db = openDb(fileFor(d.userId, 'cm'), 'cm');
   try {
+    kvSet(db, 'parked', d.parked ? '1' : null);
     db.exec('BEGIN');
     db.prepare('DELETE FROM entries').run();
     const ins = db.prepare(`INSERT INTO entries

@@ -22,6 +22,15 @@ const requireAgentOn = (u: UserDb, a: AgentId) => {
 const personalLabel = (u: UserDb) => (u.personalAgent.mode === 'external' ? u.personalAgent.externalName || 'External personal agent' : 'Abel');
 
 /**
+ * The agreed cabinet park: parked means suspended, never deleted. While parked the Context
+ * Memory agent does not read or supply the cabinet; only an explicit reconnect resumes it.
+ * Parking is independent of the personal-agent connect/disconnect swap and of agent on/off.
+ */
+const requireCabinetOpen = (cm: CmDb) => {
+  if (cm.parked) throw new ArchError(409, 'The cabinet is parked: the Context Memory agent is not reading or supplying it. Your entries are kept - nothing was deleted. Reconnect the cabinet explicitly to resume.');
+};
+
+/**
  * The agreed answer guardrail: a reply may only contain numbers that came from the
  * retrieved facts themselves. Anything else is rejected and falls back to plain wording.
  */
@@ -100,7 +109,7 @@ export function chat(uid: string, text: string): { reply: string; used: string[]
   // 2. Shared context: the personal agent must ASK the CM agent - an explicit message pair.
   const bus = loadBus(uid);
   const cm = loadCmDb(uid);
-  const entryHits = cm.entries.filter((e) => e.status === 'active' && overlaps(q, words(`${e.title} ${e.detail}`)));
+  const entryHits = cm.parked ? [] : cm.entries.filter((e) => e.status === 'active' && overlaps(q, words(`${e.title} ${e.detail}`)));
   if (entryHits.length || goalHits.length) {
     const query = postMessage(bus, { from: 'personal', to: 'cm', type: 'query', summary: `${personalLabel(u)} asks the Context Memory agent for cabinet entries about: ${trimmed.slice(0, 80)}` });
     const replyPayload = entryHits.map((e) => e.id);
@@ -115,6 +124,7 @@ export function chat(uid: string, text: string): { reply: string; used: string[]
   // 3. Guardrail: the personal agent never touches the Nordea DB.
   const bankish = ['balance', 'account', 'spent', 'spend', 'transaction', 'salary', 'money', 'save', 'saving'].some((w) => trimmed.toLowerCase().includes(w));
   if (!parts.length) {
+    if (cm.parked && cm.entries.length) return { reply: `I don't have enough in your User DB to answer that, and the cabinet (${cm.entries.length} shared entr${cm.entries.length === 1 ? 'y' : 'ies'}) is parked - reconnect it if you want me to use shared context again.`, used };
     if (bankish) return { reply: `I don't have your bank data - as your personal agent I only read your User DB and shared context the Context Memory agent hands me. Nordea's agent can propose goal-related insights to the cabinet for your review.`, used };
     return { reply: `I don't have enough context to answer that yet. All I have is what's in your User DB (${u.goals.length} goal${u.goals.length === 1 ? '' : 's'}) and ${cm.entries.length} shared cabinet entr${cm.entries.length === 1 ? 'y' : 'ies'}.`, used };
   }
@@ -141,6 +151,7 @@ export function agentQuery(uid: string, to: 'cm' | 'nordea', question: string): 
   let replyPayload: Record<string, unknown>;
   if (to === 'cm') {
     const cm = loadCmDb(uid);
+    requireCabinetOpen(cm);
     const hits = cm.entries
       .filter((e) => overlaps(q, words(`${e.title} ${e.detail}`)))
       .map((e) => ({ id: e.id, title: e.title, detail: e.detail, status: e.status, evidence: e.evidence ?? null }));
@@ -223,44 +234,17 @@ export function decideAirlock(uid: string, batchId: string, approve: boolean) {
   return batch;
 }
 
-// ---------- Goal-filtered bank contributions (Nordea agent -> CM agent, user reviews) ----------
+// ---------- Staleness detection (shared by contribution runs and bank imports) ----------
 
-export function contribute(uid: string) {
-  const u = loadUserDb(uid);
-  requireAgentOn(u, 'nordea');
-  requireAgentOn(u, 'cm');
-  const nordea = ensureNordeaDb(uid);
-  if (!nordea.transactions.length) throw new ArchError(409, 'The Nordea DB has no transactions yet. Load bank data first (scripts/load_data.py).');
-  // Boundaries stay explicit: the personal agent hands goal TITLES to the CM agent,
-  // the CM agent asks the Nordea agent, and only proposals come back.
-  const goals = u.goals;
-  const bus = loadBus(uid);
-  const cm = loadCmDb(uid);
-  const share = postMessage(bus, { from: 'personal', to: 'cm', type: 'inform', summary: `${personalLabel(u)} shares ${goals.length} goal title${goals.length === 1 ? '' : 's'} with the Context Memory agent for contribution filtering.`, payload: { goals: goals.map((g) => g.title) } });
-  const q = postMessage(bus, { from: 'cm', to: 'nordea', type: 'query', summary: `Context Memory agent asks the Nordea agent for transaction insights relevant to ${goals.length} goal${goals.length === 1 ? '' : 's'}.`, payload: { goals: goals.map((g) => g.title), inReplyTo: share.id } });
+interface StaleFlag { entryId: string; title: string; was: number; nowIs: number }
 
-  const proposals: { messageId: string; title: string; detail: string; matched: number; total: number }[] = [];
-  const alreadyPending = new Set(bus.messages.filter((m) => m.type === 'propose' && m.status === 'pending').map((m) => m.summary));
-  for (const goal of goals) {
-    const gw = words(`${goal.title} ${goal.detail}`);
-    const hinted = new Set(gw.flatMap((w) => CATEGORY_HINTS[w] ?? []));
-    const matches = nordea.transactions.filter((t) =>
-      overlaps(gw, words(`${t.description ?? ''} ${t.counterparty ?? ''}`)) || hinted.has(t.category));
-    if (!matches.length) continue;
-    const total = Math.round(matches.reduce((s, t) => s + Math.abs(t.amount), 0) * 100) / 100;
-    const title = `Activity related to goal "${goal.title}"`;
-    if (alreadyPending.has(title)) continue; // no duplicate pending proposals
-    const detail = `${matches.length} transaction${matches.length === 1 ? '' : 's'} totalling ${total} EUR relate to this goal (matched on category and description keywords). Proposed by the Nordea agent from the Nordea DB only - the raw transactions stay there.`;
-    const msg = postMessage(bus, {
-      from: 'nordea', to: 'cm', type: 'propose', status: 'pending',
-      summary: title,
-      payload: { inReplyTo: q.id, goalIds: [goal.id], detail, transactionIds: matches.slice(0, 25).map((t) => t.id), total },
-    });
-    proposals.push({ messageId: msg.id, title, detail, matched: matches.length, total });
-  }
-  // Staleness: if an accepted entry's underlying facts changed, the CM agent flags it stale
-  // and the Nordea agent supplies the refreshed values as a new proposal for review.
-  const staleFlags: { entryId: string; title: string; was: number; nowIs: number }[] = [];
+/**
+ * If an accepted entry's underlying facts changed, the CM agent flags it stale and the Nordea
+ * agent supplies the refreshed values as a NEW proposal for merge review - never a silent update.
+ * Runs on contribution runs and, wired to the import itself, when new local bank data arrives.
+ */
+function detectStaleEntries(bus: Bus, cm: CmDb, nordea: NordeaDb, goals: Goal[]): StaleFlag[] {
+  const staleFlags: StaleFlag[] = [];
   for (const goal of goals) {
     const linked = cm.entries.filter((e) => e.status === 'active' && e.goalIds.includes(goal.id));
     if (!linked.length) continue;
@@ -285,6 +269,98 @@ export function contribute(uid: string) {
     }
   }
   if (staleFlags.length) saveCmDb(cm);
+  return staleFlags;
+}
+
+// ---------- Bank import: the source owner updates its DB, then staleness detection runs ----------
+
+/**
+ * New local bank data (a file upload or a feed row) reaches the architecture here. The Nordea
+ * agent - the source owner - refreshes its own DB from the applied import, then staleness
+ * detection runs immediately. Event-driven on the import itself: no background loop, nothing
+ * simulated. Only runs when the architecture is already in use for this customer (their Nordea
+ * DB exists), and it never runs detection while the CM agent is off or the cabinet is parked.
+ */
+export function applyBankImportToArch(uid: string): { updated: boolean; reason?: string; staleFlags: StaleFlag[] } {
+  if (!nordeaFileExists(uid)) return { updated: false, reason: 'the three-database architecture is not in use for this customer', staleFlags: [] };
+  const u = loadUserDb(uid);
+  if (u.agentsOff.includes('nordea')) return { updated: false, reason: 'the Nordea agent is off', staleFlags: [] };
+  const nordea: NordeaDb = {
+    userId: uid,
+    accounts: db.getBankAccounts(uid).map((a) => ({ ...a })),
+    transactions: db.getTransactions(uid).map((t) => ({ ...t })),
+  };
+  saveNordeaDb(nordea);
+  const bus = loadBus(uid);
+  postMessage(bus, { from: 'nordea', to: 'user', type: 'inform', summary: `Nordea agent updated the Nordea DB from the new bank import (${nordea.transactions.length} transactions, ${nordea.accounts.length} account${nordea.accounts.length === 1 ? '' : 's'}) and re-checked accepted cabinet entries.` });
+  const cm = loadCmDb(uid);
+  let staleFlags: StaleFlag[] = [];
+  if (!u.agentsOff.includes('cm') && !cm.parked && u.goals.length) {
+    staleFlags = detectStaleEntries(bus, cm, nordea, u.goals);
+  }
+  saveBus(uid, bus);
+  return { updated: true, staleFlags };
+}
+
+// ---------- Cabinet park (distinct from off, disconnect and delete) ----------
+
+/**
+ * Park or reconnect the cabinet. Parked: entries are kept (nothing deleted), but no agent reads
+ * the cabinet, no contributions run and no proposals are accepted into it. Only this explicit
+ * control changes the parked state - the personal-agent connect/disconnect swap never touches it.
+ */
+export function parkCabinet(uid: string, park: boolean) {
+  const cm = loadCmDb(uid);
+  if (!!cm.parked === park) return { parked: !!cm.parked, entries: cm.entries.length };
+  cm.parked = park || undefined;
+  saveCmDb(cm);
+  const bus = loadBus(uid);
+  postMessage(bus, { from: 'cm', to: 'user', type: 'inform', summary: park
+    ? `You parked the cabinet: ${cm.entries.length} entr${cm.entries.length === 1 ? 'y' : 'ies'} kept, nothing deleted. Until you reconnect it, no agent reads the cabinet and no proposals are accepted into it.`
+    : 'You reconnected the cabinet. The Context Memory agent reads and supplies it again.' });
+  saveBus(uid, bus);
+  return { parked: park, entries: cm.entries.length };
+}
+
+// ---------- Goal-filtered bank contributions (Nordea agent -> CM agent, user reviews) ----------
+
+
+export function contribute(uid: string) {
+  const u = loadUserDb(uid);
+  requireAgentOn(u, 'nordea');
+  requireAgentOn(u, 'cm');
+  const nordea = ensureNordeaDb(uid);
+  if (!nordea.transactions.length) throw new ArchError(409, 'The Nordea DB has no transactions yet. Load bank data first (scripts/load_data.py).');
+  // Boundaries stay explicit: the personal agent hands goal TITLES to the CM agent,
+  // the CM agent asks the Nordea agent, and only proposals come back.
+  const goals = u.goals;
+  const bus = loadBus(uid);
+  const cm = loadCmDb(uid);
+  requireCabinetOpen(cm);
+  const share = postMessage(bus, { from: 'personal', to: 'cm', type: 'inform', summary: `${personalLabel(u)} shares ${goals.length} goal title${goals.length === 1 ? '' : 's'} with the Context Memory agent for contribution filtering.`, payload: { goals: goals.map((g) => g.title) } });
+  const q = postMessage(bus, { from: 'cm', to: 'nordea', type: 'query', summary: `Context Memory agent asks the Nordea agent for transaction insights relevant to ${goals.length} goal${goals.length === 1 ? '' : 's'}.`, payload: { goals: goals.map((g) => g.title), inReplyTo: share.id } });
+
+  const proposals: { messageId: string; title: string; detail: string; matched: number; total: number }[] = [];
+  const alreadyPending = new Set(bus.messages.filter((m) => m.type === 'propose' && m.status === 'pending').map((m) => m.summary));
+  for (const goal of goals) {
+    const gw = words(`${goal.title} ${goal.detail}`);
+    const hinted = new Set(gw.flatMap((w) => CATEGORY_HINTS[w] ?? []));
+    const matches = nordea.transactions.filter((t) =>
+      overlaps(gw, words(`${t.description ?? ''} ${t.counterparty ?? ''}`)) || hinted.has(t.category));
+    if (!matches.length) continue;
+    const total = Math.round(matches.reduce((s, t) => s + Math.abs(t.amount), 0) * 100) / 100;
+    const title = `Activity related to goal "${goal.title}"`;
+    if (alreadyPending.has(title)) continue; // no duplicate pending proposals
+    const detail = `${matches.length} transaction${matches.length === 1 ? '' : 's'} totalling ${total} EUR relate to this goal (matched on category and description keywords). Proposed by the Nordea agent from the Nordea DB only - the raw transactions stay there.`;
+    const msg = postMessage(bus, {
+      from: 'nordea', to: 'cm', type: 'propose', status: 'pending',
+      summary: title,
+      payload: { inReplyTo: q.id, goalIds: [goal.id], detail, transactionIds: matches.slice(0, 25).map((t) => t.id), total },
+    });
+    proposals.push({ messageId: msg.id, title, detail, matched: matches.length, total });
+  }
+  const staleFlags = detectStaleEntries(bus, cm, nordea, goals);
+  if (staleFlags.length) saveCmDb(cm);
   postMessage(bus, { from: 'nordea', to: 'cm', type: 'reply', summary: `Nordea agent proposes ${proposals.length} goal-relevant cabinet entr${proposals.length === 1 ? 'y' : 'ies'} (nothing else leaves the Nordea DB).`, payload: { inReplyTo: q.id }, status: 'answered' });
   saveBus(uid, bus);
   return { askedVia: q.id, proposals, staleFlags, skippedGoals: goals.length - proposals.length, existingCabinetEntries: cm.entries.length };
@@ -300,13 +376,18 @@ export function decideProposal(uid: string, messageId: string, accept: boolean):
   const msg = bus.messages.find((m) => m.id === messageId && m.type === 'propose');
   if (!msg) throw new ArchError(404, 'No such proposal.');
   if (msg.status !== 'pending') throw new ArchError(409, `This proposal is already ${msg.status}.`);
+  let parkedCm: CmDb | null = null;
+  if (accept) {
+    parkedCm = loadCmDb(uid);
+    requireCabinetOpen(parkedCm); // a parked cabinet takes no new entries; rejecting stays possible
+  }
   msg.status = accept ? 'accepted' : 'rejected';
   if (!accept) {
     postMessage(bus, { from: 'cm', to: 'nordea', type: 'inform', summary: `You rejected the proposal "${msg.summary}". The Context Memory DB was not changed.` });
     saveBus(uid, bus);
     return { rejected: true };
   }
-  const cm = loadCmDb(uid);
+  const cm = parkedCm ?? loadCmDb(uid);
   const p = (msg.payload ?? {}) as { goalIds?: string[]; detail?: string; transactionIds?: string[]; total?: number };
   const entry: ArchEntry = {
     id: newId('entry'),
@@ -398,7 +479,7 @@ export function archState(uid: string) {
     },
     databases: {
       user: { goals: u.goals.length, personalFacts: u.personalFacts.length, profile: !!u.profileName },
-      contextMemory: { entries: cm.entries.length, disputed: cm.entries.filter((e) => e.status === 'disputed').length },
+      contextMemory: { entries: cm.entries.length, disputed: cm.entries.filter((e) => e.status === 'disputed').length, parked: !!cm.parked },
       nordea: nordea ? { accounts: nordea.accounts.length, transactions: nordea.transactions.length } : null,
     },
     queues: {

@@ -6,6 +6,7 @@ import { previewCabinetForAgent, readCabinetThroughGateway } from './accessGatew
 import { summary as dataRewardsSummary } from './dataRewards.js';
 import { applyNordeaData, readNordeaFile, NordeaData } from './nordeaData.js';
 import { checkFeed, feedStatus } from './nordeaFeed.js';
+import { applyBankImportToArch } from './arch/agents.js';
 import { getPartner, getAllPartners } from './partnerRegistry.js';
 import * as fin from './finance.js';
 import { abelTurn, proposeFromContent, offerHeadline, SAMPLE_CHAT, ImportItem } from './abel.js';
@@ -390,7 +391,10 @@ export function registerV14Routes(app: Express) {
     }
     const r = applyNordeaData(userId, parsed, fileName ? `Uploaded ${String(fileName).slice(0, 60)}` : 'Uploaded data');
     if (!r.ok) return res.status(400).json({ error: r.message });
-    res.json({ result: r });
+    // The import IS the trigger: the Nordea agent (source owner) refreshes its own DB and
+    // staleness detection runs immediately - no manual contribution press, no background loop.
+    const arch = applyBankImportToArch(userId);
+    res.json({ result: r, arch });
   });
   app.post('/api/nordea-data/check', async (req, res) => {
     const userId = String((req.body || {}).userId || 'lauri');

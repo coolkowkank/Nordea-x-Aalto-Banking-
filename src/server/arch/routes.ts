@@ -2,7 +2,7 @@ import type { Express, Request, Response } from 'express';
 import { agentQuery,
   archState, chat, addGoalDirect, connectExternalAgent, disconnectPersonalAgent,
   stageSync, decideAirlock, contribute, reviewQueue, decideProposal,
-  explainEntry, disputeEntry, setAgentOff, deleteDatabase, ArchError,
+  explainEntry, disputeEntry, setAgentOff, deleteDatabase, parkCabinet, ArchError,
 } from './agents.js';
 import { AgentId, loadCmDb } from './store.js';
 
@@ -77,6 +77,11 @@ export function registerArchRoutes(app: Express) {
     if (!reason) { res.status(400).json({ error: 'Say why you dispute it.' }); return; }
     res.json(disputeEntry(uid(req), String(req.params.entryId), reason));
   }));
+
+  // Cabinet park: suspended (no agent reads, no new contributions, no acceptances) but never
+  // deleted, and resumed ONLY by this explicit reconnect - never by the connect/disconnect swap.
+  app.post('/api/arch/:uid/cabinet/park', h((req, res) => res.json(parkCabinet(uid(req), true))));
+  app.post('/api/arch/:uid/cabinet/resume', h((req, res) => res.json(parkCabinet(uid(req), false))));
 
   // Separate controls: turn an agent off, disconnect the personal agent, delete one database.
   app.post('/api/arch/:uid/agents/:agent/off', h((req, res) => res.json({ agentsOff: setAgentOff(uid(req), req.params.agent as AgentId, true) })));

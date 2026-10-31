@@ -77,7 +77,7 @@
     <div class="body">
       <div id="cm-summary"></div>
       <div id="cm-entries"></div>
-      <div class="controls"><button id="btn-off-cm">Turn off</button><button id="btn-del-cm" class="danger">Delete DB</button></div>
+      <div class="controls"><button id="btn-off-cm">Turn off</button><button id="btn-park-cm">Park cabinet</button><button id="btn-del-cm" class="danger">Delete DB</button></div>
     </div>
   </div>
   <div class="window w-nordea">
@@ -119,13 +119,14 @@ async function refresh() {
   uid = $('uid').value.trim() || 'lauri';
   const s = await api(`/api/arch/${uid}/state`);
   $('a-personal').innerHTML = `<b>Personal agent: ${esc(s.agents.personal.name)}</b> ${s.agents.personal.off ? '<span class="pill off">off</span>' : '<span class="pill">on</span>'}<br>Owns the User DB - profile, goals, personal facts. ${s.agents.personal.mode === 'external' ? 'External mode (SIMULATED - no live connection; syncs arrive via the demo endpoint and wait in the airlock).' : 'Abel, in the app. You talk to it here.'}`;
-  $('a-cm').innerHTML = `<b>Context Memory agent</b> ${s.agents.cm.off ? '<span class="pill off">off</span>' : '<span class="pill">on</span>'}<br>Owns the cabinet - the shared context between you and Nordea. Only this agent writes entries here.`;
+  $('a-cm').innerHTML = `<b>Context Memory agent</b> ${s.agents.cm.off ? '<span class="pill off">off</span>' : '<span class="pill">on</span>'} ${s.databases.contextMemory.parked ? '<span class="pill off">parked</span>' : ''}<br>Owns the cabinet - the shared context between you and Nordea. Only this agent writes entries here.${s.databases.contextMemory.parked ? ' <b>Parked:</b> entries kept, no agent reads or new contributions until you reconnect.' : ''}`;
   $('a-nordea').innerHTML = `<b>Nordea agent</b> ${s.agents.nordea.off ? '<span class="pill off">off</span>' : '<span class="pill">on</span>'}<br>Owns the Nordea DB - accounts and transactions. Proposes, never decides.`;
   $('user-summary').innerHTML = `Goals: <b>${s.databases.user.goals}</b> · Personal facts: <b>${s.databases.user.personalFacts}</b>`;
   $('cm-summary').innerHTML = `Cabinet entries: <b>${s.databases.contextMemory.entries}</b>${s.databases.contextMemory.disputed ? ` · <span style="color:#a4352c">${s.databases.contextMemory.disputed} disputed</span>` : ''}`;
   $('nordea-summary').innerHTML = s.databases.nordea ? `Accounts: <b>${s.databases.nordea.accounts}</b> · Transactions: <b>${s.databases.nordea.transactions}</b>` : 'Empty until bank data is loaded (scripts/load_data.py).';
   $('btn-off-personal').textContent = s.agents.personal.off ? 'Turn on' : 'Turn off';
   $('btn-off-cm').textContent = s.agents.cm.off ? 'Turn on' : 'Turn off';
+  $('btn-park-cm').textContent = s.databases.contextMemory.parked ? 'Reconnect cabinet' : 'Park cabinet';
   $('btn-off-nordea').textContent = s.agents.nordea.off ? 'Turn on' : 'Turn off';
   const entries = await api(`/api/arch/${uid}/entries`);
   $('cm-entries').innerHTML = entries.entries.length ? entries.entries.map((e) =>
@@ -150,6 +151,7 @@ $('btn-connect').onclick = async () => { const name = $('agent-name').value.trim
 $('btn-disconnect').onclick = async () => { await api(`/api/arch/${uid}/personal-agent/disconnect`, {}); refresh(); };
 $('btn-sync').onclick = async () => { const source = $('sync-src').value.trim() || 'whatsapp'; const text = $('sync-text').value.trim(); if (!text) return; $('sync-text').value = ''; await api(`/api/arch/${uid}/sync`, { body: { source, items: [{ kind: 'note', text }] } }); refresh(); };
 $('btn-contribute').onclick = async () => { const j = await api(`/api/arch/${uid}/nordea/contribute`, {}); say('agent', j.proposals.length ? `Nordea agent proposed ${j.proposals.length} insight(s) - see "Waiting for you".` : 'No goal-relevant activity found to propose.'); refresh(); };
+$('btn-park-cm').onclick = async () => { const parked = $('btn-park-cm').textContent === 'Reconnect cabinet'; await api(`/api/arch/${uid}/cabinet/${parked ? 'resume' : 'park'}`, {}); refresh(); };
 for (const a of ['personal', 'cm', 'nordea']) $(`btn-off-${a}`).onclick = async () => { const off = $(`btn-off-${a}`).textContent === 'Turn off'; await api(`/api/arch/${uid}/agents/${a}/${off ? 'off' : 'on'}`, {}); refresh(); };
 for (const w of ['user', 'cm', 'nordea']) $(`btn-del-${w}`).onclick = async () => { if (confirm(`Really delete the ${w === 'cm' ? 'Context Memory' : w === 'user' ? 'User' : 'Nordea'} DB? Other databases are not touched.`)) { await api(`/api/arch/${uid}/db/${w}`, { method: 'DELETE' }); refresh(); } };
 $('uid').addEventListener('change', refresh);

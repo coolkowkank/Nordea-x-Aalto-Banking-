@@ -207,5 +207,61 @@ const invented = A.groundNumbers('You spent 99999 EUR on transport', ['car savin
 check('the guardrail still rejects numbers absent from the retrieved facts', invented.grounded === false);
 
 
+// --- Cabinet park: parked denies agent reads/supply WITHOUT deletion; only explicit reconnect resumes
+const UID4 = 'parkuser';
+S.saveNordeaDb({ userId: UID4, accounts: [], transactions: [{ id: 'p1', userId: UID4, date: '2026-10-01', category: 'transport', amount: -100, account: 'current', description: 'Fuel for the car' }] });
+A.addGoalDirect(UID4, 'Save for a car');
+const pc = A.contribute(UID4);
+A.parkCabinet(UID4, true);
+check('parking keeps every cabinet entry (nothing deleted)', S.loadCmDb(UID4).entries.length === 0 && S.loadCmDb(UID4).parked === true);
+threw = '';
+try { A.agentQuery(UID4, 'cm', 'car'); } catch (e) { threw = (e as Error).message; }
+check('a parked cabinet denies agent reads (no disclosure)', threw.includes('parked'), threw);
+threw = '';
+try { A.contribute(UID4); } catch (e) { threw = (e as Error).message; }
+check('a parked cabinet denies new contributions', threw.includes('parked'), threw);
+threw = '';
+try { A.decideProposal(UID4, pc.proposals[0].messageId, true); } catch (e) { threw = (e as Error).message; }
+check('a parked cabinet denies accepting proposals (no supply while parked)', threw.includes('parked'), threw);
+check('the denied acceptance left the proposal pending (no half-mutated review)', A.reviewQueue(UID4).length === 1);
+const rejected = A.decideProposal(UID4, pc.proposals[0].messageId, false) as { rejected: boolean };
+check('the user can still REJECT a proposal while parked (review is the user\'s, not agent supply)', rejected.rejected === true);
+A.connectExternalAgent(UID4, 'Meta Muse');
+check('connecting an external personal agent does NOT unpark the cabinet', S.loadCmDb(UID4).parked === true);
+A.disconnectPersonalAgent(UID4);
+check('disconnecting the personal agent does NOT unpark the cabinet', S.loadCmDb(UID4).parked === true);
+A.parkCabinet(UID4, false);
+check('only the explicit reconnect resumes the cabinet', S.loadCmDb(UID4).parked !== true);
+A.connectExternalAgent(UID4, 'Meta Muse');
+A.disconnectPersonalAgent(UID4);
+check('the connect/disconnect swap never parks the cabinet by itself', !S.loadCmDb(UID4).parked);
+const pc2 = A.contribute(UID4);
+check('after reconnect, contributions and agent reads work again', pc2.proposals.length === 1 && (A.agentQuery(UID4, 'cm', 'car').reply as { matchedEntries: unknown[] }).matchedEntries.length >= 0);
+
+// --- Bank import triggers the source-owner DB refresh + staleness detection (no manual contribution press)
+const { writeDemoDb } = await import('./demo-data.js');
+writeDemoDb(CABINET_DATA_DIR);
+const { db: legacyDb } = await import('../src/server/db.js');
+await legacyDb.init();
+const { applyNordeaData } = await import('../src/server/nordeaData.js');
+const UID5 = 'lauri';
+S.saveNordeaDb({ userId: UID5, accounts: [], transactions: [{ id: 'i1', userId: UID5, date: '2026-10-01', category: 'transport', amount: -100, account: 'current', description: 'Fuel for the car' }] });
+A.addGoalDirect(UID5, 'Save for a car');
+const ic = A.contribute(UID5);
+const iEntry = A.decideProposal(UID5, ic.proposals[0].messageId, true) as { id: string };
+check('import-test setup: entry active with 100 EUR evidence', S.loadCmDb(UID5).entries[0].status === 'active' && S.loadCmDb(UID5).entries[0].evidence?.total === 100);
+const applied = applyNordeaData(UID5, { mode: 'incremental', transactions: [{ date: '2026-10-20', amount: -42, category: 'transport', description: 'Extra fuel for the car', bankId: 'IMP-TEST-1' }] } as Parameters<typeof applyNordeaData>[1], 'test import');
+check('the legacy import applies', applied.ok, applied.message);
+const hook = A.applyBankImportToArch(UID5);
+check('the Nordea agent refreshes its own DB from the import', hook.updated === true && S.loadNordeaDb(UID5)!.transactions.some((t) => t.description === 'Extra fuel for the car'));
+check('staleness detection runs on the import itself (no manual contribution press)', hook.staleFlags.length === 1 && S.loadCmDb(UID5).entries[0].status === 'stale', JSON.stringify(hook.staleFlags));
+const importBus = S.loadBus(UID5).messages;
+check('the import produced flag-stale and refresh messages', importBus.some((m) => m.type === 'flag-stale') && importBus.some((m) => m.type === 'refresh'));
+check('a refreshed proposal waits in merge review after the import', A.reviewQueue(UID5).some((m) => (m.payload as { refreshOf?: string })?.refreshOf === iEntry.id));
+A.parkCabinet(UID5, true);
+const hook2 = A.applyBankImportToArch(UID5);
+check('a parked cabinet still gets the source-owner DB update but NO staleness run', hook2.updated === true && hook2.staleFlags.length === 0);
+check('the import hook does nothing for a customer without the architecture', A.applyBankImportToArch('no-such-user').updated === false);
+
 console.log(`\n${passed} passed, ${failed} failed`);
 process.exit(failed ? 1 : 0);

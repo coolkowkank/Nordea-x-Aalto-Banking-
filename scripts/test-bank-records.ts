@@ -141,6 +141,17 @@ check('csv parses', csv.transactions?.length === 2 && csv.transactions[1].amount
 const st: any = db.getState();
 check('state has new lists', Array.isArray(st.balanceSnapshots) && Array.isArray(st.importBatches) && Array.isArray(st.bankAccounts));
 
+// 13. Access gateway fails closed: an agent with no registered manifest gets nothing - no read,
+// no preview (previously a default manifest silently granted unknown agents read access).
+const { previewCabinetForAgent, readCabinetThroughGateway } = await import('../src/server/accessGateway.js');
+const unknownPreview = previewCabinetForAgent(USER, 'mystery-agent');
+check('fail-closed: an unknown agent gets NO cabinet entries in a preview', unknownPreview.allowed.length === 0);
+check('fail-closed: every entry is blocked with the fail-closed reason', unknownPreview.blocked.length > 0 && unknownPreview.blocked.every((b) => b.reason.includes('fail-closed')));
+const unknownRead = readCabinetThroughGateway(USER, 'mystery-agent', 'probe');
+check('fail-closed: an unknown agent gets NO cabinet entries in a real read', unknownRead.allowed.length === 0 && unknownRead.logEntry.itemsReadCount === 0);
+const abelPreview = previewCabinetForAgent(USER, 'abel');
+check('a registered agent (abel) still reads through the gateway', abelPreview.allowed.length > 0, `allowed=${abelPreview.allowed.length} blocked=${abelPreview.blocked.length}`);
+
 fs.rmSync(process.env.CABINET_DATA_DIR, { recursive: true, force: true });
 console.log(failures ? `\n${failures} check(s) FAILED` : '\nAll checks passed');
 process.exit(failures ? 1 : 0);
