@@ -478,5 +478,30 @@ A.setStandingPermissions(UID16, 'high');
 A.contribute(UID16);
 check('F7: a sensitive-topic proposal is HIGH risk and waits for the customer', S.loadCmDb(UID16).entries.length === 0 && A.reviewQueue(UID16).length === 1, `entries ${S.loadCmDb(UID16).entries.length} queue ${A.reviewQueue(UID16).length}`);
 
+
+// --- F18: maintenance rounds merge into the open session's document - no row is dropped.
+const UID17 = 'mergeround';
+A.addGoalDirect(UID17, 'Save for a car');
+S.saveNordeaDb({ userId: UID17, accounts: [], transactions: [{ id: 'm1', userId: UID17, date: '2026-10-01', category: 'transport', amount: -100, account: 'current', description: 'Fuel for the car' }] });
+const c17 = A.contribute(UID17);
+A.decideProposal(UID17, c17.proposals[0].messageId, true);
+A.chat(UID17, 'what do you know about my car saving?'); // opens the session; Nordea adds a question row
+const doc17a = S.loadContext(UID17)!;
+const qRow = doc17a.sections.nordea.rows.find((r) => r.id.startsWith('nq-'));
+check('F18 setup: the session document has a question-relevant Nordea row', !!qRow, JSON.stringify(doc17a.sections.nordea.rows.map((r) => r.id)));
+R.runRound(UID17, 'decay'); // maintenance DURING the session
+const doc17b = S.loadContext(UID17)!;
+check('F18: a decay round keeps the session question row and the memory rows', doc17b.sections.nordea.rows.some((r) => r.id === qRow!.id) && doc17b.sections.memory.rows.length >= doc17a.sections.memory.rows.length, JSON.stringify(doc17b.sections.nordea.rows.map((r) => r.id)));
+A.contribute(UID17); // the Contribute button mid-session
+const doc17c = S.loadContext(UID17)!;
+check('F18: a contribution round mid-session merges instead of rewriting', doc17c.sections.nordea.rows.some((r) => r.id === qRow!.id), JSON.stringify(doc17c.sections.nordea.rows.map((r) => r.id)));
+
+// --- F19: the "shared context unavailable" reply is reachable (no goals, agent off at start).
+const UID18 = 'unavail';
+A.setAgentOff(UID18, 'cm', true);
+const unavail = A.chat(UID18, 'any grocery insights?');
+check('F19: with no document and no user-db hit, chat plainly says shared context is unavailable this session', unavail.reply.includes('shared context is unavailable this session'), unavail.reply.slice(0, 120));
+A.setAgentOff(UID18, 'cm', false);
+
 console.log(`\n${passed} passed, ${failed} failed`);
 process.exit(failed ? 1 : 0);

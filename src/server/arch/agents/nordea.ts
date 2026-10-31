@@ -88,10 +88,9 @@ function handleMessage(uid: string, msg: AgentMessage) {
       proposals.push({ messageId: posted.id, title, detail, matched: matches.length, total });
     }
     // The Nordea agent's section of the shared document (AC5): aggregates + evidence only.
-    // A top-up round adds rows to the same session document, never a fresh one (F15-7).
-    const merged = payload.topup === true
-      ? [...readSectionRows(uid, 'nordea').filter((r) => !sectionRows.some((n) => n.id === r.id)), ...sectionRows]
-      : sectionRows;
+    // F15-7/F18: every round MERGES - new rows replace rows with the same id, nothing else is
+    // dropped (session rounds start from an empty document, so merging is replacing there).
+    const merged = [...readSectionRows(uid, 'nordea').filter((r) => !sectionRows.some((n) => n.id === r.id)), ...sectionRows];
     writeNordeaSection(uid, merged, { roundId: payload.roundId as string, trigger: String(payload.trigger ?? 'contribution') });
     recordProposals(uid, payload.roundId, proposals);
     appendMessage(uid, {
@@ -161,7 +160,9 @@ function handleMessage(uid: string, msg: AgentMessage) {
         const gm = matchForTitles(nordea, [g.title]);
         if (gm.length) rows.push({ id: `nagg-${g.id}`, title: g.title, detail: `${gm.length} transaction${gm.length === 1 ? '' : 's'} totalling ${totalOf(gm)} EUR (refreshed against current bank data)`, source: 'nordea', evidence: { total: totalOf(gm), matched: gm.length, transactionIds: gm.slice(0, 25).map((t) => t.id) }, at: now() });
       }
-      writeNordeaSection(uid, rows, { roundId: payload.roundId, trigger: 'decay' });
+      // F18: maintenance merges - refreshed figures update matching rows, no row is dropped.
+      const merged = [...readSectionRows(uid, 'nordea').filter((r) => !rows.some((n) => n.id === r.id)), ...rows];
+      writeNordeaSection(uid, merged, { roundId: payload.roundId, trigger: 'decay' });
     }
     appendMessage(uid, {
       from: 'nordea', to: 'cm', type: 'reply', status: 'pending',

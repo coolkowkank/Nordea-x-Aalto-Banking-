@@ -234,7 +234,7 @@ function handleMessage(uid: string, msg: AgentMessage) {
     const round = loadRound(uid, payload.roundId);
     const isSession = round?.trigger === 'session';
     const question = round?.question ?? '';
-    writeMemoryFromEntries(uid, { roundId: payload.roundId, trigger: round?.trigger ?? 'contribution' }, isSession && question ? words(question) : []);
+    writeMemoryFromEntries(uid, { roundId: payload.roundId, trigger: round?.trigger ?? 'contribution' }, isSession && question ? words(question) : [], true); // F18: merge; session docs start empty
     appendMessage(uid, {
       from: 'cm', to: 'nordea', type: 'query', status: 'pending',
       summary: isSession
@@ -283,7 +283,7 @@ function handleMessage(uid: string, msg: AgentMessage) {
     }
     const round = loadRound(uid, payload.roundId);
     // Keep the round's question context (F15): a session document must not lose its memory rows.
-    writeMemoryFromEntries(uid, { roundId: payload.roundId, trigger: round?.trigger ?? 'decay' }, round?.question ? words(round.question) : []);
+    writeMemoryFromEntries(uid, { roundId: payload.roundId, trigger: round?.trigger ?? 'decay' }, round?.question ? words(round.question) : [], true); // F18: merge, never drop session rows
     recordStaleFlags(uid, payload.roundId, flags);
     roundDone(uid, payload.roundId, 'cm');
     return;

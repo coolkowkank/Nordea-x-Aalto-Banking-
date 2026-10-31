@@ -238,7 +238,9 @@ function handleMessage(uid: string, msg: AgentMessage) {
     const question = typeof payload.question === 'string' ? payload.question : null;
     const qw = question ? words(question) : [];
     const relevant = question ? u.goals.filter((g) => overlaps(qw, words(`${g.title} ${g.detail}`))) : u.goals;
-    writeCustomerSection(uid, relevant.map((g) => ({ id: g.id, title: g.title, detail: '', source: 'personal' as const, observed: 'observed' as const, at: now() })),
+    const goalRows = relevant.map((g) => ({ id: g.id, title: g.title, detail: '', source: 'personal' as const, observed: 'observed' as const, at: now() }));
+    const mergedCustomer = [...readSectionRows(uid, 'customer').filter((r) => !goalRows.some((n) => n.id === r.id)), ...goalRows]; // F18: merge, never drop
+    writeCustomerSection(uid, mergedCustomer,
       `${relevant.length} of ${u.goals.length} goal${u.goals.length === 1 ? '' : 's'} shared by title${question ? ' (relevant to the question)' : ''}; details and personal facts stay in the User DB until the customer allows sharing them.`,
       { roundId: payload.roundId, trigger: String(payload.trigger ?? 'contribution') });
     appendMessage(uid, {
