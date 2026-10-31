@@ -1,4 +1,4 @@
-TURN: Bill
+TURN: Instinct
 
 # review.md: quality control for `instinct-prototype-v2`
 
@@ -87,7 +87,7 @@ Owner's description, 31 Oct 2026, in short:
 | # | Criterion |
 |:-:|---|
 | **AC1** | **Isolation is real.** Each agent lives in its own module and can only open its own database. A test proves no agent module imports or opens another agent's store. |
-| **AC2** | **`context.md` exists** per customer as the shared working document. All three agents read it; each writes only its own section. Assumption until the owner says otherwise: one standing document per customer, rebuilt in *build rounds* triggered by a customer question or by decay. |
+| **AC2** | **`context.md` is rebuilt for every customer question** (owner decision, 31 Oct 18:40). Each question opens a build round; all three agents fill the document fresh for that question; each writes only its own section. The Context Memory agent connects to `cm.db` on every question to retrieve what is relevant. |
 | **AC3** | **Personal agent** writes the customer section from `user.db`, puts in only what the customer allows Nordea to see, asks the other two agents over the bus, and answers questions from `context.md` (plus `user.db`). Numbers in replies stay grounded. |
 | **AC4** | **Context Memory agent** retrieves relevant past entries from `cm.db` into `context.md`, removes duplicates and flags conflicts, and on finalise stores **structured entries** in `cm.db`: source agent, evidence, `observed` or `inferred`, timestamps. |
 | **AC5** | **Nordea agent** reads `context.md`, retrieves what is relevant from `nordea.db`, and writes the Nordea section with evidence. Aggregates only: no account identifiers or raw transactions. |
@@ -107,12 +107,12 @@ Baseline review of `Instict-prototype` @ `489d44e` against the expectation. Seve
 
 | Id | Sev | AC | Finding | Evidence | Status |
 |:-:|:-:|:-:|---|---|:-:|
-| F1 | H | AC2 | There is no `context.md` or any shared working document. The cabinet is rows in `cm.db`; no agent sees the context as a whole. | `src/server/arch/store.ts` (only `.db` files); no markdown rendering anywhere in `src/server`. **Design accepted (#B1) with conditions:** (a) the sections are stored as structured rows (agent, title, detail, evidence, observed/inferred) and `context.md` is *rendered* from them; the CM agent stores from those rows at finalise, never by parsing markdown; (b) section ownership is enforced, not by convention: one writer module per section, so the AC1 allowlist pins each agent to its own section, plus a test; (c) the personal agent answers chat from the finished `context.md` (AC3). | fixed @1040ff7 |
+| F1 | H | AC2 | There is no `context.md` or any shared working document. The cabinet is rows in `cm.db`; no agent sees the context as a whole. | `src/server/arch/store.ts` (only `.db` files); no markdown rendering anywhere in `src/server`. **Design accepted (#B1) with conditions:** (a) the sections are stored as structured rows (agent, title, detail, evidence, observed/inferred) and `context.md` is *rendered* from them; the CM agent stores from those rows at finalise, never by parsing markdown; (b) section ownership is enforced, not by convention: one writer module per section, so the AC1 allowlist pins each agent to its own section, plus a test; (c) the personal agent answers chat from the finished `context.md` (AC3). | verified @1040ff7 (structure, ownership, Nordea reads the document); per-question rebuild → F15 |
 | F2 | H | AC1 | Isolation is by convention only. All three agents are functions in one module, and several functions open other agents' databases: the personal agent's `chat()` opens `cm.db`; `contribute()` opens `user.db`, `cm.db` and `nordea.db`; `explainEntry()` opens `cm.db`, `user.db` and the bus. | `arch/agents.ts` lines 86, 111, 361–367, 442–447; `store.ts` header comment ("enforced by code convention") | verified @7950f5d (agent modules); app layer → F12 |
 | F3 | H | AC6 | No build-round lifecycle and no real messaging. `postMessage` only appends to a log; nothing reads pending messages and dispatches them to an agent. HTTP routes call agent functions in a fixed order. | `store.ts:311`; `arch/routes.ts` | verified @7950f5d; edge case → F13 |
 | F4 | H | AC3 | The personal agent never contributes to the shared context. Only the Nordea agent can create a cabinet entry. | `agents.ts:426` (`proposedBy: 'nordea'` is the only writer) | open |
 | F5 | H | AC4 | The Context Memory agent does no retrieval worth the name and no synthesis: keyword overlap, no ranking, no dedupe or conflict handling, no `observed` or `inferred` marker. | `agents.ts:112`, `:155` | open |
-| F6 | M | AC5, AC1 | The Nordea agent decides what to contribute from `user.db` goals it reads directly. It should read `context.md` instead. | `agents.ts:365` (`const goals = u.goals`) | fixed @1040ff7 |
+| F6 | M | AC5, AC1 | The Nordea agent decides what to contribute from `user.db` goals it reads directly. It should read `context.md` instead. | `agents.ts:365` (`const goals = u.goals`) | verified @1040ff7 |
 | F7 | M | AC7 | Every Nordea entry needs customer approval (merge review); there are no risk levels and no standing permissions at first start. | `decideProposal`, `agents.ts:403` | open |
 | F8 | M | AC8, AC1 | Decay detection runs inside the Context Memory path but reads `nordea.db` and `user.db` directly, and only detects a changed total, not age or missing evidence. | `detectStaleEntries`, `agents.ts:246–273` | open |
 | F9 | M | AC5 | `agent-query` to the Nordea agent returns up to 3 raw transactions (date, amount, description) to the personal agent. | `agents.ts:172` | open |
@@ -121,6 +121,7 @@ Baseline review of `Instict-prototype` @ `489d44e` against the expectation. Seve
 | F12 | M | AC1, AC6 | The app layer still makes agent decisions from direct database reads. `contribute()` checks parking and counts goals by opening `cm.db` and `user.db`; `recheckBeforeReuse()` reads goals and active entries to decide whether a decay round runs. The customer dashboard (`archState`, `listEntries`) reading every store is fine; deciding *for* an agent is not. Ask the agent by control message, or let the round itself decide (a decay round with nothing to check already ends cleanly). | `arch/orchestrator.ts:68`, `:71`, `:77`, `:163–165` | verified @b71586b |
 | F13 | L | AC6 | `runRound` marks a round `stored` after the finalise dispatch without checking that the CM agent actually stored it (e.g. 0 messages delivered). Set `stored` only on the CM agent's finalise reply; otherwise `step-limit` or `failed`. | `arch/rounds.ts:114–115` | verified @b71586b |
 | F14 | L | AC1, AC12 | The AC1 test is a blocklist on three store names. An agent importing `store/common.ts` (generic `openDb` by path), `node:sqlite` or `fs` would still pass. Make it an allowlist: each agent may import only its own store, `busStore`, `dispatcher`, `rounds`, `text` and `types`. Accepted exception: `nordea.ts` importing the app's `db.ts` as Nordea's core bank source. | `scripts/test-arch.ts:318–322` | verified @b71586b |
+| F15 | H | AC2, AC3, AC4 | **Owner decision: rebuild `context.md` for every question.** Today chat reuses the document from the last contribution round, falls back to a live CM query before the first round, and the CM agent patches its section between rounds. Needed: (1) each chat question opens a `question` round with the question in the payload; (2) the document starts empty for that round, with no rows carried over; (3) personal writes the question-relevant, shareable part of `user.db` (today it writes all goal titles); (4) CM retrieves from `cm.db` what is relevant to the question and the Customer section; (5) Nordea adds aggregates relevant to the question; (6) CM finalises, stores new knowledge in `cm.db` (Nordea items still via merge review until F7), then personal answers from that document; (7) remove the pre-round fallback and the between-round patching; decay rounds stay as maintenance and don't need the document. Tests: two different questions give two different documents, each with its own round id and a CM retrieval on the bus. | `agents/personal.ts:93–102`, `:244`; `agents/cm.ts:48` | open |
 
 **Suggested order:** F1 (`context.md`) with F12 → F4, F5, F6 → F7 → F8 → F9 → F10 → F11, F13, F14 alongside.
 
@@ -185,4 +186,16 @@ FACT: deleting any of the three agent DBs now also deletes the shared document (
 FACT: CM rewrites its memory section on accept/dispute/decay-flag so the document tracks the cabinet between rounds
 ETA: next batch F4+F5 after your review
 NEXT: Bill
+```
+
+### [Bill] 2026-10-31 18:41
+```
+OWNER: "Let the context.md rebuilt every customer question. Then, it is the memory agent that connects the cm.db for every question." (Habibil, 18:40); closes #B0
+DID: AC2 rewritten to the owner's decision; F15 (H) opened for the per-question rebuild
+FACT: test:arch 95/95, lint clean, rerun by Bill @1040ff7
+F1: verified for B1a+B1b (structured rows, rendered markdown, one writer per agent, pinned by test); the per-question part moves to F15
+F6: verified; Nordea reads goals from the Customer section rows (agents/nordea.ts:13)
+FACT: chat still answers from the last contribution round's document; that is what F15 changes (personal.ts:93-102)
+ASK@Instinct #B2: please do F15 before F4+F5; F4 (personal contributes) and F5 (CM retrieval) largely land inside it. Post an ETA
+NEXT: Instinct
 ```
