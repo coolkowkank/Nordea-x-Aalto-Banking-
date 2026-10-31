@@ -153,5 +153,56 @@ check('both queries and replies are explicit bus messages',
   busAfter.messages.some((m) => m.type === 'query' && m.from === 'personal' && m.to === 'nordea')
   && busAfter.messages.some((m) => m.type === 'reply' && m.from === 'nordea' && m.to === 'personal'));
 
+
+// --- TF-IDF ownership: the local demonstrator retrieves ONLY from the customer's own stores
+const { buildCorpus, tfidfRank } = await import('./rag-demo.js');
+const corpus = buildCorpus(UID2);
+check('the RAG corpus contains only User DB and Context Memory DB documents',
+  corpus.length > 0 && corpus.every((d) => d.source.startsWith('user-db:') || d.source.startsWith('context-memory-db:')));
+check('the RAG corpus never contains Nordea transactions',
+  !corpus.some((d) => d.text.includes('Fuel for the car') || d.text.includes('Car wash')));
+check('the RAG corpus skips non-active cabinet entries (stale/disputed are not served as fact)',
+  !corpus.some((d) => d.source === 'context-memory-db:entry'), JSON.stringify(corpus.map((d) => d.source)));
+check('TF-IDF ranks the car goal first for a car question',
+  tfidfRank('car saving', corpus)[0]?.doc.source === 'user-db:goal');
+
+// --- Client-side composition: the server returns facts only; the CLIENT writes the answer
+const { compose } = await import('./personal-agent-client.js');
+const composed = compose('car', {
+  from: 'cm-db',
+  matchedEntries: [{ id: 'e1', title: 'Car activity', detail: 'goal-related spending', status: 'active', evidence: { total: 20616 } }],
+}, {
+  from: 'nordea-db', matchCount: 72, totalAbsEur: 20616, categories: ['transport'], sample: [],
+});
+check('the client composes the final answer from both agents\' replies',
+  composed.includes('Car activity') && composed.includes('72') && composed.includes('20616'), composed.slice(0, 120));
+check('the server\'s agent-query reply carries facts only, no composed wording',
+  ['from', 'matchedEntries'].every((k) => k in cmAns.reply) && !('answer' in cmAns.reply) && !('text' in cmAns.reply)
+  && ['from', 'matchCount', 'totalAbsEur', 'categories', 'sample'].every((k) => k in noAns.reply) && !('answer' in noAns.reply));
+
+// --- Disputed entries are never silently re-accepted by refresh cycles
+const UID3 = 'disputeuser';
+S.saveNordeaDb({ userId: UID3, accounts: [], transactions: [{ id: 'd1', userId: UID3, date: '2026-10-01', category: 'transport', amount: -100, account: 'current', description: 'Fuel' }] });
+A.addGoalDirect(UID3, 'Save for a car');
+const dc = A.contribute(UID3);
+const dEntry = A.decideProposal(UID3, dc.proposals[0].messageId, true);
+A.disputeEntry(UID3, (dEntry as { id: string }).id, 'savings transfers are not car spending');
+const nd3 = S.loadNordeaDb(UID3)!;
+nd3.transactions.push({ id: 'd2', userId: UID3, date: '2026-10-02', category: 'transport', amount: -50, account: 'current', description: 'Car wash' });
+S.saveNordeaDb(nd3);
+A.contribute(UID3);
+A.contribute(UID3);
+const dAfter = S.loadCmDb(UID3).entries;
+check('a disputed entry is never silently re-accepted by contribute/refresh cycles',
+  dAfter.length === 1 && dAfter[0].status === 'disputed', JSON.stringify(dAfter.map((e) => e.status)));
+
+// --- Numeric guardrail: stated limitation, pinned so nobody over-claims it
+const wrongAssoc = A.groundNumbers('You spent 20616 EUR on groceries last month', ['car saving evidence total 20616 EUR']);
+check('LIMITATION (stated, pinned): the guardrail checks digit presence only - a real number attached to the WRONG thing still passes; unit/association semantics are NOT validated',
+  wrongAssoc.grounded === true);
+const invented = A.groundNumbers('You spent 99999 EUR on transport', ['car saving evidence total 20616 EUR']);
+check('the guardrail still rejects numbers absent from the retrieved facts', invented.grounded === false);
+
+
 console.log(`\n${passed} passed, ${failed} failed`);
 process.exit(failed ? 1 : 0);

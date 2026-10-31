@@ -65,6 +65,14 @@
   .ev time { color:#6e7681; flex:none; font-variant-numeric:tabular-nums; }
   .ev .who { font-weight:700; flex:none; }
   .who-you { color:#79b8ff; } .who-abel { color:#7ee2a0; } .who-nordea { color:#ffb77c; }
+  #arch-window { color:#24292f; }
+  #arch-window h2, #arch-window h3 { color:#24292f; }
+  #arch-window .ev { color:#3d444d; }
+  #arch-window .ev time { color:#6a737d; }
+  #arch-window .agentline { color:#3d444d; }
+  #arch-window .who-abel, #arch-window .who-you { color:#0550ae; }
+  #arch-window .who-nordea { color:#9a4a00; }
+  .sectionlabel { color:#8b949e; font-size:12px; letter-spacing:.08em; text-transform:uppercase; margin:22px 0 8px; }
   .footnote { margin-top:14px; color:#8b949e; font-size:12.5px; display:flex; justify-content:space-between; gap:40px; flex-wrap:wrap; }
 </style>
 </head>
@@ -82,6 +90,7 @@
 
   <div class="gapnote" id="gapnote" style="display:none"></div>
 
+  <div class="sectionlabel">Legacy app model - the original Context Cabinet demo (single store, gateway rules, adviser share). Not the three-database architecture.</div>
   <div class="windows">
     <div class="window w-user">
       <div class="wtitle"><div class="dots"><div class="dot" style="background:#ff5f57"></div><div class="dot" style="background:#febc2e"></div><div class="dot" style="background:#28c840"></div></div><h2>User context</h2></div>
@@ -112,10 +121,10 @@
   </div>
 
   <div class="window" id="arch-window" style="display:none;margin-top:18px">
-    <div class="wtitle"><div class="dots"><div class="dot" style="background:#ff5f57"></div><div class="dot" style="background:#febc2e"></div><div class="dot" style="background:#28c840"></div></div><h2>Three-database architecture (live, local SQLite stores)</h2></div>
+    <div class="wtitle"><div class="dots"><div class="dot" style="background:#ff5f57"></div><div class="dot" style="background:#febc2e"></div><div class="dot" style="background:#28c840"></div></div><h2>Architecture prototype: three databases, three agents (live, local SQLite stores)</h2></div>
     <div class="agentline"><span id="arch-agents"></span></div>
     <div class="statusbar" id="arch-stores" style="position:static;margin:8px 12px"></div>
-    <h3 style="margin:8px 12px 4px;font-size:13px">Agent-to-agent bus (newest first, real messages)</h3>
+    <h3 style="margin:8px 12px 4px;font-size:13px">Agent-to-agent bus (newest first, real stored messages; external-agent events are simulated demos, never real external connections)</h3>
     <div class="rows" id="arch-bus" style="padding:0 12px 10px"></div>
   </div>
 
@@ -264,7 +273,7 @@ async function tick() {
   // Gap note, shown once we know the state
   const gn = document.getElementById('gapnote');
   gn.style.display = 'block';
-  gn.textContent = 'Known gap: the code has no autonomous Nordea agent loop yet. Nordea-side cards appear when account-data analysis runs (a nordea_feed row or a file upload), and the adviser role can only read shared cards during an active one-time share. An agent that analyses and adds cards back to the collaborative cabinet on its own is not implemented; this monitor only displays what the real app does.';
+  gn.textContent = 'The upper panels are the LEGACY app model (original Context Cabinet); the lower panel is the new architecture prototype. Known gap in the legacy model: the code has no autonomous Nordea agent loop yet. Nordea-side cards appear when account-data analysis runs (a nordea_feed row or a file upload), and the adviser role can only read shared cards during an active one-time share. An agent that analyses and adds cards back to the collaborative cabinet on its own is not implemented; this monitor only displays what the real app does.';
 
   // Streams
   document.getElementById('events').innerHTML = (d.events || []).map((h) =>

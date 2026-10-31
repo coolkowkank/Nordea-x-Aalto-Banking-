@@ -32,7 +32,10 @@
   .item .meta { color:#6a737d; font-size:12px; margin-top:3px; }
   .chatlog { background:#fff; border:1px solid #d8dce2; border-radius:10px; padding:10px 13px; max-height:150px; overflow-y:auto; font-size:13px; display:flex; flex-direction:column; gap:6px; }
   .chatlog .me { color:#0000A0; } .chatlog .agent { color:#0b4f43; }
-  .chatrow { display:flex; gap:8px; margin-top:8px; }
+  .chatrow { display:flex; gap:8px; margin-top:8px; flex-wrap:wrap; }
+  .chatrow input { min-width:0; }
+  .chatrow button { flex:none; }
+  @media (max-width: 1100px) { .windows { flex-direction:column; } }
   .chatrow input { flex:1; border:1px solid #c9ced6; border-radius:8px; padding:8px 11px; font-size:13.5px; }
   .msgs { margin-top:18px; background:#20242a; border-radius:14px; padding:14px 18px; }
   .msgs h2 { font-size:15px; color:#e6e9ed; margin-bottom:8px; }
@@ -65,7 +68,7 @@
       </div>
       <div class="chatlog" id="chatlog"></div>
       <div class="chatrow"><input id="chat-in" placeholder='Talk to your personal agent... try "my goal is to visit Japan"'><button id="btn-chat" class="primary">Send</button></div>
-      <div class="chatrow"><input id="sync-src" placeholder="sync source (whatsapp)" style="width:150px;border:1px solid #c9ced6;border-radius:8px;padding:8px 11px;font-size:12.5px;"><input id="sync-text" placeholder="synced item text"><button id="btn-sync">Simulate sync</button></div>
+      <div class="chatrow"><input id="sync-src" placeholder="sync source (whatsapp)" style="flex:0 1 150px;border:1px solid #c9ced6;border-radius:8px;padding:8px 11px;font-size:12.5px;"><input id="sync-text" placeholder="synced item text" style="flex:1 1 140px;"><button id="btn-sync">Simulate sync</button></div>
     </div>
   </div>
   <div class="window w-cm">
@@ -94,7 +97,8 @@
   <h2>Waiting for you</h2>
   <div id="queues"></div>
 </div>
-<div class="msgs"><h2>Agent-to-agent messages (explicit, auditable)</h2><div id="msgs"></div></div>
+<div class="msgs"><h2>Agent-to-agent messages (explicit, auditable)</h2>
+  <div style="font-size:12px;color:#8b949e;margin:-6px 0 8px;">Real stored history, including earlier demo runs. External-agent events (e.g. an external personal agent "connecting" or "syncing") are SIMULATED demos through the local demo endpoint, never real external connections.</div><div id="msgs"></div></div>
 <script>
 let uid = 'lauri';
 const $ = (id) => document.getElementById(id);

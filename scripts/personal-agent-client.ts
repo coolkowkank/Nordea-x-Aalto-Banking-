@@ -13,6 +13,7 @@
  * Usage: npx tsx scripts/personal-agent-client.ts [--uid lauri] [--server http://localhost:3000]
  */
 import readline from 'readline';
+import { pathToFileURL } from 'node:url';
 
 const args = process.argv.slice(2);
 const opt = (name: string, dflt: string) => {
@@ -36,7 +37,7 @@ async function ask(to: 'cm' | 'nordea', question: string): Promise<Record<string
 }
 
 /** The client's own wording, built only from the two agents' reply messages. */
-function compose(question: string, cm: CmReply | null, nordea: NordeaReply | null): string {
+export function compose(question: string, cm: CmReply | null, nordea: NordeaReply | null): string {
   const parts: string[] = [];
   if (cm && cm.matchedEntries.length) {
     const active = cm.matchedEntries.filter((e) => e.status === 'active');
@@ -77,4 +78,4 @@ async function main() {
   rl.close();
 }
 
-main();
+if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) main();

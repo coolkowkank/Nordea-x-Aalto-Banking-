@@ -199,7 +199,7 @@ export function stageSync(uid: string, source: string, items: { kind: string; te
   const bus = loadBus(uid);
   const batch = { id: newId('air'), at: now(), source, items: items.map((i) => ({ id: newId('item'), kind: i.kind, text: i.text })), status: 'pending' as const };
   bus.airlock.push(batch);
-  postMessage(bus, { from: 'personal', to: 'user', type: 'inform', summary: `${personalLabel(u)} synced ${items.length} item${items.length === 1 ? '' : 's'} from ${source}. Waiting in the airlock for your approval - nothing enters the User DB without it.` });
+  postMessage(bus, { from: 'personal', to: 'user', type: 'inform', summary: `${personalLabel(u)} synced ${items.length} item${items.length === 1 ? '' : 's'} from ${source} (SIMULATED demo sync). Waiting in the airlock for your approval - nothing enters the User DB without it.` });
   saveBus(uid, bus);
   return batch;
 }

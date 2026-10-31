@@ -13,18 +13,18 @@
  * Usage: npx tsx scripts/rag-demo.ts --uid lauri "what do you know about my car saving?"
  */
 import { loadUserDb, loadCmDb } from '../src/server/arch/store.js';
+import { pathToFileURL } from 'node:url';
 
 const args = process.argv.slice(2);
 const uid = (() => { const i = args.indexOf('--uid'); return i >= 0 ? args[i + 1] : 'lauri'; })();
 const question = args.filter((a, i) => a !== '--uid' && args[i - 1] !== '--uid').join(' ').trim();
-if (!question) { console.error('Give a question.'); process.exit(1); }
 
 interface Doc { source: string; text: string }
 const STOP = new Set(['the', 'and', 'for', 'with', 'this', 'that', 'what', 'from', 'your', 'you', 'have', 'about', 'are', 'was', 'were', 'will', 'would', 'should', 'could', 'all', 'any', 'how', 'when', 'where', 'why', 'who']);
 const terms = (s: string) => s.toLowerCase().split(/[^a-z0-9€]+/).filter((w) => w.length >= 3 && !STOP.has(w));
 
 // Real TF-IDF: tf = count in doc / doc length; idf = ln(1 + N / df).
-function tfidfRank(query: string, docs: Doc[]): { doc: Doc; score: number }[] {
+export function tfidfRank(query: string, docs: Doc[]): { doc: Doc; score: number }[] {
   const q = terms(query);
   const N = docs.length || 1;
   const df = new Map<string, number>();
@@ -46,6 +46,7 @@ function tfidfRank(query: string, docs: Doc[]): { doc: Doc; score: number }[] {
     .sort((a, b) => b.score - a.score);
 }
 
+export function buildCorpus(uid: string): Doc[] {
 const u = loadUserDb(uid);
 const cm = loadCmDb(uid);
 const docs: Doc[] = [
@@ -55,6 +56,12 @@ const docs: Doc[] = [
   // demonstrator the CM store is read through the same process (labeled honestly above).
   ...cm.entries.filter((e) => e.status === 'active').map((e) => ({ source: 'context-memory-db:entry', text: `${e.title} ${e.detail}${e.evidence?.total != null ? ` evidence total EUR ${e.evidence.total}` : ''}` })),
 ];
+return docs;
+}
+
+function main() {
+if (!question) { console.error('Give a question.'); process.exit(1); }
+const docs = buildCorpus(uid);
 
 const ranked = tfidfRank(question, docs).slice(0, 3);
 console.log('Local RAG demonstrator - TF-IDF retrieval, deterministic composition, NO embeddings, NO LLM.');
@@ -67,3 +74,6 @@ if (!ranked.length) {
   for (const r of ranked) console.log(`  [${r.score.toFixed(4)}] ${r.doc.source}: ${r.doc.text.slice(0, 100)}`);
   console.log(`Answer: ${ranked.map((r) => r.doc.text).join(' | ')}`);
 }
+}
+
+if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) main();
