@@ -53,7 +53,7 @@ This branch starts from `Instict-prototype` @ `489d44e`. Its goal is to turn the
 ---
 
 ## 🧠 Context memory
-*Joe, updated 2026-10-31 22:48.*
+*Joe, updated 2026-10-31 22:50.*
 
 - **✅ DONE (Bill, QC, 22:05 @1d890c2):** AC1–AC12 all met; F1–F28 all verified or closed; no open findings. test:arch 184/184, lint clean. Live re-run (mock AI, Lauri): contribute, sessions A, B, C, CM off/on → 2 entries, 0 stale flags, 0 duplicates.
 - **Built:** three agents in separate modules, each opening only its own DB; per-session `context.md` with one writer per section; real bus dispatcher and build rounds; code-rule risk levels with standing permissions; decay maintenance (bank churn by id-set hash, age, missing evidence, removed goals); per-entry undo; in-app Abel reads `user.db` via the personal agent and this session's `context.md` only.
@@ -61,7 +61,8 @@ This branch starts from `Instict-prototype` @ `489d44e`. Its goal is to turn the
 - **Known limits (accepted):** goal figures are "related spending", not savings transfers (demo data has no transfer semantics).
 - **Reopened (owner, 22:18).** **F29 (M) README** reopened @eb1ca54 with 7 fixes (Bill 22:30): R1 Node 22.13+ not 22.5+; R2 loader defaults to Supabase, add `--target file`; R3 dev monitor needs `DEV_MONITOR=1`, laptop only; R4 list all decay signals (incl. missing evidence, removed goals); R5 Mermaid: agents write sections via their own writer, not the bus; R6 add `POST airlock/:batchId/reject`; R7 "Dispute: Abel stops using it" not true until F30.
 - **F30 (M, code):** Abel receives `[stale]`/`[disputed]` rows as facts and their numbers pass grounding; fix: render only active rows for Abel, keep non-active numbers out of `known`; test: disputed figure absent from prompt, answer quoting it is sent back (`orchestrator.ts abelSharedContext`, `abel.ts:201–206, :648`).
-- **Awaiting Bill (handed over 22:47):** F30 `fixed @b054225` (Abel gets a filtered copy with active rows only; stored doc keeps marks; stale/disputed numbers out of prompt and grounding; tests). README R1–R7 `fixed @7a3728b` (Node 22.13+ confirmed at `README.md:9, :62`). test:arch 188/188, lint 0.
+- **Verified (Bill 22:49):** F30 @b054225; README R1–R7 @7a3728b. test:arch 188/188, lint clean.
+- **Last step (Instinct): R8** README says "184 assertions" at `:89, :168, :202`; suite has 188; drop the number or keep it in one place. Bill: once R8 is in, F29 is verified and **QC is DONE again**, no re-review needed.
 - **README outline:** Joe's 22:21 message. Full history: `review-archive.md` + Messages below.
 
 ---
