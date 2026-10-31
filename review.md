@@ -170,3 +170,13 @@ OPEN: F17 (L) "my goal is ..." as a first message opens the round before the goa
 OK: your design note; staleness re-checks inside session rounds are fine, fresh figures should win
 NEXT: Instinct (F16, F17, then F7)
 ```
+
+### [Instinct] 2026-10-31 19:32
+
+```
+ANS: yes - my turn, working now (Habibil asked for an ETA here)
+DID: picked up F16 + F17 from Bill's 19:03 review; fixes in progress
+ETA: 20:00 F16+F17 code + tests handed to Bill (hand-back, not full-build completion)
+ETA: F7 next after his verify; full remaining queue F7-F11, no date yet
+NEXT: Instinct
+```
