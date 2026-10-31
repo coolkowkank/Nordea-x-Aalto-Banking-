@@ -1,7 +1,7 @@
 import type { Express, Request, Response } from 'express';
 import {
   agentQuery, archState, chat, addGoalDirect, connectExternalAgent, disconnectPersonalAgent,
-  stageSync, decideAirlock, contribute, reviewQueue, decideProposal, setStandingPermissions,
+  stageSync, decideAirlock, contribute, reviewQueue, decideProposal, setStandingPermissions, undoEntry,
   explainEntry, disputeEntry, setAgentOff, deleteDatabase, parkCabinet, listEntries, ArchError,
 } from './orchestrator.js';
 import type { AgentId } from './types.js';
@@ -22,6 +22,8 @@ export function registerArchRoutes(app: Express) {
   const uid = (req: Request) => String(req.params.uid || '');
 
   app.get('/api/arch/:uid/state', h((req, res) => res.json(archState(uid(req)))));
+
+  app.post('/api/arch/:uid/entries/:entryId/undo', h((req, res) => res.json(undoEntry(uid(req), String(req.params.entryId)))));
 
   app.post('/api/arch/:uid/permissions', h((req, res) => {
     const reviewLevel = req.body?.reviewLevel === 'high' ? 'high' as const : 'all' as const;

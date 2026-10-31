@@ -37,7 +37,8 @@ const fmt = (n: number, d = 0) =>
   Number(n).toLocaleString('fi-FI', { minimumFractionDigits: d, maximumFractionDigits: d }).replace(/−/g, '−') + ' €';
 
 // A code backstop for what's private. Kept narrow: "separately", "disable" or "works at the hospital" are not private.
-const SENSITIVE = /\b(health|illness|ill\b|sick|cancer|diagnos|pregnan|baby on the way|ivf|divorc|separation|separated|affair|therap|depress|anxiety|anxious|panic attack|disabilit|disabled|surgery|hospitali[sz]|debt collector|gambl|addict)/i;
+// F21: one shared word-bounded list lives in ./sensitive.js.
+import { SENSITIVE_TOPIC as SENSITIVE } from './sensitive.js';
 
 /** Dates from the model as YYYY-MM-DD. "2027-08", "08/2027" and "August 2027" become the last day of that month. */
 const MONTHS = ['jan', 'feb', 'mar', 'apr', 'may', 'jun', 'jul', 'aug', 'sep', 'oct', 'nov', 'dec'];

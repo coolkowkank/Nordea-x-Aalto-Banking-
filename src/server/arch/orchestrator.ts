@@ -167,6 +167,11 @@ export function decideProposal(uid: string, messageId: string, accept: boolean):
 
 // ---------- Explain / dispute ----------
 
+/** F22/AC9: per-entry undo for automatically stored entries (logged by the CM agent). */
+export function undoEntry(uid: string, entryId: string) {
+  return controlRoundTrip(uid, 'cm', `Undo automatically stored entry ${entryId}.`, { control: 'undo-entry', entryId });
+}
+
 /** AC7: the customer sets standing permissions once (first start); until then nothing is automatic. */
 export function setStandingPermissions(uid: string, reviewLevel: 'all' | 'high') {
   return controlRoundTrip(uid, 'cm', `Customer sets standing permissions: ${reviewLevel === 'high' ? 'only high risk waits for review' : 'everything waits for review'}.`, { control: 'set-permissions', reviewLevel }) as { reviewLevel: string };

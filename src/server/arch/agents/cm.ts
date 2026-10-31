@@ -8,7 +8,7 @@
 import { newId, now } from '../types.js';
 import type { AgentMessage, ArchEntry, StaleFlag } from '../types.js';
 import { words, overlaps, overlapScore } from '../text.js';
-import { assessProposalRisk } from '../risk.js';
+import { assessProposalRisk, deriveObserved } from '../risk.js';
 import { loadCmDb, saveCmDb, storeRoundRecord, storeContextSnapshot } from '../store/cmStore.js';
 import { loadContext, readSectionRows, renderContextMd, writeHeader, writeMemorySection } from '../store/contextStore.js';
 import type { ContextRow } from '../store/contextStore.js';
@@ -113,7 +113,7 @@ function autoStoreRoundProposals(uid: string, roundId?: string) {
       proposedBy: proposal.from === 'personal' ? 'personal' : 'nordea',
       viaMessageId: proposal.id,
       evidence: { transactionIds: p.transactionIds, total: p.total },
-      observed: p.observed ?? (p.total != null ? 'observed' : 'inferred'),
+      observed: deriveObserved(proposal), // F20: derived from evidence, not the proposer's flag
       risk,
       autoAccepted: true,
       status: 'active',
@@ -362,7 +362,7 @@ function handleMessage(uid: string, msg: AgentMessage) {
         proposedBy: proposal.from === 'personal' ? 'personal' : 'nordea',
         viaMessageId: proposal.id,
         evidence: { transactionIds: p.transactionIds, total: p.total },
-        observed: p.observed ?? (p.total != null ? 'observed' : 'inferred'),
+        observed: deriveObserved(proposal), // F20: derived from evidence, not the proposer's flag
         status: 'active',
         createdAt: now(),
       };
@@ -370,6 +370,29 @@ function handleMessage(uid: string, msg: AgentMessage) {
       saveCmDb(cm);
       appendMessage(uid, { from: 'cm', to: 'user', type: 'inform', summary: `Context Memory agent added "${entry.title}" to the cabinet after your approval.` });
       appendMessage(uid, { from: 'cm', to: 'app', type: 'reply', summary: 'Proposal accepted into the cabinet.', payload: { inReplyTo: msg.id, entry } });
+      updateMessage(uid, msg.id, { status: 'answered' });
+      return;
+    }
+
+    if (control === 'undo-entry') {
+      // F22/AC9: per-entry undo for AUTOMATICALLY stored entries - removes the entry, keeps a log line.
+      const entryId = payload.entryId as string;
+      const cm = loadCmDb(uid);
+      const entry = cm.entries.find((e) => e.id === entryId);
+      if (!entry) {
+        appendMessage(uid, { from: 'cm', to: 'app', type: 'reply', summary: 'No such cabinet entry.', payload: { inReplyTo: msg.id, error: 'No such cabinet entry.', statusCode: 404 } });
+        updateMessage(uid, msg.id, { status: 'answered' });
+        return;
+      }
+      if (!entry.autoAccepted) {
+        appendMessage(uid, { from: 'cm', to: 'app', type: 'reply', summary: 'Only automatically stored entries can be undone here; dispute or delete works for the rest.', payload: { inReplyTo: msg.id, error: 'Only automatically stored entries can be undone.', statusCode: 409 } });
+        updateMessage(uid, msg.id, { status: 'answered' });
+        return;
+      }
+      cm.entries = cm.entries.filter((e) => e.id !== entryId);
+      saveCmDb(cm);
+      appendMessage(uid, { from: 'cm', to: 'user', type: 'inform', summary: `Undone: "${entry.title}" was removed from your cabinet. It had been stored automatically under your standing permissions.` });
+      appendMessage(uid, { from: 'cm', to: 'app', type: 'reply', summary: 'Entry undone.', payload: { inReplyTo: msg.id, undone: true, title: entry.title } });
       updateMessage(uid, msg.id, { status: 'answered' });
       return;
     }

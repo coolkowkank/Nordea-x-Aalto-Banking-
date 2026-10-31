@@ -503,5 +503,29 @@ const unavail = A.chat(UID18, 'any grocery insights?');
 check('F19: with no document and no user-db hit, chat plainly says shared context is unavailable this session', unavail.reply.includes('shared context is unavailable this session'), unavail.reply.slice(0, 120));
 A.setAgentOff(UID18, 'cm', false);
 
+
+// --- F20: risk derives "observed" from evidence, never from the proposer's own flag.
+const RK = await import('../src/server/arch/risk.js');
+const fakeMsg = (from: string, payload: Record<string, unknown>, summary = 'x') => ({ id: 'm', at: '', from: from as 'nordea', to: 'cm' as const, type: 'propose' as const, summary, payload, status: 'pending' as const });
+check('F20: an evidence-less proposal is an INFERENCE (high risk) even without any flag', RK.assessProposalRisk(fakeMsg('nordea', { detail: 'a guess' })) === 'high');
+check('F20: transaction ids + a total count as observed (medium for the bank side)', RK.assessProposalRisk(fakeMsg('nordea', { transactionIds: ['t1'], total: 10 })) === 'medium');
+check('F20: the customer\'s own goal (goal ids, personal) is low risk', RK.assessProposalRisk(fakeMsg('personal', { goalIds: ['g1'], observed: 'observed' })) === 'low');
+check('F20: a personal proposal WITHOUT goal ids and no evidence is an inference (high)', RK.assessProposalRisk(fakeMsg('personal', { detail: 'maybe' })) === 'high');
+check('F20: a self-declared "observed" flag cannot downgrade an inference', RK.assessProposalRisk(fakeMsg('nordea', { observed: 'observed', detail: 'no evidence here' })) === 'high');
+
+// --- F21: one shared word-bounded sensitive list; no substring false positives.
+check('F21: "reunion" and "drugstore" are NOT sensitive', RK.assessProposalRisk(fakeMsg('nordea', { transactionIds: ['t1'], total: 10 }, 'Reunion party at the drugstore')) === 'medium');
+check('F21: pregnancy, divorce, gambling and debt collectors ARE sensitive (high)', ['pregnancy costs', 'divorce fund', 'gambling habit', 'debt collector payment'].every((t) => RK.assessProposalRisk(fakeMsg('nordea', { transactionIds: ['t1'], total: 10 }, t)) === 'high'));
+check('F21: abel.ts uses the shared sensitive list (no private copy)', !/const SENSITIVE = /.test(fs.readFileSync(new URL('../src/server/abel.ts', import.meta.url), 'utf-8')) && fs.readFileSync(new URL('../src/server/abel.ts', import.meta.url), 'utf-8').includes("from './sensitive.js'"));
+
+// --- F22: per-entry undo for automatically stored entries, logged; manual entries refused.
+const undone = A.undoEntry(UID15, autoMed!.id) as { undone?: boolean };
+check('F22: an auto-stored entry can be undone one by one', undone.undone === true && !S.loadCmDb(UID15).entries.some((e) => e.id === autoMed!.id), JSON.stringify(undone));
+check('F22: the undo is logged to the customer', S.loadBus(UID15).messages.some((m) => m.type === 'inform' && m.summary.startsWith('Undone: ')));
+const manualEntry = A.decideProposal(UID16, A.reviewQueue(UID16)[0].id, true) as { id: string };
+let refused = '';
+try { A.undoEntry(UID16, manualEntry.id); } catch (e) { refused = (e as Error).message; }
+check('F22: undo refuses a manually reviewed entry (dispute instead)', refused.includes('automatically stored') && S.loadCmDb(UID16).entries.length === 1, refused.slice(0, 100));
+
 console.log(`\n${passed} passed, ${failed} failed`);
 process.exit(failed ? 1 : 0);
