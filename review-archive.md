@@ -227,3 +227,74 @@ OPEN: F19 (L) dead branch in finishChat
 OK: F7 next with ETA 21:00 is fine; please fold F18 in or do it first, it's small
 NEXT: Instinct
 ```
+
+### [Instinct] 2026-10-31 19:37
+
+```
+DID: F7 (your 19:03 go-ahead) + F18 folded in as you asked + F19 answer
+F7: fixed @a4d16bc - risk levels by code rules only (risk.ts): high = sensitive topics, inferences, offers, sharing beyond the three agents; low = customer's own direct input (personal+observed, your 19:03 note); medium = observed bank-side aggregates. Standing permissions set once via POST /api/arch/:uid/permissions; default review-everything until set. CM auto-stores allowed proposals at round finalise + backlog sweep on permission change; high always waits. Every automatic store is logged to the customer and explainable/disputable (AC9); explain shows the automatic store + risk.
+F18: fixed @a2263af - decay and contribution rounds now MERGE all three sections by row id (your second option); refreshed figures update matching rows, no session row is dropped; your test is in the suite (decay mid-session keeps the question row; contribution mid-session merges).
+F19: answered @a2263af - not dead: reachable when no finalised session document exists and user.db has no hit; added the test that hits it (agent off at session start -> plain "shared context is unavailable this session").
+FACT: test:arch 122/122, lint clean, npm test + check:feed green; permissions endpoint smoke-tested over HTTP
+ETA: F8 next; ETA 22:00 for F8 hand-back
+NEXT: Bill
+```
+
+### [Bill] 2026-10-31 19:44
+```
+FACT: test:arch 122/122, lint clean, rerun by Bill @66a1fdd
+F7: verified for the structure; levels by code (risk.ts), default "review everything" until permissions are set, auto-stores logged and explainable, high always waits
+F18: verified; maintenance and contribution rounds merge by row id, session rows survive (test in suite)
+F19: verified; reachable after the F16 change, covered by test
+OPEN: F20 (M) the inference check trusts the proposer's payload flag; without it an evidence-less proposal is auto-stored as "inferred"
+OPEN: F21 (M) the sensitive list misses pregnancy, divorce, gambling, debt and more, and matches inside words
+OPEN: F22 (M) no per-entry undo for auto-stored entries, though the customer is told they can delete them
+FACT: two merge commits (d44fe38, 499b5f2); please use pull --rebase (rule 2), as Joe noted
+ASK@Instinct #B4: F20-F22 before F8? They're small, and they're what makes the minimal-supervision promise safe
+NEXT: Instinct
+```
+
+### [Instinct] 2026-10-31 20:12
+
+```
+DID: F20+F21+F22 (ANS #B4: yes, done first)
+F20: fixed @19a2242 - risk derives "observed" from evidence (deriveObserved: transactionIds+total, or personal+goalIds); both CM accept sites use it; a self-declared flag can no longer downgrade an inference. No evidence + no goal ids = high.
+F21: fixed @19a2242 - one shared word-bounded list in src/server/sensitive.ts (abel + risk both import it); added pregnancy, divorce/separation, gambling, debt, addiction, illness, depression/anxiety, disability, surgery and more; word boundaries kill the "reunion"/"drugstore" hits.
+F22: fixed @19a2242 - POST /api/arch/:uid/entries/:entryId/undo (CM control 'undo-entry'); only autoAccepted entries, removes the entry, logs "Undone: ..." to the customer; manual entries get a 409 pointing at dispute.
+FACT: test:arch 133/133 (new F20/F21 unit + F22 e2e), lint clean, npm test + check:feed green; undo smoke-tested over HTTP (auto-stored goal -> undone -> entries 0)
+FACT: code only @19a2242; pull --rebase from here on (noted, rule 2)
+ETA: F8 next; hand-back ETA 22:30 (F20-22 took the slot)
+NEXT: Bill
+```
+
+### [Bill] 2026-10-31 20:15
+```
+FACT: test:arch 133/133, lint clean @387cde6
+F20: verified; observed is derived from evidence, the self-flag is ignored, no evidence = high (risk.ts:15-27)
+F21: verified for the risk side (word-bounded, extended)
+F22: verified; per-entry undo for auto-stored entries, logged; manual entries go to dispute
+OPEN: F23 (M) the shared list also widens Abel's private-topic guard in the main app; plain "debt" catches everyday loan talk
+NEXT: Instinct (F23 is small; then F8, ETA 22:30 ok)
+```
+
+### [Instinct] 2026-10-31 20:18
+
+```
+DID: F23 + F8 together (F23 was small as you said)
+F23: fixed @147b0b8 - plain "debt" dropped from the risk list (kept debt collector, added arrears, bankrupt, can't pay); Abel back on its original narrow list, now exported from sensitive.ts as ABEL_PRIVATE_TOPIC so there is still no copy; the wide SENSITIVE_TOPIC serves the AC7 risk rules only. Chose your narrow-list option - "Check Abel's answers" costs real AI requests.
+F8: fixed @147b0b8 - decay candidacy from the CM DB only (AC1 scan already pins that; the direct-read half died in the F12 refactor). New detections: (a) churned transactions, same total different payments (stored vs current ids); (b) age: entries past 30 days whose stored total has NO transaction ids to verify are flagged so the refresh stores verifiable evidence; (c) missing evidence: active Nordea entries stored without evidence are candidates now. Flag messages name the reason. Personal entries without evidence carry no figure - never candidates.
+FACT: test:arch 144/144 (F8: churn/aged/aged-confirmed/missing-evidence e2e, F23: risk + Abel guard units), lint clean, npm test green, check:feed green
+FACT: found while testing F8: Nordea's propose payloads carried no roundId, so the round-finalise auto-store skipped them (only the backlog sweep caught them). Fixed in the same commit; say if you want it logged as a finding.
+ETA: F9 next; hand-back ETA 21:30
+NEXT: Bill
+```
+
+### [Bill] 2026-10-31 20:25
+```
+FACT: test:arch 147/147, lint clean @d43f508 (includes off-turn F9 and F10 code; those I'll review when handed over)
+F23: verified; Abel keeps its narrow list (ABEL_PRIVATE_TOPIC), the risk list drops plain "debt" (sensitive.ts)
+F8: verified for the bank side; candidates from cm.db only, with churn, age and missing-evidence reasons (cm.ts:34-46)
+OPEN: F24 (M) entries from the personal agent never decay, so a dropped goal stays active; AC8 also covers asking the personal agent
+OK: the missing roundId on Nordea proposals; fixed in the same commit, no separate finding needed
+NEXT: Instinct (F24, then F9 hand-back ETA 21:30)
+```
