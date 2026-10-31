@@ -111,6 +111,14 @@
     <div class="stream"><h3>Gateway reads (audited, newest first)</h3><div class="rows" id="reads"></div></div>
   </div>
 
+  <div class="window" id="arch-window" style="display:none;margin-top:18px">
+    <div class="wtitle"><div class="dots"><div class="dot" style="background:#ff5f57"></div><div class="dot" style="background:#febc2e"></div><div class="dot" style="background:#28c840"></div></div><h2>Three-database architecture (live, local SQLite stores)</h2></div>
+    <div class="agentline"><span id="arch-agents"></span></div>
+    <div class="statusbar" id="arch-stores" style="position:static;margin:8px 12px"></div>
+    <h3 style="margin:8px 12px 4px;font-size:13px">Agent-to-agent bus (newest first, real messages)</h3>
+    <div class="rows" id="arch-bus" style="padding:0 12px 10px"></div>
+  </div>
+
   <div class="footnote">
     <div>Panels show only what the access gateway allows each side to read. Pending or private cards never appear in the collaborative list.</div>
     <div>Monitoring has no side effects: gateway rules are evaluated in preview mode (no access-log writes, no reward changes).</div>
@@ -265,6 +273,29 @@ async function tick() {
   document.getElementById('reads').innerHTML = (d.accessLog || []).map((l) =>
     `<div class="ev"><time>${fmtTime(l.timestamp)}</time><span class="who who-abel">${esc(l.agentName)}</span><span>read ${l.itemsReadCount} card(s)${l.blockedCount ? `, ${l.blockedCount} blocked` : ''}</span></div>`).join('')
     || '<div class="ev">No gateway reads recorded yet.</div>';
+
+  // Three-database architecture panel: real state from the arch SQLite stores, when the customer has any.
+  const aw = document.getElementById('arch-window');
+  if (d.arch) {
+    aw.style.display = 'block';
+    const st = d.arch.stores;
+    const pa = d.arch.personalAgent || {};
+    const paLine = pa.mode === 'external'
+      ? `personal agent: EXTERNAL (${esc(pa.externalName || 'unnamed')}) - SIMULATED, no live connection`
+      : 'personal agent: Abel (in-app)';
+    const off = (d.arch.agentsOff || []).length ? ` - agents off: ${d.arch.agentsOff.map(esc).join(', ')}` : '';
+    document.getElementById('arch-agents').innerHTML = `${paLine}${off}`;
+    document.getElementById('arch-stores').textContent =
+      `${st.userDb.file}: ${st.userDb.goals} goals, ${st.userDb.personalFacts} facts | ` +
+      `${st.contextMemoryDb.file}: ${st.contextMemoryDb.entries} entries (${st.contextMemoryDb.active} active, ${st.contextMemoryDb.stale} stale, ${st.contextMemoryDb.disputed} disputed) | ` +
+      (st.nordeaDb ? `${st.nordeaDb.file}: ${st.nordeaDb.accounts} accounts, ${st.nordeaDb.transactions} transactions | ` : 'nordea.db: not created | ') +
+      `${st.busDb.file}: ${st.busDb.messages} messages, ${st.busDb.airlockPending} airlock pending`;
+    document.getElementById('arch-bus').innerHTML = (d.arch.recentMessages || []).map((m) =>
+      `<div class="ev"><time>${fmtTime(m.at)}</time><span class="who who-abel">${esc(m.from)}&rarr;${esc(m.to)}</span><span>[${esc(m.type)}] ${esc(m.summary)}</span></div>`).join('')
+      || '<div class="ev">No architecture messages yet.</div>';
+  } else {
+    aw.style.display = 'none';
+  }
 
   knownIds = new Set([
     ...d.panels.user.entries.map((e) => e.id),

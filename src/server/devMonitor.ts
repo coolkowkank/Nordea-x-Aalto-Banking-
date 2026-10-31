@@ -8,6 +8,7 @@ import { getAllAgents } from './agentRegistry.js';
 import { aiStatus } from './llm.js';
 import { feedStatus } from './nordeaFeed.js';
 import { CabinetEntry } from '../types.js';
+import { loadUserDb, loadCmDb, loadNordeaDb, loadBus, nordeaFileExists } from './arch/store.js';
 
 function serialize(e: CabinetEntry) {
   return {
@@ -121,6 +122,31 @@ export function registerDevMonitor(app: Express) {
       // seed/demo holds the fictional customers lauri, eeva and alex (seed/README.md),
       // so the page can label that data as fictional rather than real bank data.
       demoPersona: ['lauri', 'eeva', 'alex'].includes(userId),
+      // Live state of the three-database architecture for the same customer, read from the
+      // arch SQLite stores themselves. Real state only: database row counts, agent on/off,
+      // the actual bus message tail. null when this customer has no arch data yet.
+      arch: (() => {
+        try {
+          const u = loadUserDb(userId);
+          const cm = loadCmDb(userId);
+          const nordea = nordeaFileExists(userId) ? loadNordeaDb(userId) : null;
+          const bus = loadBus(userId);
+          if (!u.goals.length && !cm.entries.length && !nordea && !bus.messages.length) return null;
+          return {
+            stores: {
+              userDb: { file: `${userId}.user.db`, goals: u.goals.length, personalFacts: u.personalFacts.length },
+              contextMemoryDb: { file: `${userId}.cm.db`, entries: cm.entries.length, active: cm.entries.filter((e) => e.status === 'active').length, stale: cm.entries.filter((e) => e.status === 'stale').length, disputed: cm.entries.filter((e) => e.status === 'disputed').length },
+              nordeaDb: nordea ? { file: `${userId}.nordea.db`, accounts: nordea.accounts.length, transactions: nordea.transactions.length } : null,
+              busDb: { file: `${userId}.bus.db`, messages: bus.messages.length, airlockPending: bus.airlock.filter((a) => a.status === 'pending').length },
+            },
+            agentsOff: u.agentsOff,
+            personalAgent: u.personalAgent,
+            recentMessages: bus.messages.slice(-15).reverse().map((m) => ({ at: m.at, from: m.from, to: m.to, type: m.type, summary: m.summary, status: m.status })),
+          };
+        } catch {
+          return null;
+        }
+      })(),
       startedAt,
     });
   });
