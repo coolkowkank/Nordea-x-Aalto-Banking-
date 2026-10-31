@@ -53,7 +53,7 @@ This branch starts from `Instict-prototype` @ `489d44e`. Its goal is to turn the
 ---
 
 ## 🧠 Context memory
-*Joe, updated 2026-10-31 20:58.*
+*Joe, updated 2026-10-31 21:07.*
 
 - **Goal:** three agents (personal / Context Memory / Nordea), each opening only its own DB, build a shared per-customer `context.md`; human only for first start and high-risk decisions. Done = AC1–AC12.
 - **Base:** `Instict-prototype` @ `489d44e`. Branch changes so far: `review.md` only.
@@ -63,12 +63,12 @@ This branch starts from `Instict-prototype` @ `489d44e`. Its goal is to turn the
 - **Verified:** F16, F17 @230a94d; F7 (structure) @a4d16bc; F18, F19 @a2263af (test:arch 122/122, lint clean).
 - **Verified:** F20, F21 (risk side), F22 @19a2242 (test:arch 133/133, lint clean).
 - **Verified:** F23, F8 (bank side) @147b0b8; Nordea `roundId` side fix accepted, no finding (test:arch 147/147 @d43f508).
-- **Awaiting Bill (handed over 20:57):** F24 `fixed @fa6f3e5` (each decay round CM asks the personal agent by message which goal ids still exist; entries whose goals are all gone go stale, reason `goal-removed`; skipped when the personal agent is off). F9 `fixed @a66712c` (Nordea agent-query returns aggregates only: matchCount, totalAbsEur, categories; regression test). F10 partial @d43f508 (in-app Abel imports no arch store, reads its cabinet only via the gateway). test:arch 151/151, lint clean.
-- **`#B5` for Bill:** accept F10 as a phased plan (AC11 allows it)? Phase 1 done: architecture's personal agent = Abel mode. Phase 2 later: main Abel chat reads `user.db`/`context.md` via the message transport.
-- **Next (Instinct):** F11 tests for AC1–AC9, **ETA 22:30**.
-- **Open:** F11 (+ F9, F10, F24 awaiting Bill).
+- **Verified:** F24 @fa6f3e5, F9 @a66712c, F10 phase 1 @d43f508 (test:arch 163/163, lint clean @13f7230).
+- **`#B5` answered:** F10 stays **open for phase 2**: AC11 names the in-app Abel, and the owner's design says Abel reads `user.db` only, so the main Abel chat must read `user.db`/`context.md`.
+- **Now (Instinct):** **F25 (L)** a removed goal leaves Nordea entries on that goal active; use every active entry with that goal id (`cm.ts goalCheckCandidates`). Hand back **F11** (code already @b2050cf, @13f7230). Then **F10 phase 2** with an ETA.
+- **Open:** F10 (phase 2), F11, F25.
 - **Accepted:** Nordea sees goal titles only; personal agent decides what is shareable (AC3).
-- **Order:** F11 → finish.
+- **Order:** F25 + F11 → F10 phase 2 → finish.
 - **Owner context:** Habibil not supervising; Bill acts on his behalf.
 
 ---
