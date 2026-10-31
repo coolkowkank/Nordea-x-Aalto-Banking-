@@ -6,7 +6,7 @@
 
 *A Nordea × Aalto University mobile banking concept - `instinct-prototype-v2` branch*
 
-[![Node 22.5+](https://img.shields.io/badge/Node-22.5%2B-339933?logo=node.js&logoColor=white)](https://nodejs.org)
+[![Node 22.13+](https://img.shields.io/badge/Node-22.13%2B-339933?logo=node.js&logoColor=white)](https://nodejs.org)
 [![TypeScript](https://img.shields.io/badge/TypeScript-3178C6?logo=typescript&logoColor=white)](https://www.typescriptlang.org)
 [![SQLite](https://img.shields.io/badge/SQLite-node%3Asqlite-003B57?logo=sqlite&logoColor=white)](https://nodejs.org/api/sqlite.html)
 [![React 19](https://img.shields.io/badge/React-19-61DAFB?logo=react&logoColor=white)](https://react.dev)
@@ -51,7 +51,6 @@ flowchart TD
     PA <-->|"bus messages"| BUS["🚌 Shared bus"]
     CM["🗄️ Context Memory agent<br/>opens only <code>cm.db</code>"] <-->|"bus messages"| BUS
     NOR["🏦 Nordea agent<br/>opens only <code>nordea.db</code>"] <-->|"bus messages"| BUS
-    BUS <-->|"section writes"| CTX
     PA -->|"Customer section"| CTX
     CM -->|"Context memory section + finalise stamp"| CTX
     NOR -->|"Nordea section"| CTX
@@ -60,7 +59,7 @@ flowchart TD
 
 ## 🚀 Quick start
 
-**You need:** [Node.js](https://nodejs.org) 22.5 or newer (the stores use the built-in `node:sqlite`). An AI key is optional for a first look.
+**You need:** [Node.js](https://nodejs.org) 22.13 or newer (the stores use the built-in `node:sqlite`, unflagged from 22.13). An AI key is optional for a first look.
 
 ```bash
 # 1. Get the code and switch to this branch
@@ -71,14 +70,14 @@ git checkout instinct-prototype-v2
 # 2. Install
 npm install --legacy-peer-deps
 
-# 3. Load the fictional bank data (needs Supabase set up - see seed/README.md)
-python3 scripts/load_data.py seed/demo
+# 3. Load the fictional bank data (see seed/README.md)
+python3 scripts/load_data.py seed/demo --target file   # local file store; drop --target file to use Supabase
 
 # 4. Run without an AI key
 LLM_PROVIDER=mock npm run dev
 ```
 
-Open **http://localhost:3000/arch.html** for the three-agent demo UI. **http://localhost:3000/dev-monitor.html** shows the developer monitor. Without `LLM_PROVIDER=mock`, Abel uses Gemini (`GEMINI_API_KEY`) or an OpenAI-compatible provider, as on `main`.
+Open **http://localhost:3000/arch.html** for the three-agent demo UI. The developer monitor at **http://localhost:3000/dev-monitor.html** is off unless you start with `DEV_MONITOR=1` (it shows private cards, so it is a laptop-only tool). Without `LLM_PROVIDER=mock`, Abel uses Gemini (`GEMINI_API_KEY`) or an OpenAI-compatible provider, as on `main`.
 
 | Script | What it does |
 |---|---|
@@ -122,7 +121,7 @@ Open **http://localhost:3000/arch.html** for the three-agent demo UI. **http://l
 | | Feature | How it works |
 |:-:|---|---|
 | 🔁 | **Re-check before reuse** | The CM agent detects possible decay from stored evidence and asks the owning agent to confirm - it never opens another agent's database. |
-| 🧮 | **Three decay signals** | A changed total, churned transactions (a hash of the full id set is compared like with like, so large accounts don't false-flag), and age without verifiable evidence. |
+| 🧮 | **Five decay signals** | A changed total; churned transactions (a hash of the full id set is compared like with like, so large accounts don't false-flag); age past 30 days without verifiable evidence; evidence that was never stored; and a goal the customer removed, which flags its entries too. |
 | 🚩 | **Plain-language flags** | The customer is told which entries went stale, why, and whether refreshed figures were stored automatically or wait in merge review. |
 
 #### 🧑‍⚖️ Customer control
@@ -130,7 +129,7 @@ Open **http://localhost:3000/arch.html** for the three-agent demo UI. **http://l
 | | Feature | How it works |
 |:-:|---|---|
 | 💬 | **Explain** | Every cabinet item answers "why do you know this?" with its source and the message that proposed it. |
-| ✋ | **Dispute** | The customer can mark an item wrong; Abel stops using it. |
+| ✋ | **Dispute** | The customer can mark an item wrong; from then on it is filtered out of the context Abel receives, so its figures fail Abel's grounding check. The stored document keeps the `[disputed]` mark and the history. |
 | ↩️ | **Undo** | Automatically stored items can be undone per entry; manually reviewed items are disputed instead, so provenance survives. |
 | ⏸️ | **Park and agent switches** | Parking the cabinet or switching an agent off silences that part of the pipeline without deleting anything. |
 
@@ -154,7 +153,7 @@ All under `/api/arch/:uid/` (`src/server/arch/routes.ts`):
 | `POST permissions` | Set standing permissions (`reviewLevel: 'all' \| 'high'`) |
 | `POST agent-query` | Ask an agent a direct question |
 | `POST personal-agent/connect` · `POST personal-agent/disconnect` | Swap between the in-app and an external personal agent |
-| `POST sync` · `POST airlock/:batchId/approve` | Sync ingestion through the airlock; approve what enters the User DB |
+| `POST sync` · `POST airlock/:batchId/approve` · `POST airlock/:batchId/reject` | Sync ingestion through the airlock; approve or reject what enters the User DB |
 | `POST nordea/contribute` | Run a contribution round (Nordea proposals) |
 | `GET review` · `POST review/:messageId/accept` · `POST review/:messageId/reject` | The merge-review queue |
 | `GET entries` · `GET entries/:entryId/explain` · `POST entries/:entryId/dispute` · `POST entries/:entryId/undo` | Cabinet entries: list, explain, dispute, undo |
