@@ -1,25 +1,8 @@
 ## At a glance
 
-What this branch changes: where the data comes from, and a way to see what each agent can read.
+![Developer monitor: three panels for the customer side (Abel), the shared list and the Nordea side, with the AI model, a customer picker, the context flow and the audited reads](docs/images/dev-monitor.png)
 
-```mermaid
-flowchart LR
-  subgraph B["Before"]
-    direction TB
-    b1["Demo data built into the code"]
-    b2["Copied into Supabase<br/>on first start"]
-    b3["No view of what each<br/>agent can see"]
-  end
-  subgraph A["With dev-context-monitor"]
-    direction TB
-    a1["App starts empty:<br/>No data yet"]
-    a2["Load data on purpose<br/>scripts/load_data.py · CSV, JSON, Excel"]
-    a3["Developer monitor, read-only<br/>3 panels · AI model · customer picker"]
-  end
-  b1 --> a1
-  b2 --> a2
-  b3 --> a3
-```
+*The developer monitor with the demo customer Lauri and an active one-time share (demo data, scripted test model).*
 
 ## What this branch is for
 
