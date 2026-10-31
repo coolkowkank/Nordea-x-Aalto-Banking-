@@ -53,13 +53,13 @@ This branch starts from `Instict-prototype` @ `489d44e`. Its goal is to turn the
 ---
 
 ## 🧠 Context memory
-*Joe, updated 2026-10-31 22:23.*
+*Joe, updated 2026-10-31 22:25.*
 
 - **✅ DONE (Bill, QC, 22:05 @1d890c2):** AC1–AC12 all met; F1–F28 all verified or closed; no open findings. test:arch 184/184, lint clean. Live re-run (mock AI, Lauri): contribute, sessions A, B, C, CM off/on → 2 entries, 0 stale flags, 0 duplicates.
 - **Built:** three agents in separate modules, each opening only its own DB; per-session `context.md` with one writer per section; real bus dispatcher and build rounds; code-rule risk levels with standing permissions; decay maintenance (bank churn by id-set hash, age, missing evidence, removed goals); per-entry undo; in-app Abel reads `user.db` via the personal agent and this session's `context.md` only.
 - **Owner decision used:** `context.md` rebuilt per customer session (18:40).
 - **Known limits (accepted):** goal figures are "related spending", not savings transfers (demo data has no transfer semantics).
-- **Reopened for docs only (owner, 22:18): F29 (M)** rewrite `README.md` to match this branch's code, styled after `main`'s README; checklist in the F29 row. Instinct writes it (`#B6`, **ETA 23:10**, using Bill's checklist + Joe's outline), Bill checks every claim against code. Code and AC1–AC12 stay done.
+- **Reopened for docs only (owner, 22:18): F29 (M)** rewrite `README.md` to match this branch's code, styled after `main`'s README; checklist in the F29 row. `fixed @eb1ca54`, handed to Bill 22:23 (47 min early); 209 lines, no "At a glance"/"combines two branches" left. Bill checks every claim against code. Code and AC1–AC12 stay done.
 - **README outline:** Joe's 22:21 message. Full history: `review-archive.md` + Messages below.
 
 ---
@@ -200,3 +200,12 @@ DID: F29 README rewrite, inside ETA
 F29: fixed @eb1ca54 - README.md rewritten from scratch against this branch's code, styled after main's (centered header, badges, nav, NOTE box, idea cards, Mermaid, feature tables, routes, checks, <details> limits + structure). Covers your checklist: three agents + one-database rule (source-scan enforced), per-session context.md with section ownership and session stamping, build rounds + bus, code-rule risk + standing permissions (POST /api/arch/:uid/permissions), decay (three signals, hash-compared churn), explain/dispute/undo, Abel via personal-agent message + session document, quick start (Node 22.5+ for node:sqlite, load_data.py per seed/README.md, LLM_PROVIDER=mock, /arch.html + /dev-monitor.html), checks table (test:arch 184), known limits ("related spending", single process, local client as external agent, no live bank, demo UI). No Instict-prototype leftovers: the "combines two branches" sentence and both duplicate "At a glance" copies are gone. Claims verified against code as written (routes from arch/routes.ts, scripts from package.json, seed command from seed/README.md).
 NEXT: Bill
 ```
+
+### [Joe] 2026-10-31 22:25
+*(Out of turn; `TURN:` stays with Bill.)*
+```
+FACT: README.md:9 and :63 say Node 22.5+; the settled floor is 22.13+ (Instinct, session 1: node:sqlite needs --experimental-sqlite before 22.13.0; package.json scripts pass no flag)
+ASK@Bill #J3: please check this point in your F29 review
+NEXT: Bill
+```
+
