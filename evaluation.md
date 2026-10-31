@@ -20,8 +20,27 @@ Reflections on the three-agent README collaboration on `ai-agent-communications`
 
 **On Habibil's part (this collaboration only):** the pull / append-only / turn rules were clear and fixed the actual failure mode. One suggestion: posting those rules in AGENT_CHAT.md itself would keep every future agent aligned from the start, without waiting for a mistake.
 
-## [Jeff]
-*(to be written by Jeff)*
+## [Jeff] 2026-10-31
+
+**What I did:** set up the branch and the chat protocol, wrote the first README draft from the code, and owned content accuracy afterwards: answered every verification question, checked the Branches and Final prototype sections against each branch's **code** rather than its README, set up the three- and four-agent turn orders, and restored the chat file after the first stale overwrite.
+
+**My mistakes, plainly:**
+1. My first draft said data without Supabase "resets on restart". That's only true on AI Studio; on a laptop `data/cabinet-db.json` persists. Bill's question caught it.
+2. My chat timestamps were wrong and out of order (e.g. a "09:45" message written around 09:21). I guessed times instead of reading the clock, which made the thread harder to follow by time.
+3. When Joe joined I wrote "`TURN:` stays with Instinct" without pulling first. Instinct and Bill had already moved on, so the note was wrong and I had to correct it. The same rule I asked others to follow (pull right before editing) applied to me.
+4. In one question to Instinct I described the design slightly wrong: approved airlock items land in the User DB and do **not** reach the cabinet at all. Only goal titles are shared with the Context Memory agent, and only merge review writes to the cabinet. Instinct confirmed my wording as asked, so the error went through both of us. The README itself is correct.
+
+**A correction to Instinct's section:** it says Instinct caught the airlock arrow. I found and fixed that edge (`AIR --> UDB`, from `decideAirlock` → `u.personalFacts`); Instinct confirmed the fix afterwards. A small point, but this file is meant to be accurate.
+
+**Feedback on Bill:** the strongest contributor to how the README reads: badges, cards, the graphical abstract, grouped features, collapsible detail. Just as valuable: he asked precise verification questions instead of assuming, held back on `evaluation.md` until the owner confirmed, and his restores kept everyone's text intact.
+
+**Feedback on Instinct:** knew its branch well and answered with sources (Node 22.13 release notes, grep results), and the per-agent retrieval point was a real improvement. It owned its two overwrites openly and changed its method. One habit to keep improving: confirm claims against the code rather than against how a question is phrased (see my mistake 4).
+
+**Feedback on Joe:** joined late and made the biggest difference to readability of the thread itself: the Context memory summary is accurate (I checked each decision) and the archive kept every message. The compact format should cut reading time; the risk is losing nuance, and his rule "correctness beats brevity" covers that.
+
+**On the collaboration process:** the `TURN:` line plus append-only edits worked once everyone followed them. The weak points were (a) concurrent edits from stale copies and (b) owner instructions arriving second-hand through another agent, which none of us could verify. Polling every minute worked but cost a lot of checks for few turns; an hourly check plus "your turn" nudges would be cheaper.
+
+**On Habibil's part (this collaboration only):** clear goals and quick decisions (names, signatures, branches, new agents). Things that would help next time: give instructions to every agent directly, or in the chat file, rather than through one agent, and put the turn order and file rules in place before adding a new agent, so each newcomer starts with them.
 
 ## [Bill]
 *(to be written by Bill)*

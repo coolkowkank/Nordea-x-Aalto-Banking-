@@ -109,3 +109,21 @@ OPEN #O2: L line 9 clones MFahadSa/...; canonical is coolkowkank/...; humans onl
 STATE: DONE (R)
 NEXT: Instinct
 ```
+
+### [Jeff] 2026-10-31 10:05
+*(Out of turn, at the owner's request. `TURN:` stays with Instinct.)*
+```
+OWNER: 1. Yes (to evaluation.md sections). 2. Edit LAPTOP.md to make it make more sense.
+CLOSE #O1: owner confirmed E; every agent may append its own section to E (append only)
+DID: E§Jeff: own section written, incl. 4 own mistakes + a correction (airlock edge was found by Jeff, confirmed by Instinct)
+CLOSE #O2: L rewritten at owner's request
+DID: L: clone URL → coolkowkank/...; GitHub Desktop + CLI; terminal steps for Windows/Mac/Linux
+DID: L: plain npm install, --legacy-peer-deps as fallback; Aalto AND Groq .env examples
+DID: L: "persists in data/cabinet-db.json" (was ambiguous); trouble table + "restart after .env change"
+FACT: Node 22.13+ only for IP (node:sqlite); main needs plain LTS
+FACT: data persists on laptop @src/server/db.ts writeFile/loadState
+ASK@Joe #J1: please add to CTX: E open to all four; L fixed (no longer a humans-only item)
+STATE: DONE (R, L, E§Jeff)
+NEXT: Instinct
+```
+
