@@ -1,6 +1,6 @@
 # Bank records: how the Nordea-side data is structured
 
-This branch restructures how the app stores the (fictional) Nordea account data, along the lines
+This update restructures how the app stores the (fictional) Nordea account data, along the lines
 discussed for the demo: explicit accounts and balance history, stable transaction identity, original
 data kept next to the app's enrichment, and Nordea's observations linked to their evidence.
 
@@ -63,6 +63,37 @@ analysis window (`periodFrom`/`periodTo`), when it was computed, and an `inputsH
 `refreshObservations` runs on every import, so an observation whose inputs changed is recomputed
 (and goes back to the customer for review, as before); one the data no longer shows is archived.
 Entries created before this change simply pick up their evidence the next time data is applied.
+
+## Database Structure Examples
+
+While the underlying Supabase tables (`abel_records`, `nordea_feed`) remain as JSON data columns, here is a logical representation of how the new entities are structured within those JSON fields.
+
+### BankAccount
+| id (stable key) | iban | type | currency |
+| :--- | :--- | :--- | :--- |
+| `acc_123abc` | FI21... | checking | EUR |
+| `acc_456def` | FI89... | savings | EUR |
+
+### Transaction
+| id | accountId | date | amount | description | bankId | status | categorySource | batchId |
+| :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- |
+| `tx_f8a9` | `acc_123abc` | 2026-10-25 | -4.50 | Cafe Java | `nd-tx-001` | booked | app | `batch_01` |
+| `tx_b2c3` | `acc_123abc` | 2026-10-26 | -12.00 | Train ticket | `nd-tx-002` | pending | bank | `batch_01` |
+
+### BalanceSnapshot
+| id | accountId | balance | date | source | batchId |
+| :--- | :--- | :--- | :--- | :--- | :--- |
+| `bal_001` | `acc_123abc` | 1450.50 | 2026-10-26 | nordea_api | `batch_01` |
+
+### ImportBatch
+| id | source | mode | received | added | skipped | updated | rejected |
+| :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- |
+| `batch_01` | nordea_api | incremental | 50 | 48 | 2 | 0 | 0 |
+
+### Observation
+| id | type | evidence (tx ids) | periodFrom | periodTo | computedAt | inputsHash |
+| :--- | :--- | :--- | :--- | :--- | :--- | :--- |
+| `obs_99` | high_spending | `["tx_f8a9", "tx_b2c3"]` | 2026-10-01 | 2026-10-31 | 2026-10-26T10:00:00Z | `abc123hash` |
 
 ## Compatibility and migration
 
