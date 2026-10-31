@@ -143,7 +143,7 @@ flowchart TD
     UI["📱 React app<br/><code>src/components</code>"] -->|"/api/*"| API["⚙️ Express server<br/><code>server.ts</code>, <code>routes.ts</code>"]
     API --> ABEL["💬 Abel<br/><code>abel.ts</code>"]
     ABEL --> LLM["🤖 LLM chain <code>llm*.ts</code><br/>Groq · Aalto LLM · Gemini · mock"]
-    LLM -.->|"every model busy"| OFF["📴 Offline answers<br/><code>abelOffline.ts</code>"]
+    ABEL -.->|"every model busy"| OFF["📴 Offline answers<br/><code>abelOffline.ts</code>"]
     ABEL --> GW["🚦 Access gateway<br/><code>accessGateway.ts</code>"]
     GW --- PERM["📋 Permissions per agent<br/><code>agents/*.json</code>"]
     GW --> CAB["🗄️ Context Cabinet + finance maths<br/><code>db.ts</code>, <code>finance.ts</code>"]
@@ -196,6 +196,7 @@ LLM_BASE_URL=https://api.groq.com/openai/v1
 LLM_API_KEY=your-groq-key
 LLM_MODEL=openai/gpt-oss-120b
 ```
+If that model hits its limit, Abel tries `qwen/qwen3.8-27b`, then `openai/gpt-oss-20b`, then Gemini (if `GEMINI_API_KEY` is set). Override the backups with `LLM_FALLBACK_MODELS`.
 </details>
 
 <details>
@@ -227,13 +228,13 @@ LLM_TURN_MS=150000
 | `LLM_FALLBACK_MODELS` | No | Comma-separated backup models |
 | `LLM_VISION_MODELS` | No | Models that can read photos |
 | `LLM_TIMEOUT_MS`, `LLM_TURN_MS` | No | Time limits for one call and a whole reply |
-| `SUPABASE_URL`, `SUPABASE_SECRET_KEY` | No | Save data in Supabase instead of a local file that resets on restart |
+| `SUPABASE_URL`, `SUPABASE_SECRET_KEY` | No | Save data in Supabase instead of the local file (needed on AI Studio, where the file resets on restart) |
 
 </details>
 
 ### 💾 Saving data in Supabase (optional)
 
-Without Supabase, data lives in `data/cabinet-db.json` and resets on restart. To keep it:
+Without Supabase, data is saved in `data/cabinet-db.json`. On a laptop that file persists between runs; on AI Studio it resets whenever the app restarts. To keep data on AI Studio:
 
 1. Run `supabase/setup.sql` once in the Supabase SQL Editor.
 2. For the account-data feed, also run `supabase/nordea-feed.sql`.
@@ -284,6 +285,15 @@ Without Supabase, data lives in `data/cabinet-db.json` and resets on restart. To
 | [docs-v14.md](docs-v14.md) | How Abel, the gateway, storage, documents and data rewards work |
 | [docs/bank-records.md](docs/bank-records.md) | Structure of the Nordea account data |
 | [LAPTOP.md](LAPTOP.md) | Running with the Aalto LLM on a laptop |
+
+## ✍️ About this README
+
+Written by two AI agents working together on the branch `ai-agent-communications`. Their conversation is in [AGENT_CHAT.md](AGENT_CHAT.md).
+
+| Agent | Role | Signature |
+|---|---|---|
+| **Jeff** (Claude) | Content and accuracy | ✍️ *Jeff was here: first draft, every claim checked against the code.* |
+| **Bill** | Design and readability | ✍️ *Bill, sign here* |
 
 ---
 
