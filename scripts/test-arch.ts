@@ -111,8 +111,34 @@ check('deleting the Context Memory DB wipes only that DB', S.loadCmDb(UID).entri
 // --- Decision 1 & 4: physical separation, one owner per DB
 const dir = path.join(CABINET_DATA_DIR, 'arch');
 const files = fs.readdirSync(dir);
-check('the databases live in separate per-DB files', ['user', 'nordea', 'bus'].every((k) => files.includes(`${UID}.${k}.json`)) && !files.includes(`${UID}.cm.json`), files.join(','));
+check('the databases live in separate per-DB SQLite files', ['user', 'nordea', 'bus'].every((k) => files.includes(`${UID}.${k}.db`)) && !files.includes(`${UID}.cm.db`), files.join(','));
 check('deleting one DB leaves the others readable', S.loadUserDb(UID).goals.length === 2 && S.loadNordeaDb(UID)!.transactions.length === 4);
+
+// --- Numeric-grounding guardrail: reply numbers must come from retrieved facts
+const g1 = A.groundNumbers('You saved 400 EUR this month and 5 goals are active.', ['Monthly Savings Transfer -400', '5 goals']);
+check('guardrail passes numbers that appear in the facts', g1.grounded && g1.reply.includes('400'));
+const g2 = A.groundNumbers('You spent 9999 EUR on cars.', ['Monthly Savings Transfer -400']);
+check('guardrail rejects an invented number and falls back to plain wording', !g2.grounded && !g2.reply.includes('9999'));
+
+// --- Staleness: accepted entry's facts change -> flag-stale + refresh + new proposal
+const UID2 = 'staleuser';
+S.saveNordeaDb({
+  userId: UID2,
+  accounts: [],
+  transactions: [{ id: 's1', userId: UID2, date: '2026-10-01', category: 'transport', amount: -100, account: 'current', description: 'Fuel for the car' }],
+});
+A.addGoalDirect(UID2, 'Save for a car');
+const sc = A.contribute(UID2);
+A.decideProposal(UID2, sc.proposals[0].messageId, true);
+check('staleness setup: entry active with 100 EUR evidence', S.loadCmDb(UID2).entries[0].status === 'active' && S.loadCmDb(UID2).entries[0].evidence?.total === 100);
+const nd = S.loadNordeaDb(UID2)!;
+nd.transactions.push({ id: 's2', userId: UID2, date: '2026-10-02', category: 'transport', amount: -50, account: 'current', description: 'Car wash' });
+S.saveNordeaDb(nd);
+const sc2 = A.contribute(UID2);
+check('changed facts flag the accepted entry stale', S.loadCmDb(UID2).entries[0].status === 'stale');
+const staleBus = S.loadBus(UID2).messages;
+check('flag-stale and refresh messages were exchanged', staleBus.some((m) => m.type === 'flag-stale' && m.from === 'cm' && m.to === 'personal') && staleBus.some((m) => m.type === 'refresh' && m.from === 'personal' && m.to === 'nordea'));
+check('a refreshed proposal waits in merge review', (sc2.staleFlags?.length ?? 0) === 1 && A.reviewQueue(UID2).length === 1, JSON.stringify(sc2.staleFlags));
 
 console.log(`\n${passed} passed, ${failed} failed`);
 process.exit(failed ? 1 : 0);

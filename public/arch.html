@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Three Databases, Three Agents</title>
+<title>Three stores, three agents (local prototype)</title>
 <style>
   * { margin:0; padding:0; box-sizing:border-box; font-family:'Segoe UI','Helvetica Neue',Arial,sans-serif; }
   body { background:#2b2f36; min-height:100vh; padding:24px 28px; }
@@ -44,10 +44,10 @@
 </head>
 <body>
 <div class="topbar">
-  <div class="title">Three databases, three agents<small>Each agent opens only its own database. Everything between them is an explicit message you can read below.</small></div>
+  <div class="title">Three stores, three agents <span style="font-size:13px;background:#5a4a12;color:#e8c468;border-radius:6px;padding:3px 9px;vertical-align:middle;">LOCAL PROTOTYPE</span><small>Three JSON stores in one server process - separation by code convention, not credentials or network isolation. Every exchange between agents is an explicit message you can read below.</small></div>
   <label class="who">Customer <input id="uid" value="lauri"></label>
 </div>
-<div class="note">The <b>sync airlock</b> gates only what a connected external personal agent pulls in (WhatsApp, calendar, notes, email). What you type to Abel goes straight in. Bank-side proposals are filtered by your goals and wait for your review. The cabinet advises - it never changes your bank data.</div>
+<div class="note">The <b>sync airlock</b> gates only what a connected external personal agent pulls in (WhatsApp, calendar, notes, email). What you type to Abel goes straight in. Bank-side proposals are filtered by your goals and wait for your review. The cabinet advises - it never changes your bank data. <b>External-agent mode is simulated: no live connection to Meta or any external service - sync items are posted through a demo endpoint.</b></div>
 <div class="windows">
   <div class="window w-user">
     <div class="wtitle"><h2>User DB</h2></div>
@@ -58,7 +58,7 @@
       <div id="user-facts"></div>
       <div class="controls">
         <input id="agent-name" placeholder="External agent name" style="border:1px solid #c9ced6;border-radius:8px;padding:5px 9px;font-size:12.5px;width:130px;">
-        <button id="btn-connect" class="primary">Connect</button>
+        <button id="btn-connect" class="primary">Connect (simulated)</button>
         <button id="btn-disconnect">Disconnect</button>
         <button id="btn-off-personal">Turn off</button>
         <button id="btn-del-user" class="danger">Delete DB</button>
@@ -114,7 +114,7 @@ function say(who, text) {
 async function refresh() {
   uid = $('uid').value.trim() || 'lauri';
   const s = await api(`/api/arch/${uid}/state`);
-  $('a-personal').innerHTML = `<b>Personal agent: ${esc(s.agents.personal.name)}</b> ${s.agents.personal.off ? '<span class="pill off">off</span>' : '<span class="pill">on</span>'}<br>Owns the User DB - profile, goals, personal facts. ${s.agents.personal.mode === 'external' ? 'Connected externally; its syncs wait in the airlock.' : 'Abel, in the app. You talk to it here.'}`;
+  $('a-personal').innerHTML = `<b>Personal agent: ${esc(s.agents.personal.name)}</b> ${s.agents.personal.off ? '<span class="pill off">off</span>' : '<span class="pill">on</span>'}<br>Owns the User DB - profile, goals, personal facts. ${s.agents.personal.mode === 'external' ? 'External mode (SIMULATED - no live connection; syncs arrive via the demo endpoint and wait in the airlock).' : 'Abel, in the app. You talk to it here.'}`;
   $('a-cm').innerHTML = `<b>Context Memory agent</b> ${s.agents.cm.off ? '<span class="pill off">off</span>' : '<span class="pill">on</span>'}<br>Owns the cabinet - the shared context between you and Nordea. Only this agent writes entries here.`;
   $('a-nordea').innerHTML = `<b>Nordea agent</b> ${s.agents.nordea.off ? '<span class="pill off">off</span>' : '<span class="pill">on</span>'}<br>Owns the Nordea DB - accounts and transactions. Proposes, never decides.`;
   $('user-summary').innerHTML = `Goals: <b>${s.databases.user.goals}</b> · Personal facts: <b>${s.databases.user.personalFacts}</b>`;

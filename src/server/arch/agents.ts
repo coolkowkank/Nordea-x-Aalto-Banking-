@@ -21,6 +21,18 @@ const requireAgentOn = (u: UserDb, a: AgentId) => {
 
 const personalLabel = (u: UserDb) => (u.personalAgent.mode === 'external' ? u.personalAgent.externalName || 'External personal agent' : 'Abel');
 
+/**
+ * The agreed answer guardrail: a reply may only contain numbers that came from the
+ * retrieved facts themselves. Anything else is rejected and falls back to plain wording.
+ */
+export function groundNumbers(reply: string, factSources: string[]): { reply: string; grounded: boolean } {
+  const allowed = new Set(factSources.flatMap((s) => s.match(/\d[\d\s.,]*\d|\d/g) ?? []).map((n) => n.replace(/[\s.,]/g, '')));
+  const used = (reply.match(/\d[\d\s.,]*\d|\d/g) ?? []).map((n) => n.replace(/[\s.,]/g, ''));
+  const bad = used.filter((n) => !allowed.has(n));
+  if (!bad.length) return { reply, grounded: true };
+  return { reply: 'I have some related context, but I cannot verify those figures against your data, so I would rather not quote numbers. Ask me about your goals or shared context in general terms and I will answer from what is stored.', grounded: false };
+}
+
 /** Nordea DB starts as a one-time copy of the customer's bank data the app already holds. */
 function ensureNordeaDb(uid: string): NordeaDb {
   const existing = loadNordeaDb(uid);
@@ -54,6 +66,13 @@ const STOPWORDS = new Set(['the', 'and', 'for', 'with', 'this', 'that', 'what', 
 const words = (s: string) => s.toLowerCase().split(/[^a-z0-9€]+/).filter((w) => w.length >= 3 && !STOPWORDS.has(w));
 const overlaps = (a: string[], b: string[]) => a.some((w) => b.includes(w));
 
+// Goal words also map to transaction categories ("save" -> savings transfers, "car" -> transport).
+const CATEGORY_HINTS: Record<string, string[]> = {
+  save: ['savings_transfer', 'savings_transfer_in'], saving: ['savings_transfer', 'savings_transfer_in'], savings: ['savings_transfer', 'savings_transfer_in'],
+  car: ['transport'], commute: ['transport'], travel: ['transport'],
+  house: ['housing'], flat: ['housing'], apartment: ['housing'], rent: ['housing'], home: ['housing'],
+};
+
 export function chat(uid: string, text: string): { reply: string; used: string[] } {
   const u = loadUserDb(uid);
   requireAgentOn(u, 'personal');
@@ -67,14 +86,15 @@ export function chat(uid: string, text: string): { reply: string; used: string[]
   const q = words(trimmed);
   const used: string[] = [];
   const parts: string[] = [];
+  const factSources: string[] = [];
 
   // 1. The personal agent's own store.
   const goalHits = u.goals.filter((g) => overlaps(q, words(`${g.title} ${g.detail}`)));
   const factHits = u.personalFacts.filter((f) => overlaps(q, words(f.text)));
   if (goalHits.length || factHits.length) {
     used.push('user-db');
-    for (const g of goalHits) parts.push(`Goal: ${g.title}${g.detail ? ` (${g.detail})` : ''}.`);
-    for (const f of factHits.slice(0, 3)) parts.push(`From your ${f.source}: ${f.text}`);
+    for (const g of goalHits) { parts.push(`Goal: ${g.title}${g.detail ? ` (${g.detail})` : ''}.`); factSources.push(`${g.title} ${g.detail}`); }
+    for (const f of factHits.slice(0, 3)) { parts.push(`From your ${f.source}: ${f.text}`); factSources.push(f.text); }
   }
 
   // 2. Shared context: the personal agent must ASK the CM agent - an explicit message pair.
@@ -87,7 +107,7 @@ export function chat(uid: string, text: string): { reply: string; used: string[]
     postMessage(bus, { from: 'cm', to: 'personal', type: 'reply', summary: `Context Memory agent returns ${entryHits.length} cabinet entr${entryHits.length === 1 ? 'y' : 'ies'}.`, payload: { inReplyTo: query.id, entryIds: replyPayload }, status: 'answered' });
     if (entryHits.length) {
       used.push('context-memory-db');
-      for (const e of entryHits.slice(0, 3)) parts.push(`Shared context (via the Context Memory agent): ${e.title} - ${e.detail}`);
+      for (const e of entryHits.slice(0, 3)) { parts.push(`Shared context (via the Context Memory agent): ${e.title} - ${e.detail}`); factSources.push(`${e.title} ${e.detail} ${e.evidence?.total ?? ''}`); }
     }
   }
   saveBus(uid, bus);
@@ -99,7 +119,8 @@ export function chat(uid: string, text: string): { reply: string; used: string[]
     return { reply: `I don't have enough context to answer that yet. All I have is what's in your User DB (${u.goals.length} goal${u.goals.length === 1 ? '' : 's'}) and ${cm.entries.length} shared cabinet entr${cm.entries.length === 1 ? 'y' : 'ies'}.`, used };
   }
   if (bankish && !used.includes('context-memory-db')) parts.push(`For actual account figures, Nordea's agent works from the Nordea DB - I can't read it directly.`);
-  return { reply: parts.join(' '), used };
+  const grounded = groundNumbers(parts.join(' '), factSources);
+  return { reply: grounded.reply, used };
 }
 
 // ---------- Connect / disconnect the personal agent ----------
@@ -109,7 +130,7 @@ export function connectExternalAgent(uid: string, name: string) {
   u.personalAgent = { mode: 'external', externalName: name.trim() || 'External agent', connectedAt: now() };
   saveUserDb(u);
   const bus = loadBus(uid);
-  postMessage(bus, { from: 'personal', to: 'user', type: 'inform', summary: `${u.personalAgent.externalName} connected as the personal agent. Abel steps aside; syncs from WhatsApp/calendar/notes/email now wait in the airlock for your approval.` });
+  postMessage(bus, { from: 'personal', to: 'user', type: 'inform', summary: `${u.personalAgent.externalName} set as the personal agent (SIMULATED - no live external connection). Abel steps aside; syncs from WhatsApp/calendar/notes/email arrive via the demo endpoint and wait in the airlock for your approval.` });
   saveBus(uid, bus);
   return u.personalAgent;
 }
@@ -177,12 +198,6 @@ export function contribute(uid: string) {
 
   const proposals: { messageId: string; title: string; detail: string; matched: number; total: number }[] = [];
   const alreadyPending = new Set(bus.messages.filter((m) => m.type === 'propose' && m.status === 'pending').map((m) => m.summary));
-  // Goal words also map to transaction categories ("save" -> savings transfers, "car" -> transport).
-  const CATEGORY_HINTS: Record<string, string[]> = {
-    save: ['savings_transfer', 'savings_transfer_in'], saving: ['savings_transfer', 'savings_transfer_in'], savings: ['savings_transfer', 'savings_transfer_in'],
-    car: ['transport'], commute: ['transport'], travel: ['transport'],
-    house: ['housing'], flat: ['housing'], apartment: ['housing'], rent: ['housing'], home: ['housing'],
-  };
   for (const goal of goals) {
     const gw = words(`${goal.title} ${goal.detail}`);
     const hinted = new Set(gw.flatMap((w) => CATEGORY_HINTS[w] ?? []));
@@ -200,9 +215,36 @@ export function contribute(uid: string) {
     });
     proposals.push({ messageId: msg.id, title, detail, matched: matches.length, total });
   }
+  // Staleness: if an accepted entry's underlying facts changed, the CM agent flags it stale
+  // and the Nordea agent supplies the refreshed values as a new proposal for review.
+  const staleFlags: { entryId: string; title: string; was: number; nowIs: number }[] = [];
+  for (const goal of goals) {
+    const linked = cm.entries.filter((e) => e.status === 'active' && e.goalIds.includes(goal.id));
+    if (!linked.length) continue;
+    const gw = words(`${goal.title} ${goal.detail}`);
+    const hinted = new Set(gw.flatMap((w) => CATEGORY_HINTS[w] ?? []));
+    const matches = nordea.transactions.filter((t) =>
+      overlaps(gw, words(`${t.description ?? ''} ${t.counterparty ?? ''}`)) || hinted.has(t.category));
+    const total = Math.round(matches.reduce((s2, t) => s2 + Math.abs(t.amount), 0) * 100) / 100;
+    for (const entry of linked) {
+      const old = entry.evidence?.total;
+      if (old != null && old !== total) {
+        entry.status = 'stale';
+        postMessage(bus, { from: 'cm', to: 'personal', type: 'flag-stale', summary: `Context Memory agent flags "${entry.title}" stale: the matched total changed from ${old} EUR to ${total} EUR.`, payload: { entryId: entry.id, was: old, now: total } });
+        postMessage(bus, { from: 'personal', to: 'nordea', type: 'refresh', summary: `Personal agent asks the Nordea agent for the current values behind "${entry.title}".`, payload: { entryId: entry.id, goalIds: [goal.id] } });
+        if (!bus.messages.some((m) => m.type === 'propose' && m.status === 'pending' && m.summary === entry.title)) {
+          postMessage(bus, { from: 'nordea', to: 'cm', type: 'propose', status: 'pending',
+            summary: entry.title,
+            payload: { goalIds: [goal.id], detail: `${matches.length} transactions totalling ${total} EUR relate to this goal (refreshed after the earlier values went stale). Proposed by the Nordea agent from the Nordea DB only.`, transactionIds: matches.slice(0, 25).map((t) => t.id), total, refreshOf: entry.id } });
+        }
+        staleFlags.push({ entryId: entry.id, title: entry.title, was: old, nowIs: total });
+      }
+    }
+  }
+  if (staleFlags.length) saveCmDb(cm);
   postMessage(bus, { from: 'nordea', to: 'cm', type: 'reply', summary: `Nordea agent proposes ${proposals.length} goal-relevant cabinet entr${proposals.length === 1 ? 'y' : 'ies'} (nothing else leaves the Nordea DB).`, payload: { inReplyTo: q.id }, status: 'answered' });
   saveBus(uid, bus);
-  return { askedVia: q.id, proposals, skippedGoals: goals.length - proposals.length, existingCabinetEntries: cm.entries.length };
+  return { askedVia: q.id, proposals, staleFlags, skippedGoals: goals.length - proposals.length, existingCabinetEntries: cm.entries.length };
 }
 
 export function reviewQueue(uid: string) {
@@ -307,7 +349,7 @@ export function archState(uid: string) {
   return {
     userId: uid,
     agents: {
-      personal: { mode: u.personalAgent.mode, name: personalLabel(u), off: u.agentsOff.includes('personal') },
+      personal: { mode: u.personalAgent.mode, name: personalLabel(u), simulated: u.personalAgent.mode === 'external', off: u.agentsOff.includes('personal') },
       cm: { off: u.agentsOff.includes('cm') },
       nordea: { off: u.agentsOff.includes('nordea') },
     },
