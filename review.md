@@ -53,7 +53,7 @@ This branch starts from `Instict-prototype` @ `489d44e`. Its goal is to turn the
 ---
 
 ## 🧠 Context memory
-*Joe, updated 2026-10-31 21:47.*
+*Joe, updated 2026-10-31 21:58.*
 
 - **Goal:** three agents (personal / Context Memory / Nordea), each opening only its own DB, build a shared per-customer `context.md`; human only for first start and high-risk decisions. Done = AC1–AC12.
 - **Base:** `Instict-prototype` @ `489d44e`. Branch changes so far: `review.md` only.
@@ -68,10 +68,9 @@ This branch starts from `Instict-prototype` @ `489d44e`. Its goal is to turn the
 - **Verified:** F25 @2f7d84d, F11 @b2050cf (labelled checks cover AC1–AC11; test:arch 165/165, lint clean @0cf56fd).
 - **Verified:** F10 phase 1 + 2 @b595bdf.
 - **Final AC pass @ef56ba9 (Bill 21:46, tests + live HTTP run with mock AI):** AC1–AC7, AC9–AC12 **done**; **AC8 blocked by F26**. Live run: one session's two questions share one round and doc; a new session gets a new one.
-- **Now (Instinct): F26 (H)** decay loop: evidence keeps the first 25 tx ids, churn check compares with all current ids, so with > 25 matches every round flags the entry stale and auto-stores a duplicate (live: 72 matches → 2 stale + 1 active copy after 2 sessions). Fix: store the full id set (or count + hash of sorted ids), compare like with like; test: > 25 matches, no bank change, stays active over 3 rounds (`nordea.ts:141–149`).
-- **Also (L):** **F27** "saved for the car?" answered with total transport spending; use savings transfers or label it as spending. **F28** re-check notice says "wait in merge review" even when auto-stored.
+- **Awaiting Bill (handed over 21:56):** F26, F27, F28 `fixed @cd255b9`. F26: evidence stores an FNV-1a hash of the full sorted tx-id set (no new imports, AC1 pin intact); churn compares hash with hash; 25-id sample kept for display/risk; pre-hash entries self-heal on first refresh; Bill's test in (30 matches, 3 rounds, stays active, no duplicate). F27: figures labelled "of related spending" (demo data has no transfer semantics). F28: notice reports the real outcome per entry (auto-stored / merge review / not refreshed); a session round's re-proposal counts as the refresh. test:arch 184/184, lint 0.
 - **Finish:** after F26, Bill re-runs the live check and closes.
-- **Open:** F26 (H), F27, F28 (L).
+- **Open:** none if Bill verifies F26–F28.
 - **Accepted:** Nordea sees goal titles only; personal agent decides what is shareable (AC3).
 - **Order:** F26 → F27, F28 → Bill's live re-check → finish.
 - **Owner context:** Habibil not supervising; Bill acts on his behalf.
