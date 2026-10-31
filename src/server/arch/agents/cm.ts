@@ -18,15 +18,31 @@ import { loadRound, roundDone, recordStaleFlags } from '../rounds.js';
 
 export const PARKED_WORDING = 'The cabinet is parked: the Context Memory agent is not reading or supplying it. Your entries are kept - nothing was deleted. Reconnect the cabinet explicitly to resume.';
 
-interface RefreshItem { entryId: string; title: string; goalIds: string[]; goalTitles: string[]; was: number }
-interface RefreshResult { entryId: string; title: string; was: number; now: number; changed: boolean; matched: number }
+type DecayReason = 'evidence' | 'aged' | 'missing-evidence';
+interface RefreshItem { entryId: string; title: string; goalIds: string[]; goalTitles: string[]; was: number | null; storedIds: string[]; reason: DecayReason }
+interface RefreshResult { entryId: string; title: string; was: number | null; now: number; changed: boolean; matched: number; idsChanged?: boolean; reason?: DecayReason }
 
-/** Active, evidence-carrying entries (optionally limited to goals in play). */
-function decayCandidates(uid: string, goalIds?: string[]): ArchEntry[] {
+/** Entries are re-checked against current bank data once they are this old, even if totals match (F8). */
+const STALE_AGE_DAYS = 30;
+
+/**
+ * F8: decay candidates are not just entries with a stored total. An entry qualifies when it
+ * carries a stored total (churn check), when it is OLDER than STALE_AGE_DAYS (age check), or
+ * when it was proposed by the Nordea agent WITHOUT evidence (missing-evidence check). The CM
+ * agent only reads its own DB here; the Nordea agent confirms against its own DB by message.
+ */
+function decayCandidates(uid: string, goalIds?: string[]): { entry: ArchEntry; reason: DecayReason }[] {
   const cm = loadCmDb(uid);
-  return cm.entries.filter((e) =>
-    e.status === 'active' && e.evidence?.total != null &&
-    (!goalIds || e.goalIds.some((g) => goalIds.includes(g))));
+  const cutoff = Date.now() - STALE_AGE_DAYS * 24 * 60 * 60 * 1000;
+  const out: { entry: ArchEntry; reason: DecayReason }[] = [];
+  for (const e of cm.entries) {
+    if (e.status !== 'active') continue;
+    if (goalIds && !e.goalIds.some((g) => goalIds.includes(g))) continue;
+    if (e.evidence?.total != null) out.push({ entry: e, reason: Date.parse(e.createdAt) < cutoff ? 'aged' : 'evidence' });
+    else if (e.proposedBy === 'nordea') out.push({ entry: e, reason: 'missing-evidence' });
+    // A personal-sourced entry without evidence carries no figure to re-check - never a candidate.
+  }
+  return out;
 }
 
 /** Goal titles as written in the Customer section of the shared context.md (AC2). */
@@ -128,13 +144,15 @@ function autoStoreRoundProposals(uid: string, roundId?: string) {
 }
 
 /** Ask the Nordea agent to confirm or refresh the stored values behind decay candidates (AC8). */
-function sendRefreshRequest(uid: string, roundId: string, candidates: ArchEntry[], titleById: Map<string, string>) {
-  const items: RefreshItem[] = candidates.map((e) => ({
+function sendRefreshRequest(uid: string, roundId: string, candidates: { entry: ArchEntry; reason: DecayReason }[], titleById: Map<string, string>) {
+  const items: RefreshItem[] = candidates.map(({ entry: e, reason }) => ({
     entryId: e.id,
     title: e.title,
     goalIds: e.goalIds,
     goalTitles: e.goalIds.map((id) => titleById.get(id)).filter((t): t is string => !!t),
-    was: e.evidence!.total!,
+    was: e.evidence?.total ?? null,
+    storedIds: e.evidence?.transactionIds ?? [],
+    reason,
   }));
   appendMessage(uid, {
     from: 'cm', to: 'nordea', type: 'refresh', status: 'pending',
@@ -156,7 +174,7 @@ function startDecayCheck(uid: string, roundId: string, goalIds?: string[]) {
     roundDone(uid, roundId, 'cm');
     return;
   }
-  const ids = [...new Set(candidates.flatMap((e) => e.goalIds))];
+  const ids = [...new Set(candidates.flatMap(({ entry: e }) => e.goalIds))];
   const docTitles = goalTitlesFromDoc(uid);
   const missing = ids.filter((id) => !docTitles.has(id));
   if (missing.length) {
@@ -271,11 +289,18 @@ function handleMessage(uid: string, msg: AgentMessage) {
         const entry = cm.entries.find((e) => e.id === r.entryId && e.status === 'active');
         if (!entry) continue;
         entry.status = 'stale';
-        flags.push({ entryId: r.entryId, title: r.title, was: r.was, nowIs: r.now });
+        flags.push({ entryId: r.entryId, title: r.title, was: r.was, nowIs: r.now, reason: r.reason ?? 'evidence' });
+        const why = r.reason === 'missing-evidence'
+          ? 'it was stored without evidence and current bank data gives a different picture'
+          : r.idsChanged
+            ? `the underlying transactions changed (total ${r.was ?? 'none'} EUR -> ${r.now} EUR)`
+            : r.reason === 'aged'
+              ? `it is over 30 days old and had no verifiable transaction evidence (total now ${r.now} EUR)`
+              : `the matched total changed from ${r.was ?? 'none'} EUR to ${r.now} EUR`;
         appendMessage(uid, {
           from: 'cm', to: 'personal', type: 'flag-stale',
-          summary: `Context Memory agent flags "${r.title}" stale: the matched total changed from ${r.was} EUR to ${r.now} EUR.`,
-          payload: { entryId: r.entryId, was: r.was, now: r.now },
+          summary: `Context Memory agent flags "${r.title}" stale: ${why}.`,
+          payload: { entryId: r.entryId, was: r.was, now: r.now, reason: r.reason ?? 'evidence' },
         });
       }
       saveCmDb(cm);

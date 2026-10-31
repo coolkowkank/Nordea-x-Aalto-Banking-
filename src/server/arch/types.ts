@@ -63,7 +63,7 @@ export interface AirlockBatch {
 }
 export interface Bus { messages: AgentMessage[]; airlock: AirlockBatch[]; }
 
-export interface StaleFlag { entryId: string; title: string; was: number; nowIs: number }
+export interface StaleFlag { entryId: string; title: string; was: number | null; nowIs: number; reason?: 'evidence' | 'aged' | 'missing-evidence' }
 
 /** A build round: the lifecycle one shared-context build goes through (AC6). */
 export interface BuildRound {

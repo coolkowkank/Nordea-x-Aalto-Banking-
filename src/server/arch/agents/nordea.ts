@@ -83,7 +83,7 @@ function handleMessage(uid: string, msg: AgentMessage) {
       const posted = appendMessage(uid, {
         from: 'nordea', to: 'cm', type: 'propose', status: 'pending',
         summary: title,
-        payload: { inReplyTo: msg.id, goalIds: [goal.id], detail, transactionIds: matches.slice(0, 25).map((t) => t.id), total },
+        payload: { inReplyTo: msg.id, roundId: payload.roundId, goalIds: [goal.id], detail, transactionIds: matches.slice(0, 25).map((t) => t.id), total },
       });
       proposals.push({ messageId: posted.id, title, detail, matched: matches.length, total });
     }
@@ -131,26 +131,35 @@ function handleMessage(uid: string, msg: AgentMessage) {
 
   // --- Refresh request from the Context Memory agent: confirm or refresh stored values.
   if (msg.type === 'refresh' && typeof payload.roundId === 'string') {
-    const items = (payload.items ?? []) as { entryId: string; title: string; goalIds?: string[]; goalTitles: string[]; was: number }[];
+    const items = (payload.items ?? []) as { entryId: string; title: string; goalIds?: string[]; goalTitles: string[]; was: number | null; storedIds?: string[]; reason?: 'evidence' | 'aged' | 'missing-evidence' }[];
     prepare(uid);
     const nordea = loadNordeaDb(uid)!;
     const alreadyPending = pendingProposalSummaries(uid);
     const results = items.map((item) => {
       const matches = matchForTitles(nordea, item.goalTitles);
       const nowTotal = totalOf(matches);
-      const changed = item.was !== nowTotal;
+      const currentIds = matches.map((t) => t.id).sort();
+      const storedIds = [...(item.storedIds ?? [])].sort();
+      // F8: decay is more than a changed total - churned transactions (same total, different
+      // payments) and evidence that was never stored both count as decay.
+      const idsChanged = storedIds.length > 0 && JSON.stringify(storedIds) !== JSON.stringify(currentIds);
+      // F8 age rule: an entry past the age threshold whose stored total has NO transaction ids
+      // to verify against is flagged so the refresh stores verifiable evidence.
+      const agedUnverifiable = item.reason === 'aged' && storedIds.length === 0;
+      const changed = item.was != null ? item.was !== nowTotal || idsChanged || agedUnverifiable : matches.length > 0;
       if (changed && !alreadyPending.has(item.title)) {
         appendMessage(uid, {
           from: 'nordea', to: 'cm', type: 'propose', status: 'pending',
           summary: item.title,
           payload: {
+            roundId: payload.roundId,
             goalIds: item.goalIds ?? [],
-            detail: `${matches.length} transactions totalling ${nowTotal} EUR relate to this goal (refreshed after the earlier values went stale). Proposed by the Nordea agent from the Nordea DB only.`,
+            detail: `${matches.length} transactions totalling ${nowTotal} EUR relate to this goal (${item.was == null ? 'the stored entry had no evidence to check' : 'refreshed after the earlier values went stale'}). Proposed by the Nordea agent from the Nordea DB only.`,
             transactionIds: matches.slice(0, 25).map((t) => t.id), total: nowTotal, refreshOf: item.entryId,
           },
         });
       }
-      return { entryId: item.entryId, title: item.title, was: item.was, now: nowTotal, changed, matched: matches.length };
+      return { entryId: item.entryId, title: item.title, was: item.was, now: nowTotal, changed, matched: matches.length, idsChanged, reason: item.reason ?? 'evidence' };
     });
     // Keep the Nordea section of the shared document current after a refresh (AC5).
     const docGoals = readSectionRows(uid, 'customer').map((r) => ({ id: r.id, title: r.title }));

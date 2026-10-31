@@ -527,5 +527,65 @@ let refused = '';
 try { A.undoEntry(UID16, manualEntry.id); } catch (e) { refused = (e as Error).message; }
 check('F22: undo refuses a manually reviewed entry (dispute instead)', refused.includes('automatically stored') && S.loadCmDb(UID16).entries.length === 1, refused.slice(0, 100));
 
+
+// --- F8: decay detects churned transactions, age and missing evidence - not just changed totals.
+// The AC1 source scan above already pins the CM agent to its own store (no direct nordea.db/user.db reads).
+const UID21 = 'churnuser';
+S.saveNordeaDb({ userId: UID21, accounts: [], transactions: [{ id: 'c1', userId: UID21, date: '2026-10-01', category: 'transport', amount: -60, account: 'current', description: 'Fuel for the car' }, { id: 'c2', userId: UID21, date: '2026-10-02', category: 'transport', amount: -40, account: 'current', description: 'Car wash' }] });
+A.addGoalDirect(UID21, 'Save for a car');
+A.setStandingPermissions(UID21, 'high');
+A.contribute(UID21);
+const churnEntry = S.loadCmDb(UID21).entries.find((e) => e.proposedBy === 'nordea')!;
+check('F8 setup: Nordea aggregate auto-stored with transaction evidence', !!churnEntry && churnEntry.evidence?.total === 100 && (churnEntry.evidence?.transactionIds?.length ?? 0) > 0, JSON.stringify(churnEntry?.evidence));
+S.saveNordeaDb({ userId: UID21, accounts: [], transactions: [{ id: 'c9', userId: UID21, date: '2026-10-03', category: 'transport', amount: -100, account: 'current', description: 'Fuel for the car' }] });
+const churnRound = A.contribute(UID21);
+check('F8: churned transactions flag the entry stale even when the total is unchanged', S.loadCmDb(UID21).entries.find((e) => e.id === churnEntry.id)?.status === 'stale' && churnRound.staleFlags.some((f) => f.entryId === churnEntry.id), JSON.stringify(churnRound.staleFlags));
+check('F8: the churn flag says the underlying transactions changed', S.loadBus(UID21).messages.some((m) => m.type === 'flag-stale' && m.summary.includes('underlying transactions changed')));
+
+const UID22 = 'ageduser';
+S.saveNordeaDb({ userId: UID22, accounts: [], transactions: [{ id: 'a1', userId: UID22, date: '2026-10-01', category: 'transport', amount: -50, account: 'current', description: 'Fuel for the car' }] });
+A.addGoalDirect(UID22, 'Save for a car');
+A.setStandingPermissions(UID22, 'high');
+A.contribute(UID22);
+const cm19 = S.loadCmDb(UID22);
+const agedEntry = cm19.entries.find((e) => e.proposedBy === 'nordea')!;
+agedEntry.createdAt = new Date(Date.now() - 40 * 24 * 60 * 60 * 1000).toISOString();
+agedEntry.evidence = { total: 50 }; // legacy entry: a total but no transaction ids to verify
+S.saveCmDb(cm19);
+const agedRound = A.contribute(UID22);
+check('F8: an aged entry without verifiable transaction ids is flagged even though the total still matches', S.loadCmDb(UID22).entries.find((e) => e.id === agedEntry.id)?.status === 'stale' && agedRound.staleFlags.some((f) => f.entryId === agedEntry.id && f.reason === 'aged'), JSON.stringify(agedRound.staleFlags));
+
+const UID23 = 'agedokuser';
+S.saveNordeaDb({ userId: UID23, accounts: [], transactions: [{ id: 'b1', userId: UID23, date: '2026-10-01', category: 'transport', amount: -50, account: 'current', description: 'Fuel for the car' }] });
+A.addGoalDirect(UID23, 'Save for a car');
+A.setStandingPermissions(UID23, 'high');
+A.contribute(UID23);
+const cm19b = S.loadCmDb(UID23);
+cm19b.entries.forEach((e) => { e.createdAt = new Date(Date.now() - 40 * 24 * 60 * 60 * 1000).toISOString(); });
+S.saveCmDb(cm19b);
+const agedOkRound = A.contribute(UID23);
+check('F8: an aged entry whose ids and total still match is CONFIRMED, not flagged', agedOkRound.staleFlags.length === 0 && S.loadCmDb(UID23).entries.every((e) => e.status === 'active'), JSON.stringify(agedOkRound.staleFlags));
+
+const UID24 = 'noevuser';
+S.saveNordeaDb({ userId: UID24, accounts: [], transactions: [{ id: 'n1', userId: UID24, date: '2026-10-01', category: 'transport', amount: -75, account: 'current', description: 'Fuel for the car' }] });
+A.addGoalDirect(UID24, 'Save for a car');
+A.setStandingPermissions(UID24, 'high');
+A.contribute(UID24);
+const cm20 = S.loadCmDb(UID24);
+const noevEntry = cm20.entries.find((e) => e.proposedBy === 'nordea')!;
+noevEntry.evidence = undefined; // stored without any evidence
+S.saveCmDb(cm20);
+const noevRound = A.contribute(UID24);
+check('F8: an entry stored without evidence is flagged when bank data gives a picture', S.loadCmDb(UID24).entries.find((e) => e.id === noevEntry.id)?.status === 'stale' && noevRound.staleFlags.some((f) => f.entryId === noevEntry.id && f.reason === 'missing-evidence'), JSON.stringify(noevRound.staleFlags));
+
+
+// --- F23: the shared list must not make everyday banking talk "sensitive".
+const SENS = await import('../src/server/sensitive.js');
+check('F23: plain loan/debt talk is NOT high risk in the AC7 rule', ['pay off my student loan debt', 'mortgage and car loan repayment'].every((t) => RK.assessProposalRisk(fakeMsg('nordea', { transactionIds: ['t1'], total: 10 }, t)) === 'medium'));
+check('F23: debt DISTRESS is still high risk', ['debt collector payment', 'arrears piling up', "can't pay my bills", 'bankruptcy filing'].every((t) => RK.assessProposalRisk(fakeMsg('nordea', { transactionIds: ['t1'], total: 10 }, t)) === 'high'));
+check('F23: Abel keeps its narrow guard - a loan goal still saves without the private tap', !SENS.ABEL_PRIVATE_TOPIC.test('pay off my student loan debt') && !SENS.ABEL_PRIVATE_TOPIC.test('monthly mortgage payment'));
+check('F23: Abel still guards the genuinely private topics', ['cancer treatment fund', 'therapy sessions', 'gambling recovery'].every((t) => SENS.ABEL_PRIVATE_TOPIC.test(t)));
+check('F23: abel.ts uses the narrow ABEL_PRIVATE_TOPIC, not the wide risk list', fs.readFileSync(new URL('../src/server/abel.ts', import.meta.url), 'utf-8').includes('ABEL_PRIVATE_TOPIC') && !fs.readFileSync(new URL('../src/server/abel.ts', import.meta.url), 'utf-8').includes('SENSITIVE_TOPIC as SENSITIVE'));
+
 console.log(`\n${passed} passed, ${failed} failed`);
 process.exit(failed ? 1 : 0);
