@@ -1,6 +1,6 @@
 # Bank records: how the Nordea-side data is structured
 
-This branch restructures how the app stores the (fictional) Nordea account data, along the lines
+This update restructures how the app stores the (fictional) Nordea account data, along the lines
 discussed for the demo: explicit accounts and balance history, stable transaction identity, original
 data kept next to the app's enrichment, and Nordea's observations linked to their evidence.
 
@@ -48,21 +48,89 @@ Balances still update the customer's current accounts as before, but each applie
 kept as a `BalanceSnapshot` (account key, balance, date, source, batch). Balance history now
 survives later imports instead of being overwritten.
 
-### 4. Original data vs the app's enrichment
+### 5. Original data vs the app's enrichment
 
-A category supplied by the feed is used verbatim and marked `categorySource: 'bank'` (meaning
-"feed-supplied" — this is fictional demo data, not Nordea's real categorization). When the app has
-to guess from the description, the guess is marked `categorySource: 'app'` and the feed's original
-value is kept in `originalCategory`. Example: a feed category of `TRAVEL` ends up normalized to
+A category supplied by the feed is used verbatim and marked `categorySource: 'feed'`. That means
+"the data carried this value" - it is **not** proof the bank authored it (upstream tooling may
+already have normalized it), and this is fictional demo data, not Nordea's real categorization. When
+the app has to guess from the description, the guess is marked `categorySource: 'app'` and the feed's
+original value is kept in `originalCategory`. Example: a feed category of `TRAVEL` ends up normalized to
 `transport` with `originalCategory: 'TRAVEL'`, and nothing presents the guess as the bank's own.
 
-### 5. Observations carry their evidence
+### 6. Observations carry their evidence
 
 Every "Nordea noticed" entry now records `evidence`: the transaction ids it was computed from, the
 analysis window (`periodFrom`/`periodTo`), when it was computed, and an `inputsHash` fingerprint.
 `refreshObservations` runs on every import, so an observation whose inputs changed is recomputed
 (and goes back to the customer for review, as before); one the data no longer shows is archived.
 Entries created before this change simply pick up their evidence the next time data is applied.
+
+## Database Structure Examples
+
+While the underlying Supabase tables (`abel_records`, `nordea_feed`) remain as JSON data columns, here is a logical representation of how the new entities are structured within those JSON fields. Ids and values below mirror the bundled example batch (`supabase/nordea-feed-example.csv`) for the demo customer `lauri`.
+
+### BankAccount
+| id | key (stable) | iban | type | currency |
+| :--- | :--- | :--- | :--- | :--- |
+| `acc-lauri-current` | `current` | FI29 1234 5678 9012 34 | current account | EUR |
+| `acc-lauri-savings` | `savings` | FI29 1234 5678 9012 35 | savings | EUR |
+
+### Transaction
+| id | account | date | amount | description | bankId | status | categorySource | batchId |
+| :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- |
+| `nd-lauri-bank-ND-20261028-0003` | `current` | 2026-10-28 | -45.00 | VR Train Ticket Helsinki-Tampere | `ND-20261028-0003` | booked | app (original: TRAVEL) | `batch-lauri-…` |
+| `nd-lauri-bank-ND-20261030-0005` | `current` | 2026-10-30 | -12.90 | Cafe Java | `ND-20261030-0005` | pending | app | `batch-lauri-…` |
+
+### BalanceSnapshot
+| id | accountKey | balance | at | source | batchId |
+| :--- | :--- | :--- | :--- | :--- | :--- |
+| `snap-lauri-current-2026-10-30-batch-…` | `current` | 1104.30 | 2026-10-30 | Supabase nordea_feed row 12 | `batch-lauri-…` |
+
+### ImportBatch
+| id | source | mode | received | added | skipped | updated | rejected |
+| :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- |
+| `batch-lauri-…` | Supabase nordea_feed row 12 | incremental | 7 | 7 | 0 | 0 | 0 |
+
+### Observation
+| id | type | evidence.transactionIds | periodFrom | periodTo | computedAt | inputsHash |
+| :--- | :--- | :--- | :--- | :--- | :--- | :--- |
+| `lauri-obs-salary` | observation | `["nd-lauri-bank-…", …]` | 2026-04 | 2026-10 | 2026-10-26T10:00:00Z | `abc123hash` |
+
+## Example feed batch (CSV) for Supabase
+
+`supabase/nordea-feed-example.csv` is one ready-made row for `public.nordea_feed`: an incremental
+end-of-October batch for the demo customer `lauri` that picks up right where the seed data ends
+(2026-10-26). It exercises the structure above on purpose:
+
+- `accounts` fills in the known fields (type, currency) on the derived account records - the IBANs
+  match the demo customer's existing accounts, nothing new is invented.
+- Seven transactions carry full banking detail (`bankId`, `valueDate`, `status`, `currency`,
+  `counterparty`, `reference`, payment method). Two rows demonstrate provenance: a `TRAVEL` feed
+  category the app doesn't know (kept as `originalCategory`, app's own `transport` guess marked
+  `categorySource: 'app'`) and a pending card purchase (`Cafe Java`) with no value date yet.
+- `balances` updates the live accounts and stores dated `BalanceSnapshot`s (`asOf` 2026-10-30).
+  The current-account figure (1104.30) is the seed balance minus this batch's booked spending;
+  the pending purchase is not deducted yet.
+
+To use it: Supabase → Table Editor → `nordea_feed` → Import data from CSV → pick the file. The CSV
+has only the `user_id`, `data` and `note` columns; `id` and `created_at` use their database
+defaults and the app fills `applied_at` / `result` when it picks the row up. With `npm run dev`
+running, that happens within about 20 seconds (or immediately via More → Nordea account data →
+Check Supabase now); the row's `result` column then reads `Applied: 7 new transactions and …`.
+Importing the same file again is safe: every transaction is already known and is skipped.
+
+Check the file before uploading with `npm run check:feed` - it parses the CSV, validates the JSON,
+and dry-runs the batch twice against a throwaway copy of the demo database (the real one and
+Supabase are never touched). If the Table Editor import misbehaves, the equivalent insert also
+works in SQL Editor:
+
+```sql
+insert into public.nordea_feed (user_id, note, data)
+values ('lauri', 'October 27-30 update (structured demo batch)', '<the data cell, JSON, as-is>');
+```
+
+The feed row applies to the customer named in `user_id` (`lauri`, the demo customer). A row for a
+customer that doesn't exist is marked `Not applied: Unknown customer`, not an error.
 
 ## Compatibility and migration
 

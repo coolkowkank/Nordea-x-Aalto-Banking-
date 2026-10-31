@@ -4,7 +4,7 @@ This guide runs the app on your own computer, using the **Aalto LLM** (free, nee
 The hosted app in AI Studio is not affected: it keeps using Gemini and its own data.
 
 ## What you need
-- **Node.js LTS** from [nodejs.org](https://nodejs.org). Keep the default options. (The `Instict-prototype` branch needs version 22.13 or newer.)
+- **Node.js**, version 22.13 or newer, from [nodejs.org](https://nodejs.org). Keep the default options. (The three-agent stores use the built-in `node:sqlite`.)
 - **An AI key**, one of:
   - an **Aalto LLM key**, plus the **Aalto VPN** connected while you use the app, or
   - a free **Groq key** from [console.groq.com](https://console.groq.com) (no VPN needed).
@@ -54,6 +54,12 @@ LLM_MODEL=openai/gpt-oss-120b
 > **Keep the key secret.** `.env` is ignored by git, so it never goes to GitHub. Never paste the key into a chat or into code.
 
 Leave the Supabase lines out. Your laptop then saves its data in `data/cabinet-db.json`, which is kept between runs and never touches the data the AI Studio app uses.
+
+## Data
+The app starts with no data and shows "No data yet" until you load some. See [`seed/README.md`](seed/README.md). Without Supabase, load the demo customers into the laptop's own file:
+```bash
+python3 scripts/load_data.py seed/demo --target file
+```
 
 ## Every time you use it
 1. If you use the Aalto LLM, connect the **Aalto VPN**.

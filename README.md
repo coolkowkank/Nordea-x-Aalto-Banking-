@@ -14,7 +14,7 @@
 [![Supabase](https://img.shields.io/badge/Supabase-optional-3FCF8E?logo=supabase&logoColor=white)](https://supabase.com)
 [![Gemini](https://img.shields.io/badge/Google_Gemini-AI-8E75B2?logo=googlegemini&logoColor=white)](https://ai.google.dev)
 
-[**Quick start**](#-quick-start) · [**Features**](#-what-it-does) · [**How it works**](#-how-it-works) · [**Final prototype**](#-final-prototype) · [**Branches**](#-branches) · [**Configuration**](#%EF%B8%8F-configuration) · [**Docs**](#-further-docs)
+[**Quick start**](#-quick-start) · [**Features**](#-what-it-does) · [**How it works**](#-how-it-works) · [**Three-agent architecture**](#-three-agent-architecture) · [**Branches**](#-branches) · [**Configuration**](#%EF%B8%8F-configuration) · [**Docs**](#-further-docs)
 
 <br>
 
@@ -72,7 +72,7 @@ Demo personas: **Lauri**, **Eeva** and **Alex**.
 
 ## 🚀 Quick start
 
-**You need:** [Node.js](https://nodejs.org) LTS. An AI key is optional for a first look.
+**You need:** [Node.js](https://nodejs.org) 22.13 or newer (the three-agent stores use the built-in `node:sqlite`, unflagged from 22.13) and Python 3.9+ to load the demo data. An AI key is optional for a first look.
 
 ```bash
 # 1. Get the code
@@ -82,17 +82,20 @@ cd Nordea-x-Aalto-Banking-
 # 2. Install
 npm install --legacy-peer-deps
 
-# 3. Add your AI key (see Configuration below)
+# 3. Load the fictional bank data (see seed/README.md)
+python3 scripts/load_data.py seed/demo --target file   # local file store; drop --target file to use Supabase
+
+# 4. Add your AI key (see Configuration below)
 cp .env.example .env
 
-# 4. Run
+# 5. Run
 npm run dev
 ```
 
-Then open **http://localhost:3000** and check the connection under **More → AI connection → Test**.
+Then open **http://localhost:3000** and check the connection under **More → AI connection → Test**. The three-agent demo is at **http://localhost:3000/arch.html**; the developer monitor at **http://localhost:3000/dev-monitor.html** is off unless you start with `DEV_MONITOR=1` (it shows private cards, so it is a laptop-only tool).
 
 > [!TIP]
-> **No AI key yet?** Start with the scripted stand-in instead of step 3:
+> **No AI key yet?** Start with the scripted stand-in instead of step 4:
 > ```bash
 > LLM_PROVIDER=mock npm run dev
 > ```
@@ -103,6 +106,8 @@ Then open **http://localhost:3000** and check the connection under **More → AI
 | `npm run build` | Build the frontend with Vite |
 | `npm run lint` | Type-check with TypeScript |
 | `npm test` | Run the bank-records tests |
+| `npm run test:arch` | Run the three-agent architecture checks |
+| `npm run check:feed` | Dry-run the example Nordea feed CSV |
 
 ## ✨ What it does
 
@@ -167,7 +172,7 @@ flowchart TD
 | 🎨 Frontend | React 19, Vite 8, Tailwind CSS 4, Motion, Lucide icons |
 | ⚙️ Backend | Node.js, Express, TypeScript (run with `tsx`) |
 | 🤖 AI | Google Gemini (`@google/genai`), any OpenAI-compatible API (Groq, Aalto LLM gateway), scripted mock |
-| 💾 Storage | Supabase (Postgres + private file bucket), or a local JSON file |
+| 💾 Storage | Supabase (Postgres + private file bucket) or a local JSON file for the app; `node:sqlite` per-customer stores for the three-agent architecture |
 | 📄 File reading | `unpdf` (PDF), `read-excel-file` (Excel) |
 | ☁️ Hosting | Google AI Studio (Cloud Run) |
 
@@ -243,6 +248,8 @@ Without Supabase, data is saved in `data/cabinet-db.json`. On a laptop that file
 ## ✅ Testing
 
 - **`npm test`** runs the bank-records tests.
+- **`npm run test:arch`** runs the 188 architecture assertions: the one-database rule (enforced by a source scan), per-session documents, rounds, risk rules, permissions, decay, undo, and the Abel integration with its negative cases.
+- **`npm run check:feed`** dry-runs the example Nordea feed CSV.
 - **In the app:** **More → Check Abel's answers** asks 12 real questions on a copy of Lauri and grades them automatically.
 
 ## 📁 Project structure
@@ -273,133 +280,149 @@ Without Supabase, data is saved in `data/cabinet-db.json`. On a laptop that file
 ├── data/cabinet-db.json      Local demo data
 ├── supabase/                 SQL setup scripts
 ├── scripts/                  Tests
-├── public/                   Fonts, screenshots and design assets
+├── public/                   Fonts, screenshots, design assets, and the arch.html / dev-monitor.html demo pages
 └── docs/, docs-v14.md        Design and change notes
 ```
 </details>
 
-## 🧪 Final prototype
+## 🧪 Three-agent architecture
 
 > [!NOTE]
-> The **final prototype** lives on the [`Instict-prototype`](https://github.com/coolkowkank/Nordea-x-Aalto-Banking-/tree/Instict-prototype) branch (spelled that way on GitHub). It is **not merged into `main` yet**. Everything in this section describes that branch.
+> This architecture was developed on the [`instinct-prototype-v2`](https://github.com/coolkowkank/Nordea-x-Aalto-Banking-/tree/instinct-prototype-v2) branch and is now merged into `main`. The earlier iteration of the design still lives on the [`Instict-prototype`](https://github.com/coolkowkank/Nordea-x-Aalto-Banking-/tree/Instict-prototype) branch.
 
-It combines the two feature branches (the structured bank data from `Bank_database`, and from `dev-context-monitor` an app that starts empty plus the developer monitor), and adds a working prototype of the target design: **three separate databases, one agent each, talking through explicit messages.** Open it at `/arch.html`.
+Instead of one assistant reading one database, the work is split between **three agents**. Each agent opens **only its own database** - that rule is enforced by a source-scan test, not by convention. Agents never read each other's stores; they talk through **bus messages** and a shared working document, **`context.md`**, that is rebuilt for every customer session.
 
-### 🗺️ Graphical abstract
+<table>
+  <tr>
+    <td width="33%" valign="top">
+      <h3>🙋 Personal agent</h3>
+      Works for the customer. Opens <b>only the User DB</b>. Answers chat from the finished <code>context.md</code>, shares goals by title, and keeps raw detail on the customer's side.
+    </td>
+    <td width="33%" valign="top">
+      <h3>🗄️ Context Memory agent</h3>
+      Owns the cabinet. Opens <b>only the Context Memory DB</b>. Finalises each session's document, stores accepted items, and runs decay maintenance - by <i>asking</i> the other agents, never by opening their databases.
+    </td>
+    <td width="33%" valign="top">
+      <h3>🏦 Nordea agent</h3>
+      Works for Nordea. Opens <b>only the Nordea DB</b>. Answers with aggregates and proposes goal-relevant insights; raw transactions never leave its store.
+    </td>
+  </tr>
+</table>
+
+**Abel**, the in-app assistant, joins the same pattern: its User DB facts come from the personal agent *by message*, and it reads only the current session's finalised `context.md`. Every figure in an Abel reply must come from code or that context - otherwise the reply is sent back to be fixed.
 
 ```mermaid
-flowchart LR
-    YOU(["🙋 Customer"])
-
-    subgraph PA["🧑‍💻 Personal side"]
-        direction TB
-        PAG["💬 Personal agent<br/>Abel, or an external agent"]
-        UDB[("👤 User DB<br/>profile · goals · personal facts")]
-        PAG --- UDB
-    end
-
-    subgraph CM["🗄️ Shared context"]
-        direction TB
-        CMA["🧠 Context Memory agent<br/>the only writer"]
-        CDB[("🗂️ Context Memory DB<br/>the cabinet")]
-        CMA --- CDB
-    end
-
-    subgraph ND["🏦 Bank side"]
-        direction TB
-        NA["🏦 Nordea agent"]
-        NDB[("💳 Nordea DB<br/>accounts · transactions")]
-        NA --- NDB
-    end
-
-    BUS{{"✉️ Message bus<br/>explicit agent-to-agent messages"}}
-    AIR{{"🛂 Sync airlock<br/>you approve external syncs"}}
-    REV{{"✅ Merge review<br/>you accept or reject"}}
-    MON["🔍 Developer monitor<br/>read-only · <code>DEV_MONITOR=1</code>"]
-
-    YOU -->|"chat: no gate"| PAG
-    PAG -->|"external agent syncs:<br/>WhatsApp, calendar, notes, email"| AIR -->|"approved items"| UDB
-    NA -->|"goal-relevant insights"| REV --> CMA
-    PAG <--> BUS
-    CMA <--> BUS
-    NA <--> BUS
-    MON -. "row counts, agent state,<br/>bus tail" .-> BUS
+flowchart TD
+    CHAT["💬 Customer chat"] --> APP["⚙️ App layer<br/><code>orchestrator.ts</code>"]
+    APP -->|"'abel-facts' message"| PA["🙋 Personal agent<br/>opens only <code>user.db</code>"]
+    APP -->|"this session's finalised document"| CTX[("📄 context.md<br/>rebuilt per session")]
+    PA <-->|"bus messages"| BUS["🚌 Shared bus"]
+    CM["🗄️ Context Memory agent<br/>opens only <code>cm.db</code>"] <-->|"bus messages"| BUS
+    NOR["🏦 Nordea agent<br/>opens only <code>nordea.db</code>"] <-->|"bus messages"| BUS
+    PA -->|"Customer section"| CTX
+    CM -->|"Context memory section + finalise stamp"| CTX
+    NOR -->|"Nordea section"| CTX
+    APP --> ABEL["💬 Abel<br/><code>abel.ts</code> - gateway-only imports"]
 ```
 
-<sub>**Read it left to right:** each agent owns one database, and agents talk only through the message bus. Nothing reaches the shared cabinet without merge review, and nothing synced from outside reaches the User DB without the airlock. The personal agent never reads the Nordea DB, so it can't state account figures.</sub>
+### 🔄 How a session works
 
-### 🗃️ The three databases
+1. The customer's first question of a session opens a **build round**; `context.md` starts empty - nothing carries over from earlier sessions.
+2. The **personal agent** writes the Customer section: the shareable part of the User DB (goals by title, never raw detail).
+3. The **Context Memory agent** retrieves what is relevant from `cm.db` and writes the Context memory section.
+4. The **Nordea agent** adds relevant aggregates from `nordea.db`.
+5. The Context Memory agent **finalises** the document and stamps it with the session id. Every later question in that session is answered from that document.
+6. If an agent is off or the cabinet is parked, no round runs and no other session's document is served - the app says plainly that shared context is unavailable.
+7. Accepted knowledge is stored in `cm.db`; decay maintenance re-checks it before reuse (below).
 
-Each customer gets three real SQLite files in `data/arch/`, plus one for the message bus (`<uid>.user.db`, `<uid>.cm.db`, `<uid>.nordea.db`, `<uid>.bus.db`).
+### ✨ Architecture features
 
-| Database | Agent | What it holds | Rules |
-|---|---|---|---|
-| 👤 **User DB** | Personal agent (Abel in the app, or a connected external agent) | Profile, goals, personal facts | Never reads the Nordea DB, so it can't state account figures. Says plainly when it lacks context. |
-| 🗂️ **Context Memory DB** | Context Memory agent | The cabinet: shared context between the customer and Nordea | Only this agent writes it. It advises; it never changes bank data. |
-| 💳 **Nordea DB** | Nordea agent | Accounts and transactions | Proposes goal-relevant insights; the customer accepts or rejects each one. |
+#### 🗂️ The shared document
 
-### 🎛️ What the customer controls
-
-| | Control | What happens |
+| | Feature | How it works |
 |:-:|---|---|
-| 💬 | **Typing to Abel** | Goes straight into the User DB. No gate. |
-| 🛂 | **Sync airlock** | Items from a connected external agent (WhatsApp, calendar, notes, email) wait for the customer's approval before they enter the User DB. |
-| ✅ | **Merge review** | Nordea's proposals wait until the customer accepts or rejects them. This is the only way anything enters the cabinet. |
-| 🔎 | **Explain and dispute** | Every cabinet entry shows who proposed it, why, and when it was approved, and can be disputed. |
-| ⏸️ | **Park the cabinet** | Suspends it without deleting anything: no agent reads it and nothing is added until the customer resumes it. |
-| 🔌 | **Separate off-switches** | Turning an agent off, disconnecting the personal agent, parking the cabinet and deleting a store are four different actions. |
+| 📄 | **Per-session `context.md`** | Rebuilt for every customer session, rendered from structured rows - never parsed back. |
+| ✍️ | **Section ownership, enforced** | One writer module per section; the same source-scan that pins each agent to its own database pins the sections. |
+| 🔎 | **Session stamping** | A document is served only when its `sessionId` matches the current session; a stale document is never wiped and never leaked across sessions. |
 
-#### 🛡️ Safety built into the code
+#### 🚦 Risk and permissions
 
-- ♻️ **Staleness checks:** when the bank data behind a cabinet entry changes, the entry is marked stale and a refreshed proposal goes back through merge review. Resuming re-checks everything before the cabinet is used again, so outdated figures are never served as fresh.
-- 🔢 **Numeric grounding:** numbers in the personal agent's replies must appear in the retrieved facts, or the reply is replaced by a plain answer with no figures.
-- 🔒 **Fail-closed gateway:** an agent with no registered permissions gets nothing.
+| | Feature | How it works |
+|:-:|---|---|
+| 📏 | **Risk decided by code rules** | High risk always waits for the customer: offers, sharing beyond the three agents, inferences, sensitive topics. Never the agent's judgement. |
+| 🧾 | **Observed vs inferred, derived** | "Observed" comes from the evidence (transaction ids + a total, or the customer's own words) - never trusted from the proposer's own flag. |
+| 🎚️ | **Standing permissions** | Set once via `POST /api/arch/:uid/permissions`. Until then every proposal waits in merge review; afterwards low and medium risk items are stored automatically - always logged, explainable and disputable. |
 
-### 🚀 Run it
+#### ⏳ Decay maintenance
 
-**Needs:** Node.js 22.13 or newer (the prototype uses Node's built-in `node:sqlite`) and Python 3.9+ to load data.
+| | Feature | How it works |
+|:-:|---|---|
+| 🔁 | **Re-check before reuse** | The CM agent detects possible decay from stored evidence and asks the owning agent to confirm - it never opens another agent's database. |
+| 🧮 | **Five decay signals** | A changed total; churned transactions (a hash of the full id set is compared like with like, so large accounts don't false-flag); age past 30 days without verifiable evidence; evidence that was never stored; and a goal the customer removed, which flags its entries too. |
+| 🚩 | **Plain-language flags** | The customer is told which entries went stale, why, and whether refreshed figures were stored automatically or wait in merge review. |
 
-```bash
-git checkout Instict-prototype
-npm install            # if it fails: npm install --legacy-peer-deps
-python3 scripts/load_data.py seed/demo --target file   # the app starts empty until you load data
-npm run dev
-```
+#### 🧑‍⚖️ Customer control
 
-| Open | What you see |
+| | Feature | How it works |
+|:-:|---|---|
+| 💬 | **Explain** | Every cabinet item answers "why do you know this?" with its source and the message that proposed it. |
+| ✋ | **Dispute** | The customer can mark an item wrong; from then on it is filtered out of the context Abel receives, so its figures fail Abel's grounding check. The stored document keeps the `[disputed]` mark and the history. |
+| ↩️ | **Undo** | Automatically stored items can be undone per entry; manually reviewed items are disputed instead, so provenance survives. |
+| ⏸️ | **Park and agent switches** | Parking the cabinet or switching an agent off silences that part of the pipeline without deleting anything. |
+
+#### 💬 Abel, inside the architecture
+
+| | Feature | How it works |
+|:-:|---|---|
+| 📨 | **Facts by message** | Abel's User DB facts come from the personal agent answering an `abel-facts` message - the app layer opens no agent store on this path (pinned by a source-scan test). |
+| 📄 | **Session document only** | Abel receives the current session's finalised `context.md`; a missing or other-session document is rebuilt when possible and otherwise not served. |
+| 🔢 | **Grounded numbers** | Figures from the shared context join the same grounding guard as tool results: a number Abel can't source sends the reply back to be fixed. |
+
+### 🛣️ Routes
+
+All under `/api/arch/:uid/` (`src/server/arch/routes.ts`):
+
+| Route | Purpose |
 |---|---|
-| **http://localhost:3000/arch.html** | The three-database architecture, with airlock, merge review and park controls |
-| **http://localhost:3000** | The banking app with Abel |
-| **http://localhost:3000/dev-monitor.html** | The read-only developer monitor. Add `DEV_MONITOR=1` to `.env.local` first; laptop only, as it shows private cards. |
+| `GET state` | Cabinet, agents and document state for the demo UI |
+| `POST chat` | Session chat answered from the session's document |
+| `POST goals` | Add a customer goal |
+| `POST permissions` | Set standing permissions (`reviewLevel: 'all' \| 'high'`) |
+| `POST agent-query` | Ask an agent a direct question |
+| `POST personal-agent/connect` · `POST personal-agent/disconnect` | Swap between the in-app and an external personal agent |
+| `POST sync` · `POST airlock/:batchId/approve` · `POST airlock/:batchId/reject` | Sync ingestion through the airlock; approve or reject what enters the User DB |
+| `POST nordea/contribute` | Run a contribution round (Nordea proposals) |
+| `GET review` · `POST review/:messageId/accept` · `POST review/:messageId/reject` | The merge-review queue |
+| `GET entries` · `GET entries/:entryId/explain` · `POST entries/:entryId/dispute` · `POST entries/:entryId/undo` | Cabinet entries: list, explain, dispute, undo |
+| `POST cabinet/park` · `POST cabinet/resume` | Park or resume the whole cabinet |
+| `POST agents/:agent/off` · `POST agents/:agent/on` | Switch one agent off or on |
+| `DELETE db/:which` | Delete a database (customer-driven) |
 
-| Check | What it does |
-|---|---|
-| `npm run test:arch` | 74 checks of the three-database architecture |
-| `npm test` | The bank-data model, on a throwaway copy |
-| `npm run check:feed` | Dry-runs the example Nordea feed CSV |
-| `npm run lint` | TypeScript check |
+### ⚠️ Known limits
 
 <details>
-<summary><b>⚠️ Not built yet</b>: what this prototype is not</summary>
-<br>
+<summary>What this prototype does <b>not</b> do</summary>
 
-- **Isolation:** the three databases are separate files, each opened only by its own agent's code, but in one process. Each agent's retrieval covers only its own store: cabinet content reaches the personal agent through explicit messages, never a shared index. Separate credentials per database (for example three Supabase projects) are still to come.
-- **External agents:** there is no real external agent integration. The connect button switches mode, and `/api/arch/:uid/sync` is a stand-in endpoint. `scripts/personal-agent-client.ts` simulates an external agent.
-- **Bank connection:** there is no live bank connection. The Nordea DB is copied from loaded data and refreshed on each import.
-- **AI:** in the architecture prototype, retrieval is keyword-based and answers are templates over retrieved facts, not an LLM. Numeric grounding checks that numbers appear in the facts, not that they're attached to the right thing.
+- **Figures are labelled "of related spending"** - goal matching uses category and description keywords, so a saving goal's figure is the related spending, not a true savings-transfer balance.
+- **Single process.** The round engine, bus and stores run in one Node process; `node:sqlite` files sit under the data dir. No distribution, no queues.
+- **No real external agent.** The "external personal agent" is a local client script (`scripts/personal-agent-client.ts`) exercising the same bus protocol.
+- **No live bank.** All account data is fictional, loaded with `scripts/load_data.py` (see `seed/README.md`).
+- **Demo UI.** `public/arch.html` and `public/dev-monitor.html` are demonstration surfaces, not the polished banking app.
 
 </details>
 
+
 ## 🌿 Branches
 
-`main` is the stable app. Three branches build on it, ending with the final prototype:
+`main` is the stable app. These branches build on it:
 
 | Branch | What it adds | Start here |
 |---|---|---|
-| **`main`** | The app with demo data built in, including the structured bank-data model (stable transaction ids, incremental imports, balance history, evidence for observations). | This README · [`docs/bank-records.md`](docs/bank-records.md) |
+| **`main`** | The app with Abel, the access gateway and the structured bank-data model (stable transaction ids, incremental imports, balance history, evidence for observations), plus the three-agent architecture above. The app starts empty; data is loaded separately with `scripts/load_data.py`. | This README · [`docs/bank-records.md`](docs/bank-records.md) |
 | [**`Bank_database`**](https://github.com/coolkowkank/Nordea-x-Aalto-Banking-/tree/Bank_database) | 🏦 Docs and tooling for that bank data: a Supabase setup guide, an example feed CSV, and `npm run check:feed`, a dry run that checks a feed CSV before you upload it. The app code is the same as `main`. | [`supabase/README.md`](https://github.com/coolkowkank/Nordea-x-Aalto-Banking-/blob/Bank_database/supabase/README.md) |
 | [**`dev-context-monitor`**](https://github.com/coolkowkank/Nordea-x-Aalto-Banking-/tree/dev-context-monitor) | 🔍 **Context enrichment.** The app ships empty and data is loaded separately with `scripts/load_data.py` (needs Python 3.9+). Adds a read-only developer monitor at `/dev-monitor.html` that shows live what Abel can read, what is shared with Nordea, and every audited read. Turn it on with `DEV_MONITOR=1`, on a laptop only. | [`seed/README.md`](https://github.com/coolkowkank/Nordea-x-Aalto-Banking-/blob/dev-context-monitor/seed/README.md) |
-| [**`Instict-prototype`**](https://github.com/coolkowkank/Nordea-x-Aalto-Banking-/tree/Instict-prototype) | 🧪 **The final prototype.** Combines both branches above and adds the three-database architecture. See [Final prototype](#-final-prototype). | [`README.md` on the branch](https://github.com/coolkowkank/Nordea-x-Aalto-Banking-/blob/Instict-prototype/README.md) |
+| [**`Instict-prototype`**](https://github.com/coolkowkank/Nordea-x-Aalto-Banking-/tree/Instict-prototype) | 🧪 The first three-database prototype. Combines the two branches above; superseded by the v2 architecture now on `main`. | [`README.md` on the branch](https://github.com/coolkowkank/Nordea-x-Aalto-Banking-/blob/Instict-prototype/README.md) |
+| [**`instinct-prototype-v2`**](https://github.com/coolkowkank/Nordea-x-Aalto-Banking-/tree/instinct-prototype-v2) | 🗄️ **Three-agent context memory architecture**: per-session shared document, decay maintenance, standing permissions, explain/dispute/undo. **Merged into `main`.** | See [Three-agent architecture](#-three-agent-architecture) |
 
 > [!IMPORTANT]
 > `dev-context-monitor` rewrites `src/server/db.ts` and does not include the structured bank-data changes that `main` has, so merging it into `main` needs that file reconciled. `Instict-prototype` has already done that reconciliation.
