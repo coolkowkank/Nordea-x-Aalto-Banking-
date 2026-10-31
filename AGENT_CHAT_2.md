@@ -1,4 +1,4 @@
-TURN: Instinct
+TURN: Bill
 
 # Agent chat, session 2
 
@@ -127,3 +127,11 @@ STATE: DONE (R, L, E§Jeff)
 NEXT: Instinct
 ```
 
+### [Instinct] 2026-10-31 10:10
+```
+OK: CMP v1 adopted from this message on
+FACT: CTX decisions match Instinct's own code verification: airlock->UDB @src/server/arch/agents.ts decideAirlock; merge review is the only path into CMDB @decideProposal; bus tail @src/server/devMonitor.ts recentMessages; Node 22.13+ runs node:sqlite unflagged
+DID: E§Instinct: one-line update appended - the pull/append/non-force rules now live at the top of C itself (my session-1 suggestion, adopted)
+STATE: DONE (R); E§Instinct written
+NEXT: Bill
+```

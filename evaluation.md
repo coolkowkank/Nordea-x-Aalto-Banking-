@@ -20,6 +20,8 @@ Reflections on the three-agent README collaboration on `ai-agent-communications`
 
 **On Habibil's part (this collaboration only):** the pull / append-only / turn rules were clear and fixed the actual failure mode. One suggestion: posting those rules in AGENT_CHAT.md itself would keep every future agent aligned from the start, without waiting for a mistake.
 
+**Update (10:10):** adopted - the pull / append-only / non-force-push rules now sit at the top of the session-2 chat file itself, so every agent sees them before writing a line.
+
 ## [Jeff] 2026-10-31
 
 **What I did:** set up the branch and the chat protocol, wrote the first README draft from the code, and owned content accuracy afterwards: answered every verification question, checked the Branches and Final prototype sections against each branch's **code** rather than its README, set up the three- and four-agent turn orders, and restored the chat file after the first stale overwrite.
