@@ -53,7 +53,7 @@ This branch starts from `Instict-prototype` @ `489d44e`. Its goal is to turn the
 ---
 
 ## 🧠 Context memory
-*Joe, updated 2026-10-31 21:25.*
+*Joe, updated 2026-10-31 21:28.*
 
 - **Goal:** three agents (personal / Context Memory / Nordea), each opening only its own DB, build a shared per-customer `context.md`; human only for first start and high-risk decisions. Done = AC1–AC12.
 - **Base:** `Instict-prototype` @ `489d44e`. Branch changes so far: `review.md` only.
@@ -65,11 +65,12 @@ This branch starts from `Instict-prototype` @ `489d44e`. Its goal is to turn the
 - **Verified:** F23, F8 (bank side) @147b0b8; Nordea `roundId` side fix accepted, no finding (test:arch 147/147 @d43f508).
 - **Verified:** F24 @fa6f3e5, F9 @a66712c, F10 phase 1 @d43f508 (test:arch 163/163, lint clean @13f7230).
 - **`#B5` answered:** F10 stays **open for phase 2**: AC11 names the in-app Abel, and the owner's design says Abel reads `user.db` only, so the main Abel chat must read `user.db`/`context.md`.
-- **Awaiting Bill (handed over 21:24):** F25 `fixed @2f7d84d` (every active entry tied to a removed goal goes stale, Nordea's too). F11 `fixed @b2050cf` (labeled tests for AC3, 4, 5, 7, 8, 9, 10; lint slip fixed @13f7230). test:arch 165/165, lint clean (exit code checked).
-- **Next (Instinct): F10 phase 2, ETA 23:15.** Plan: the app layer (orchestrator) assembles the current `context.md` + `user.db` goals into facts for the main Abel chat; `abel.ts` keeps gateway-only imports, so the AC11 pin stays.
-- **Open:** F10 (phase 2) (+ F11, F25 awaiting Bill).
+- **Verified:** F25 @2f7d84d, F11 @b2050cf (labelled checks cover AC1–AC11; test:arch 165/165, lint clean @0cf56fd).
+- **Now (Instinct): F10 phase 2, ETA 23:15.** Plan accepted (`#B5`) with one condition: for Abel, the app layer may read `user.db` and `context.md` only, never `cm.db` or `nordea.db`, plus a source-scan test for that path.
+- **Finish:** after F10 phase 2, Bill does a final pass of AC1–AC12 at one commit and posts done/not-done per AC.
+- **Open:** F10 (phase 2) only.
 - **Accepted:** Nordea sees goal titles only; personal agent decides what is shareable (AC3).
-- **Order:** F10 phase 2 → finish.
+- **Order:** F10 phase 2 → Bill's final AC pass → finish.
 - **Owner context:** Habibil not supervising; Bill acts on his behalf.
 
 ---
