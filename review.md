@@ -1,4 +1,4 @@
-TURN: Bill
+TURN: Instinct
 
 # review.md: quality control for `instinct-prototype-v2`
 
@@ -105,8 +105,8 @@ Baseline review of `Instict-prototype` @ `489d44e` against the expectation. Seve
 | Id | Sev | AC | Finding | Evidence | Status |
 |:-:|:-:|:-:|---|---|:-:|
 | F1 | H | AC2 | There is no `context.md` or any shared working document. The cabinet is rows in `cm.db`; no agent sees the context as a whole. | `src/server/arch/store.ts` (only `.db` files); no markdown rendering anywhere in `src/server` | open |
-| F2 | H | AC1 | Isolation is by convention only. All three agents are functions in one module, and several functions open other agents' databases: the personal agent's `chat()` opens `cm.db`; `contribute()` opens `user.db`, `cm.db` and `nordea.db`; `explainEntry()` opens `cm.db`, `user.db` and the bus. | `arch/agents.ts` lines 86, 111, 361–367, 442–447; `store.ts` header comment ("enforced by code convention") | fixed @7950f5d |
-| F3 | H | AC6 | No build-round lifecycle and no real messaging. `postMessage` only appends to a log; nothing reads pending messages and dispatches them to an agent. HTTP routes call agent functions in a fixed order. | `store.ts:311`; `arch/routes.ts` | fixed @7950f5d |
+| F2 | H | AC1 | Isolation is by convention only. All three agents are functions in one module, and several functions open other agents' databases: the personal agent's `chat()` opens `cm.db`; `contribute()` opens `user.db`, `cm.db` and `nordea.db`; `explainEntry()` opens `cm.db`, `user.db` and the bus. | `arch/agents.ts` lines 86, 111, 361–367, 442–447; `store.ts` header comment ("enforced by code convention") | verified @7950f5d (agent modules); app layer → F12 |
+| F3 | H | AC6 | No build-round lifecycle and no real messaging. `postMessage` only appends to a log; nothing reads pending messages and dispatches them to an agent. HTTP routes call agent functions in a fixed order. | `store.ts:311`; `arch/routes.ts` | verified @7950f5d; edge case → F13 |
 | F4 | H | AC3 | The personal agent never contributes to the shared context. Only the Nordea agent can create a cabinet entry. | `agents.ts:426` (`proposedBy: 'nordea'` is the only writer) | open |
 | F5 | H | AC4 | The Context Memory agent does no retrieval worth the name and no synthesis: keyword overlap, no ranking, no dedupe or conflict handling, no `observed` or `inferred` marker. | `agents.ts:112`, `:155` | open |
 | F6 | M | AC5, AC1 | The Nordea agent decides what to contribute from `user.db` goals it reads directly. It should read `context.md` instead. | `agents.ts:365` (`const goals = u.goals`) | open |
@@ -115,8 +115,11 @@ Baseline review of `Instict-prototype` @ `489d44e` against the expectation. Seve
 | F9 | M | AC5 | `agent-query` to the Nordea agent returns up to 3 raw transactions (date, amount, description) to the personal agent. | `agents.ts:172` | open |
 | F10 | M | AC11 | The in-app Abel (the LLM) never reads `user.db` or any architecture store; it uses `abel_records` through the access gateway. In the prototype, "Abel" in the architecture is only a label. | `abel.ts:16`, `arch/agents.ts:22` | open |
 | F11 | L | AC12 | No tests yet for any of AC1–AC9 beyond what the current 74 checks cover. | `scripts/test-arch.ts` | open |
+| F12 | M | AC1, AC6 | The app layer still makes agent decisions from direct database reads. `contribute()` checks parking and counts goals by opening `cm.db` and `user.db`; `recheckBeforeReuse()` reads goals and active entries to decide whether a decay round runs. The customer dashboard (`archState`, `listEntries`) reading every store is fine; deciding *for* an agent is not. Ask the agent by control message, or let the round itself decide (a decay round with nothing to check already ends cleanly). | `arch/orchestrator.ts:68`, `:71`, `:77`, `:163–165` | open |
+| F13 | L | AC6 | `runRound` marks a round `stored` after the finalise dispatch without checking that the CM agent actually stored it (e.g. 0 messages delivered). Set `stored` only on the CM agent's finalise reply; otherwise `step-limit` or `failed`. | `arch/rounds.ts:114–115` | open |
+| F14 | L | AC1, AC12 | The AC1 test is a blocklist on three store names. An agent importing `store/common.ts` (generic `openDb` by path), `node:sqlite` or `fs` would still pass. Make it an allowlist: each agent may import only its own store, `busStore`, `dispatcher`, `rounds`, `text` and `types`. Accepted exception: `nordea.ts` importing the app's `db.ts` as Nordea's core bank source. | `scripts/test-arch.ts:318–322` | open |
 
-**Suggested order:** F2 + F3 (module split and dispatcher) → F1 (`context.md`) → F4, F5, F6 → F7 → F8 → F9 → F10 → F11.
+**Suggested order:** F1 (`context.md`) with F12 → F4, F5, F6 → F7 → F8 → F9 → F10 → F11, F13, F14 alongside.
 
 ---
 
@@ -181,4 +184,18 @@ FACT: decay check now message-driven per AC8: CM asks personal for goal titles, 
 FACT: goal DETAILS no longer reach Nordea matching (titles only travel on the bus) - honest consequence of real messaging; matching otherwise unchanged
 ETA: next batch F1 (context.md) after your review
 NEXT: Bill
+```
+
+### [Bill] 2026-10-31 17:33
+```
+FACT: test:arch 85/85, lint clean, rerun by Bill on Node 22.23 @1d69885
+F2: verified for agent modules; each imports only its own store + bus (agents/*.ts imports)
+F3: verified; dispatcher delivers to handlers, rounds end on done signals or the step limit; decay asks Nordea, CM never reads nordea.db (agents/cm.ts:30-146)
+OPEN: F12 (M) app layer decides for agents from direct reads, orchestrator.ts:68,71,163-165
+OPEN: F13 (L) round marked stored without the CM's confirmation, rounds.ts:115
+OPEN: F14 (L) AC1 test is a blocklist; make it an allowlist
+FACT: titles-only to Nordea accepted for now; in F1 the personal agent decides what goes into its shareable context.md section (AC3)
+ASK@Instinct #B1: for F1, please state the context.md sections, who writes each, and how CM stores it as structured entries (AC4) before or with the code
+ANS #J1: yes; from now on rules 4+6 (hash check, honour ETA)
+NEXT: Instinct
 ```
