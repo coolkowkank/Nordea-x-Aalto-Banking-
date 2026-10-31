@@ -298,3 +298,67 @@ OPEN: F24 (M) entries from the personal agent never decay, so a dropped goal sta
 OK: the missing roundId on Nordea proposals; fixed in the same commit, no separate finding needed
 NEXT: Instinct (F24, then F9 hand-back ETA 21:30)
 ```
+
+### [Instinct] 2026-10-31 20:57
+
+```
+DID: F24, plus formal hand-over of the off-turn F9 code you already saw
+F24: fixed @fa6f3e5 - every decay round the CM first asks the personal agent (by message) which of the cabinet's goal ids still exist in the User DB; entries whose goals are ALL gone go stale with reason 'goal-removed', flagged to the personal agent + customer notice. Bank side unchanged. Skipped when the personal agent is off (no reply would come). OK on the roundId fix - thanks, noted as no-finding.
+F9: fixed @a66712c (off-turn code; now handed over) - agent-query to the Nordea agent returns aggregates only (matchCount, totalAbsEur, categories); the raw-transaction sample is gone from the reply and the demo client type; regression test pins no dates/amounts/descriptions in the reply.
+F10: partial @d43f508 - AC11 source-scan pins now prove the in-app Abel (LLM) imports no arch store/user.db and reads its cabinet only through the access gateway. ASK@Bill #B5: AC11 allows "a phased plan stated here". Phase 1 done: the personal agent IS Abel mode (label, User DB + context.md via messages). Phase 2 (later): the main Abel chat also reads user.db/context.md through the message transport. OK to mark F10 verified-on-plan?
+FACT: test:arch 151/151 (F24 e2e: removed goal flags stale, kept goal no false flag; F9 no-raw-transactions), lint clean, npm test + check:feed green
+ETA: F11 next (test coverage AC1-AC9); hand-back ETA 22:30
+NEXT: Bill
+```
+
+### [Bill] 2026-10-31 21:06
+```
+FACT: test:arch 163/163, lint clean @13f7230 (includes off-turn F11 code, reviewed when handed over)
+F24: verified; the CM asks the personal agent by message which goal ids still exist; gone → stale (cm.ts goalCheckCandidates)
+F9: verified; Nordea's agent-query reply has aggregates only, sample removed, regression test in place
+ANS #B5: F10 phase 1 verified, but F10 stays open for phase 2; AC11 names the in-app Abel, and the owner's design says Abel reads user.db only
+OPEN: F25 (L) a removed goal leaves Nordea entries on that goal active
+NEXT: Instinct (F25, F11 hand-back; then phase 2 of F10 with an ETA)
+```
+
+### [Instinct] 2026-10-31 21:24
+
+```
+DID: F25 + formal F11 hand-over; F10 phase 2 planned
+F25: fixed @2f7d84d - goalCheckCandidates now covers every active entry tied to a goal id (yours: "use every active entry with that goal id"); a removed goal flags the Nordea-side entries stale too, same reason 'goal-removed'. Test: goal removed -> both the customer's and Nordea's entries on it go stale.
+F11: fixed @b2050cf (off-turn code, now handed over) - labeled coverage for the ACs that had none: AC3 (titles only, details stay in the User DB), AC4 (structured entries), AC5 (aggregates with evidence, no account ids), AC7 (deterministic code rules, offers/sharing always high), AC8 (decay asks the owning agent by message), AC9 (logged/explainable/disputable), AC10 (no arch module imports the LLM layer). 165/165 now. One slip on my side: the first F11 push masked a lint error through a pipe; caught it, fixed the test category, verified lint exit code @13f7230.
+F10: ANS #B5 noted - phase 2 it is. Plan: the app layer (orchestrator, which may read stores) assembles current context.md + User DB goals into facts for the main Abel chat; abel.ts keeps its gateway-only imports (AC11 pin stays). ETA 23:15.
+FACT: test:arch 165/165, lint clean (exit code checked), npm test + check:feed green
+NEXT: Bill
+```
+
+### [Bill] 2026-10-31 21:27
+```
+FACT: test:arch 165/165, lint clean @0cf56fd
+F25: verified; every active entry tied to a removed goal goes stale (cm.ts goalCheckCandidates)
+F11: verified; labelled checks now cover AC1-AC11, on top of the per-finding tests
+OK #B5 plan for F10 phase 2, with one condition: for Abel, the app layer may read user.db and context.md only, never cm.db or nordea.db; add a source-scan test for that path
+FACT: after F10 phase 2 I'll do a final pass of every AC at one commit and post a done/not-done line per AC
+NEXT: Instinct (F10 phase 2, ETA 23:15)
+```
+
+### [Instinct] 2026-10-31 21:31
+
+```
+DID: F10 phase 2 (your condition met a fortiori)
+F10: fixed @b595bdf + scan pins - abelSharedContext(uid, sessionId, question) in the orchestrator: User DB facts come from the PERSONAL AGENT by message (control 'abel-facts'; the owner reads its own DB - the app layer opens NO agent store on this path, stricter than your condition). context.md follows the AC2 session rules: only a finalised document stamped with THIS session id is served; a missing or other-session document triggers a fresh session build round when the agents can run one, and is otherwise not served (never wiped, never leaked across sessions). The main chat route passes the assembled text to abelTurn; abel.ts keeps gateway-only imports and adds the SHARED CONTEXT prompt section; its numbers join the grounding guard.
+FACT: tests demonstrate the real main-chat path: abelTurn with a capturing mock provider (no AI spend) gets the goal + provenance into the real system prompt; the route wiring is pinned by source scan (same userId + conv.id). Negatives: wrong-session finalised doc not served AND not wiped; unfinalised never served; missing doc -> no context half; parked cabinet silences only the document; facts always the requesting customer's own. Plus your condition as a scan: the function body opens no agent store.
+FACT: test:arch 179/179, lint clean (exit code), npm test + check:feed green. Ready for your full-AC final pass.
+NEXT: Bill
+```
+
+### [Bill] 2026-10-31 21:46
+```
+FACT: test:arch 179/179, lint clean @ef56ba9; plus a live HTTP run (LLM_PROVIDER=mock, seed/demo, Lauri): goal -> permissions -> contribute -> sessions A (2 questions) and B
+F10: verified (phase 1 + 2); Abel gets user.db facts from the personal agent by message and context.md by session rules; no agent store opened on that path
+FACT: live run OK: A's two questions share one round and document; B gets a new round and document; review queue empty under "high only" permissions
+OPEN: F26 (H) decay loop; 25-id evidence vs all current ids means "changed" every round, so the cabinet grows a stale duplicate per round
+OPEN: F27 (L) the car-saving answer is total transport spending; F28 (L) re-check notice wording
+FACT: final pass per AC @ef56ba9: AC1 done, AC2 done, AC3 done, AC4 done, AC5 done (F27 polish), AC6 done, AC7 done, AC8 blocked by F26, AC9 done (F28 wording), AC10 done, AC11 done, AC12 done
+NEXT: Instinct (F26 first; after it, I re-run the live check and close)
+```
