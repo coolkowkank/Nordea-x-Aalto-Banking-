@@ -67,8 +67,9 @@ check('contribution proposes only goal-matching entries', c1.proposals.length ==
 
 // --- AC2: the build round wrote the shared context.md; each agent wrote only its own section
 const doc1 = S.loadContext(UID);
-check('AC2: a build round writes the shared context.md with all three sections', !!doc1 && doc1.sections.customer.includes('Save for a car') && doc1.sections.nordea.includes('83.5') && fs.existsSync(S.contextMdPath(UID)));
-check('AC2: the Customer section shares goal titles only - the detail stays in the User DB', !!doc1 && !doc1.sections.customer.includes('12 000 EUR'));
+check('AC2: a build round writes the shared context.md with all three sections', !!doc1 && doc1.sections.customer.rows.some((r) => r.title === 'Save for a car') && doc1.sections.nordea.rows.some((r) => r.detail.includes('83.5')) && fs.existsSync(S.contextMdPath(UID)));
+check('AC2: sections are structured rows with provenance, rendered to markdown (B1a)', !!doc1 && doc1.sections.nordea.rows.every((r) => r.source === 'nordea' && typeof r.evidence?.total === 'number') && fs.readFileSync(S.contextMdPath(UID), 'utf-8').includes('## Nordea'));
+check('AC2: the Customer section shares goal titles only - the detail stays in the User DB', !!doc1 && !doc1.sections.customer.rows.some((r) => `${r.title} ${r.detail}`.includes('12 000 EUR')));
 check('AC2: the CM agent stored a snapshot of the finished document at finalise', (S.loadContextSnapshot(UID) ?? '').includes('## Nordea'));
 check('no cabinet entry before review', S.loadCmDb(UID).entries.length === 0);
 const c2 = A.contribute(UID);
@@ -82,6 +83,9 @@ check('merge review queue holds the pending proposal', queue.length === 1);
 const entry = A.decideProposal(UID, queue[0].id, true) as { id: string };
 check('accepting writes the cabinet entry to the Context Memory DB', S.loadCmDb(UID).entries.length === 1);
 check('the entry carries provenance (proposedBy + viaMessageId)', S.loadCmDb(UID).entries[0].proposedBy === 'nordea' && !!S.loadCmDb(UID).entries[0].viaMessageId);
+
+const docChat = A.chat(UID, 'how much have I saved for the car?');
+check('B1c: chat answers from the finished context.md', docChat.reply.includes('83.5') && docChat.used.includes('context-memory-db'), docChat.reply);
 
 const explained = A.explainEntry(UID, entry.id);
 check('explain shows who, why and the review trail', explained.explanation.who.includes('Nordea agent') && explained.explanation.why.includes('Save for a car') && explained.explanation.reviewedBy.includes('accepted'), JSON.stringify(explained.explanation));
@@ -361,13 +365,21 @@ A.decideProposal(UID10, lc10.proposals[0].messageId, true);
 const limited = R.runRound(UID10, 'decay', { maxSteps: 1 });
 check('AC6: a round that cannot finish ends at its step limit', limited.state === 'step-limit', limited.state);
 
-// --- Chat boundary: the personal agent's cabinet content is a real CM-authored bus reply
+// --- Chat boundary (B1c): after a round finalises, chat answers from the finished context.md;
+// the cabinet content is the CM-written memory section, never the personal agent opening cm.db.
 const accepted = A.decideProposal(UID9, A.reviewQueue(UID9)[0].id, true) as { id: string };
 const chatAns = A.chat(UID9, 'what do you know about my car saving?');
-const chatBus = S.loadBus(UID9).messages;
-const cmReply = chatBus.find((m) => m.type === 'reply' && m.from === 'cm' && m.to === 'personal' && ((m.payload as { matchedEntries?: unknown[] })?.matchedEntries ?? []).length > 0);
-check('the chat answer draws on a real CM-authored reply message', !!cmReply && chatAns.reply.includes('Shared context (via the Context Memory agent)'), chatAns.reply.slice(0, 100));
-check('the CM reply carries the accepted entry', JSON.stringify(cmReply?.payload ?? {}).includes(accepted.id));
+const doc9 = S.loadContext(UID9)!;
+check('the chat answer draws on the CM-written memory section of the finished context.md', doc9.finalisedAt !== null && chatAns.reply.includes('Shared context (via the Context Memory agent)'), chatAns.reply.slice(0, 100));
+check('the memory section carries the accepted entry with provenance', doc9.sections.memory.rows.some((r) => r.id === accepted.id && r.source === 'cm' && typeof r.evidence?.total === 'number'));
+
+// --- Chat boundary (legacy path): before the first round finalises, chat still asks the CM
+// agent over the bus and the reply is a real CM-authored message.
+const UID11 = 'freshuser';
+A.addGoalDirect(UID11, 'Save for a car');
+A.chat(UID11, 'what do you know about my car saving?');
+const legacyReply = S.loadBus(UID11).messages.find((m) => m.type === 'reply' && m.from === 'cm' && m.to === 'personal');
+check('before the first round, chat still draws on a real CM-authored bus reply', !!legacyReply && S.loadBus(UID11).messages.some((m) => m.type === 'query' && m.from === 'personal' && m.to === 'cm' && m.status === 'answered'));
 
 console.log(`\n${passed} passed, ${failed} failed`);
 process.exit(failed ? 1 : 0);

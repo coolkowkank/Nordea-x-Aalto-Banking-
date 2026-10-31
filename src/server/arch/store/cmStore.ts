@@ -59,10 +59,10 @@ export function storeRoundRecord(uid: string, roundJson: string) {
 }
 
 /** Snapshots of the finished shared context.md, stored when a round finalises (AC2/AC4). */
-export function storeContextSnapshot(uid: string, roundId: string, markdown: string) {
+export function storeContextSnapshot(uid: string, roundId: string, markdown: string, rowsJson: string) {
   const db = openDb(fileFor(uid, 'cm'), 'cm');
   try {
-    kvSet(db, `context:${roundId}`, markdown);
+    kvSet(db, `context:${roundId}`, JSON.stringify({ markdown, rows: JSON.parse(rowsJson) }));
     kvSet(db, 'context:latest', roundId);
   } finally { db.close(); }
 }
@@ -70,7 +70,8 @@ export function loadContextSnapshot(uid: string, roundId?: string): string | nul
   const db = openDb(fileFor(uid, 'cm'), 'cm');
   try {
     const id = roundId ?? kvGet(db, 'context:latest');
-    return (id ? kvGet(db, `context:${id}`) : undefined) ?? null;
+    const raw = id ? kvGet(db, `context:${id}`) : undefined;
+    return raw ? (JSON.parse(raw) as { markdown: string }).markdown : null;
   } finally { db.close(); }
 }
 

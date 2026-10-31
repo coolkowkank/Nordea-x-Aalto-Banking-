@@ -8,8 +8,8 @@ import { ArchError, newId, now } from '../types.js';
 import type { AgentMessage, Goal } from '../types.js';
 import { words, overlaps } from '../text.js';
 import { loadUserDb, saveUserDb } from '../store/userStore.js';
-import { writeCustomerSection } from '../store/contextStore.js';
-import { appendMessage, getAgentsOff, loadBus, saveBus, updateMessage } from '../store/busStore.js';
+import { loadContext, readSectionRows, writeCustomerSection } from '../store/contextStore.js';
+import { appendMessage, getAgentsOff, getCabinetParkedMirror, loadBus, saveBus, updateMessage } from '../store/busStore.js';
 import { registerHandler } from '../dispatcher.js';
 import { roundDone } from '../rounds.js';
 
@@ -50,7 +50,8 @@ export function groundNumbers(reply: string, factSources: string[]): { reply: st
 // ---------- Chat: the personal agent answers from its own DB + bus replies ----------
 
 export interface ChatBegin {
-  kind: 'direct' | 'ask';
+  kind: 'direct' | 'ask' | 'doc';
+  parked?: boolean;
   direct?: { reply: string; used: string[] };
   queryMessageId?: string;
   question?: string;
@@ -89,7 +90,10 @@ export function beginChat(uid: string, text: string): ChatBegin {
     for (const f of factHits.slice(0, 3)) { parts.push(`From your ${f.source}: ${f.text}`); factSources.push(f.text); }
   }
 
-  // 2. Ask the Context Memory agent for shared context - a real message, really delivered.
+  // 2. Shared context: answer from the finished context.md when one exists (B1c). Before the
+  // first build round finalises one, fall back to a live query to the Context Memory agent.
+  if (getCabinetParkedMirror(uid)) return { kind: 'doc', parked: true, question: trimmed, used, parts, factSources, goalCount: u.goals.length };
+  if (loadContext(uid)?.finalisedAt) return { kind: 'doc', question: trimmed, used, parts, factSources, goalCount: u.goals.length };
   const query = appendMessage(uid, {
     from: 'personal', to: 'cm', type: 'query', status: 'pending',
     summary: `${personalLabel(u)} asks the Context Memory agent for cabinet entries about: ${trimmed.slice(0, 80)}`,
@@ -98,30 +102,48 @@ export function beginChat(uid: string, text: string): ChatBegin {
   return { kind: 'ask', queryMessageId: query.id, question: trimmed, used, parts, factSources, goalCount: u.goals.length };
 }
 
-/** Second half: read the CM agent's reply message and compose the answer. */
+/** Second half: compose the answer - from the finished context.md (B1c) or the CM agent's reply. */
 export function finishChat(uid: string, begin: ChatBegin): { reply: string; used: string[] } {
   const trimmed = begin.question ?? '';
   const used = begin.used ?? [];
   const parts = begin.parts ?? [];
   const factSources = begin.factSources ?? [];
 
-  const replyMsg = loadBus(uid).messages.find((m) => m.type === 'reply' && (m.payload as { inReplyTo?: string } | undefined)?.inReplyTo === begin.queryMessageId);
-  const payload = (replyMsg?.payload ?? {}) as { parked?: boolean; matchedEntries?: { title: string; detail: string; status: string; evidence?: { total?: number } }[] };
-  // Chat answers from ACTIVE shared context only; stale/disputed entries are not served as fact.
-  const entryHits = payload.parked ? [] : (payload.matchedEntries ?? []).filter((e) => e.status === 'active').slice(0, 3);
+  let parked = false;
+  let entryHits: { title: string; detail: string; evidence?: { total?: number } | null }[] = [];
+  let nordeaHits: { title: string; detail: string; evidence?: Record<string, unknown> | null }[] = [];
+  if (begin.kind === 'doc') {
+    // The finished shared document is the source: memory rows the CM agent wrote, nordea
+    // rows the Nordea agent wrote. ACTIVE entries only - stale/disputed are not served.
+    parked = begin.parked === true;
+    if (!parked) {
+      const q = words(trimmed);
+      entryHits = readSectionRows(uid, 'memory').filter((r) => (r.status ?? 'active') === 'active' && overlaps(q, words(`${r.title} ${r.detail}`))).slice(0, 3);
+      nordeaHits = readSectionRows(uid, 'nordea').filter((r) => overlaps(q, words(`${r.title} ${r.detail}`))).slice(0, 2);
+    }
+  } else {
+    const replyMsg = loadBus(uid).messages.find((m) => m.type === 'reply' && (m.payload as { inReplyTo?: string } | undefined)?.inReplyTo === begin.queryMessageId);
+    const payload = (replyMsg?.payload ?? {}) as { parked?: boolean; matchedEntries?: { title: string; detail: string; status: string; evidence?: { total?: number } }[] };
+    parked = !!payload.parked;
+    entryHits = payload.parked ? [] : (payload.matchedEntries ?? []).filter((e) => e.status === 'active').slice(0, 3);
+  }
   if (entryHits.length) {
     used.push('context-memory-db');
     for (const e of entryHits) { parts.push(`Shared context (via the Context Memory agent): ${e.title} - ${e.detail}`); factSources.push(`${e.title} ${e.detail} ${e.evidence?.total ?? ''}`); }
+  }
+  if (nordeaHits.length) {
+    used.push('context-md');
+    for (const r of nordeaHits) { parts.push(`Shared context (context.md, Nordea agent section): ${r.title} - ${r.detail}`); factSources.push(`${r.title} ${r.detail} ${(r.evidence as { total?: number } | null | undefined)?.total ?? ''}`); }
   }
 
   // 3. Guardrail: the personal agent never touches the Nordea DB.
   const bankish = ['balance', 'account', 'spent', 'spend', 'transaction', 'salary', 'money', 'save', 'saving'].some((w) => trimmed.toLowerCase().includes(w));
   if (!parts.length) {
-    if (payload.parked) return { reply: `I don't have enough in your User DB to answer that, and the cabinet is parked - reconnect it if you want me to use shared context again.`, used };
+    if (parked) return { reply: `I don't have enough in your User DB to answer that, and the cabinet is parked - reconnect it if you want me to use shared context again.`, used };
     if (bankish) return { reply: `I don't have your bank data - as your personal agent I only read your User DB and shared context the Context Memory agent hands me. Nordea's agent can propose goal-related insights to the cabinet for your review.`, used };
     return { reply: `I don't have enough context to answer that yet. All I have is what's in your User DB (${begin.goalCount ?? 0} goal${(begin.goalCount ?? 0) === 1 ? '' : 's'}) and the shared cabinet, which had nothing on this.`, used };
   }
-  if (bankish && !used.includes('context-memory-db')) parts.push(`For actual account figures, Nordea's agent works from the Nordea DB - I can't read it directly.`);
+  if (bankish && !used.includes('context-memory-db') && !used.includes('context-md')) parts.push(`For actual account figures, Nordea's agent works from the Nordea DB - I can't read it directly.`);
   const grounded = groundNumbers(parts.join(' '), factSources);
   return { reply: grounded.reply, used };
 }
@@ -219,11 +241,9 @@ function handleMessage(uid: string, msg: AgentMessage) {
     // context.md from its own User DB (AC2/AC3). Goal TITLES are shared; goal details and
     // personal facts stay in the User DB until the customer allows sharing them.
     const u = loadUserDb(uid);
-    writeCustomerSection(uid, [
-      ...u.goals.map((g) => `- Goal: ${g.title} (${g.id})`),
-      '',
-      `_(${u.goals.length} goal${u.goals.length === 1 ? '' : 's'} shared by title; details and personal facts stay in the User DB until the customer allows sharing them.)_`,
-    ].join('\n'), { roundId: payload.roundId, trigger: String(payload.trigger ?? 'contribution') });
+    writeCustomerSection(uid, u.goals.map((g) => ({ id: g.id, title: g.title, detail: '', source: 'personal' as const, at: now() })),
+      `${u.goals.length} goal${u.goals.length === 1 ? '' : 's'} shared by title; details and personal facts stay in the User DB until the customer allows sharing them.`,
+      { roundId: payload.roundId, trigger: String(payload.trigger ?? 'contribution') });
     appendMessage(uid, {
       from: 'personal', to: 'cm', type: 'inform', status: 'pending',
       summary: `${personalLabel(u)} wrote the Customer section of context.md (${u.goals.length} goal${u.goals.length === 1 ? '' : 's'} shared by title).`,

@@ -16,7 +16,7 @@ import './agents/nordea.js'; // side effect: registers the Nordea agent's bus ha
 import { loadUserDb, saveUserDb, deleteUserDb } from './store/userStore.js';
 import { loadCmDb, deleteCmDb } from './store/cmStore.js';
 import { loadNordeaDb, nordeaFileExists, deleteNordeaDb } from './store/nordeaStore.js';
-import { loadContext, renderContextMd } from './store/contextStore.js';
+import { deleteContext, loadContext, renderContextMd } from './store/contextStore.js';
 import {
   appendMessage, findMessage, getAgentsOff, setAgentsOff, loadBus,
 } from './store/busStore.js';
@@ -212,6 +212,9 @@ export function deleteDatabase(uid: string, which: 'user' | 'cm' | 'nordea') {
   if (which === 'user') deleteUserDb(uid);
   else if (which === 'cm') deleteCmDb(uid);
   else deleteNordeaDb(uid);
+  // The shared context.md is derived from all three databases; with one wiped it is stale,
+  // so the document is deleted too and rebuilt by the next build round.
+  deleteContext(uid);
   appendMessage(uid, { from: which === 'user' ? 'personal' : which, to: 'user', type: 'inform', summary: `The ${which === 'cm' ? 'Context Memory' : which === 'user' ? 'User' : 'Nordea'} DB was deleted on your request. Other databases and message history were not touched.` });
 }
 

@@ -9,7 +9,8 @@ import { newId, now } from '../types.js';
 import type { AgentMessage, ArchEntry, StaleFlag } from '../types.js';
 import { words, overlaps } from '../text.js';
 import { loadCmDb, saveCmDb, storeRoundRecord, storeContextSnapshot } from '../store/cmStore.js';
-import { loadContext, readSection, renderContextMd, writeHeader, writeMemorySection } from '../store/contextStore.js';
+import { loadContext, readSectionRows, renderContextMd, writeHeader, writeMemorySection } from '../store/contextStore.js';
+import type { ContextRow } from '../store/contextStore.js';
 import { appendMessage, findMessage, loadBus, setCabinetParkedMirror, updateMessage } from '../store/busStore.js';
 import { registerHandler } from '../dispatcher.js';
 import { loadRound, roundDone, recordStaleFlags } from '../rounds.js';
@@ -30,17 +31,21 @@ function decayCandidates(uid: string, goalIds?: string[]): ArchEntry[] {
 /** Goal titles as written in the Customer section of the shared context.md (AC2). */
 function goalTitlesFromDoc(uid: string): Map<string, string> {
   const map = new Map<string, string>();
-  for (const m of readSection(uid, 'customer').matchAll(/^- Goal: (.+) \(([^)]+)\)$/gm)) map.set(m[2], m[1]);
+  for (const r of readSectionRows(uid, 'customer')) map.set(r.id, r.title);
   return map;
 }
 
-/** The CM agent's section: relevant earlier entries from its own DB (AC4). */
+/** The CM agent's section: relevant earlier entries from its own DB, as structured rows (AC4/B1a). */
 function writeMemoryFromEntries(uid: string, meta?: { roundId: string; trigger: string }) {
   const cm = loadCmDb(uid);
-  const customerWords = words(readSection(uid, 'customer'));
-  const relevant = cm.entries.filter((e) => overlaps(customerWords, words(`${e.title} ${e.detail}`)));
-  const lines = relevant.map((e) => `- [${e.status}] ${e.title}: ${e.detail} (source: ${e.proposedBy}, ${e.createdAt.slice(0, 10)})`);
-  writeMemorySection(uid, lines.length ? lines.join('\n') : '_no relevant earlier context_', meta);
+  const customerWords = readSectionRows(uid, 'customer').flatMap((r) => words(`${r.title} ${r.detail}`));
+  const relevant = customerWords.length ? cm.entries.filter((e) => overlaps(customerWords, words(`${e.title} ${e.detail}`))) : cm.entries;
+  const rows: ContextRow[] = relevant.map((e) => ({
+    id: e.id, title: e.title, detail: e.detail, source: 'cm', status: e.status,
+    evidence: (e.evidence ?? null) as Record<string, unknown> | null,
+    at: e.createdAt,
+  }));
+  writeMemorySection(uid, rows, meta);
 }
 
 /** Ask the Nordea agent to confirm or refresh the stored values behind decay candidates (AC8). */
@@ -248,6 +253,7 @@ function handleMessage(uid: string, msg: AgentMessage) {
       };
       cm.entries.push(entry); // only the CM agent writes the Context Memory DB
       saveCmDb(cm);
+      writeMemoryFromEntries(uid); // keep the shared document's memory section current
       appendMessage(uid, { from: 'cm', to: 'user', type: 'inform', summary: `Context Memory agent added "${entry.title}" to the cabinet after your approval.` });
       appendMessage(uid, { from: 'cm', to: 'app', type: 'reply', summary: 'Proposal accepted into the cabinet.', payload: { inReplyTo: msg.id, entry } });
       updateMessage(uid, msg.id, { status: 'answered' });
@@ -267,6 +273,7 @@ function handleMessage(uid: string, msg: AgentMessage) {
       entry.status = 'disputed';
       entry.disputeReason = reason;
       saveCmDb(cm);
+      writeMemoryFromEntries(uid); // keep the shared document's memory section current
       appendMessage(uid, { from: 'cm', to: 'user', type: 'inform', summary: `You disputed "${entry.title}": ${entry.disputeReason}. It stays visible, marked disputed, until you resolve or delete it.` });
       appendMessage(uid, { from: 'cm', to: 'app', type: 'reply', summary: 'Entry disputed.', payload: { inReplyTo: msg.id, entry } });
       updateMessage(uid, msg.id, { status: 'answered' });
@@ -297,7 +304,7 @@ function handleMessage(uid: string, msg: AgentMessage) {
         // ...stamps the shared document finalised, and stores a snapshot of it (AC2/AC4).
         writeHeader(uid, { roundId: round.id, trigger: round.trigger, finalise: true });
         const doc = loadContext(uid);
-        if (doc) storeContextSnapshot(uid, round.id, renderContextMd(uid, doc));
+        if (doc) storeContextSnapshot(uid, round.id, renderContextMd(uid, doc), JSON.stringify(doc.sections));
       }
       // Confirm to the round engine: the round is 'stored' only on this reply (F13).
       appendMessage(uid, {

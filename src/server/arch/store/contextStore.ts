@@ -1,12 +1,12 @@
 /**
- * The shared working document (AC2): one context.md per customer. All three agents may
- * READ the whole document - it is how every agent sees the context as a whole. Each agent
- * WRITES only its own section through the dedicated writer functions below; the AC1/AC2
- * source-scan test pins which agent module may call which writer.
+ * The shared working document (AC2): one context.md per customer. Sections are stored as
+ * STRUCTURED ROWS (B1a) - each row carries source agent, evidence and timestamps - and the
+ * markdown file is RENDERED from the rows, never the other way round. The Context Memory
+ * agent stores its finalise snapshot from the rows, so provenance stays exact.
  *
- * Physical form: a rendered markdown file per customer next to the agent databases, plus a
- * small JSON sidecar so sections can be updated independently. Neither file is an agent
- * database: no agent keeps private state here - this is the shared document itself.
+ * All three agents may READ the rows; each WRITES only its own section through its dedicated
+ * writer below (B1b), pinned by the AC2 source-scan test. The private writeSection helper is
+ * not exported, so an agent module can only ever reach its own writer.
  */
 import fs from 'node:fs';
 import path from 'node:path';
@@ -15,12 +15,24 @@ import { now } from '../types.js';
 
 export type ContextSection = 'customer' | 'memory' | 'nordea';
 
+/** One structured row of the shared document. Evidence and provenance live here, not in markdown. */
+export interface ContextRow {
+  id: string;
+  title: string;
+  detail: string;
+  source: 'personal' | 'cm' | 'nordea';
+  status?: string;
+  observed?: 'observed' | 'inferred';
+  evidence?: Record<string, unknown> | null;
+  at: string;
+}
+
 export interface ContextDoc {
   roundId: string | null;
   trigger: string | null;
   openedAt: string | null;
   finalisedAt: string | null;
-  sections: Record<ContextSection, string>;
+  sections: Record<ContextSection, { rows: ContextRow[]; note?: string }>;
 }
 
 export interface RoundMeta { roundId: string; trigger: string }
@@ -29,31 +41,43 @@ const safeUid = (uid: string) => uid.replace(/[^a-z0-9_-]/gi, '_');
 const jsonPath = (uid: string) => path.join(ARCH_DIR, `${safeUid(uid)}.context.json`);
 export const contextMdPath = (uid: string) => path.join(ARCH_DIR, `${safeUid(uid)}.context.md`);
 
-const emptyDoc = (): ContextDoc => ({ roundId: null, trigger: null, openedAt: null, finalisedAt: null, sections: { customer: '', memory: '', nordea: '' } });
+const emptyDoc = (): ContextDoc => ({
+  roundId: null, trigger: null, openedAt: null, finalisedAt: null,
+  sections: { customer: { rows: [] }, memory: { rows: [] }, nordea: { rows: [] } },
+});
 
 export function loadContext(uid: string): ContextDoc | null {
   try { return JSON.parse(fs.readFileSync(jsonPath(uid), 'utf-8')) as ContextDoc; } catch { return null; }
 }
 
+/** Rows of one section - how agents read the shared document (never by parsing markdown). */
+export function readSectionRows(uid: string, section: ContextSection): ContextRow[] {
+  return loadContext(uid)?.sections[section].rows ?? [];
+}
+
+function renderRows(section: ContextSection, rows: ContextRow[]): string {
+  if (!rows.length) return section === 'customer' ? '_nothing shared yet_' : section === 'memory' ? '_nothing relevant stored yet_' : '_no bank aggregates yet_';
+  return rows.map((r) => {
+    if (section === 'customer') return `- Goal: ${r.title} (${r.id})${r.detail ? ` - ${r.detail}` : ''}`;
+    if (section === 'memory') return `- [${r.status ?? 'active'}] ${r.title}: ${r.detail} (source: ${r.source}, ${r.at.slice(0, 10)})`;
+    return `- ${r.title}: ${r.detail} (aggregates only - no account identifiers, no raw transactions).`;
+  }).join('\n');
+}
+
 export function renderContextMd(uid: string, doc: ContextDoc): string {
-  return [
+  const out = [
     `# Context - ${uid}`,
     '',
     `<!-- build round: ${doc.roundId ?? 'none'} (${doc.trigger ?? 'n/a'}) opened ${doc.openedAt ?? 'n/a'}, finalised ${doc.finalisedAt ?? 'not yet'} -->`,
     '',
-    '## Customer',
-    '',
-    doc.sections.customer || '_nothing shared yet_',
-    '',
-    '## Context memory',
-    '',
-    doc.sections.memory || '_nothing relevant stored yet_',
-    '',
-    '## Nordea',
-    '',
-    doc.sections.nordea || '_no bank aggregates yet_',
-    '',
-  ].join('\n');
+  ];
+  for (const [section, heading] of [['customer', 'Customer'], ['memory', 'Context memory'], ['nordea', 'Nordea']] as [ContextSection, string][]) {
+    const s = doc.sections[section];
+    out.push(`## ${heading}`, '', renderRows(section, s.rows));
+    if (s.note) out.push('', `_${s.note}_`);
+    out.push('');
+  }
+  return out.join('\n');
 }
 
 function save(uid: string, doc: ContextDoc) {
@@ -62,7 +86,13 @@ function save(uid: string, doc: ContextDoc) {
   fs.writeFileSync(contextMdPath(uid), renderContextMd(uid, doc));
 }
 
-function writeSection(uid: string, section: ContextSection, markdown: string, meta?: RoundMeta) {
+/** Delete the shared document (app administration after one of the agents' databases is wiped). */
+export function deleteContext(uid: string) {
+  for (const f of [jsonPath(uid), contextMdPath(uid)]) if (fs.existsSync(f)) fs.unlinkSync(f);
+}
+
+// Private: the only write path. Not exported - agent modules can only reach their own writer (B1b).
+function writeSection(uid: string, section: ContextSection, rows: ContextRow[], note: string | undefined, meta?: RoundMeta) {
   const doc = loadContext(uid) ?? emptyDoc();
   if (meta && doc.roundId !== meta.roundId) {
     doc.roundId = meta.roundId;
@@ -70,16 +100,16 @@ function writeSection(uid: string, section: ContextSection, markdown: string, me
     doc.openedAt = now();
     doc.finalisedAt = null;
   }
-  doc.sections[section] = markdown.trim();
+  doc.sections[section] = { rows, ...(note ? { note } : {}) };
   save(uid, doc);
 }
 
 /** The personal agent's section (AC3): what the customer allows Nordea to see. */
-export function writeCustomerSection(uid: string, markdown: string, meta?: RoundMeta) { writeSection(uid, 'customer', markdown, meta); }
+export function writeCustomerSection(uid: string, rows: ContextRow[], note?: string, meta?: RoundMeta) { writeSection(uid, 'customer', rows, note, meta); }
 /** The Context Memory agent's section (AC4): relevant earlier context, deduped, conflicts flagged. */
-export function writeMemorySection(uid: string, markdown: string, meta?: RoundMeta) { writeSection(uid, 'memory', markdown, meta); }
+export function writeMemorySection(uid: string, rows: ContextRow[], meta?: RoundMeta) { writeSection(uid, 'memory', rows, undefined, meta); }
 /** The Nordea agent's section (AC5): aggregates with evidence - no identifiers, no raw transactions. */
-export function writeNordeaSection(uid: string, markdown: string, meta?: RoundMeta) { writeSection(uid, 'nordea', markdown, meta); }
+export function writeNordeaSection(uid: string, rows: ContextRow[], meta?: RoundMeta) { writeSection(uid, 'nordea', rows, undefined, meta); }
 
 /** Round metadata: the Context Memory agent stamps the document when it finalises a round. */
 export function writeHeader(uid: string, meta: RoundMeta & { finalise?: boolean }) {
@@ -89,9 +119,4 @@ export function writeHeader(uid: string, meta: RoundMeta & { finalise?: boolean 
   if (meta.finalise) doc.finalisedAt = now();
   else { doc.openedAt = now(); doc.finalisedAt = null; }
   save(uid, doc);
-}
-
-/** Read one section - e.g. the Nordea agent reads the Customer section to find the goals (F6). */
-export function readSection(uid: string, section: ContextSection): string {
-  return loadContext(uid)?.sections[section] ?? '';
 }
