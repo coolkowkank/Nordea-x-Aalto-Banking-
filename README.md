@@ -1,37 +1,24 @@
 ## At a glance
 
-Data comes in only when you load it, the app reads it from storage, and the developer monitor watches the same server without changing anything.
+What this branch changes: where the data comes from, and a way to see what each agent can read.
 
 ```mermaid
 flowchart LR
-  subgraph LOAD["1 · Load data on purpose"]
-    files["Your files<br/>CSV · JSON · JSONL · Excel<br/>or seed/demo"]
-    py["scripts/load_data.py<br/>--dry-run · --replace · --clear"]
+  subgraph B["Before"]
+    direction TB
+    b1["Demo data built into the code"]
+    b2["Copied into Supabase<br/>on first start"]
+    b3["No view of what each<br/>agent can see"]
   end
-  subgraph STORE["Storage"]
-    sb[("Supabase<br/>abel_records")]
-    lf[("data/cabinet-db.json<br/>without Supabase")]
+  subgraph A["With dev-context-monitor"]
+    direction TB
+    a1["App starts empty:<br/>No data yet"]
+    a2["Load data on purpose<br/>scripts/load_data.py · CSV, JSON, Excel"]
+    a3["Developer monitor, read-only<br/>3 panels · AI model · customer picker"]
   end
-  srv["App server<br/>starts empty, reads storage"]
-  gate["Access gateway"]
-  app["Mobile app<br/>No data yet until loaded"]
-  abel["Abel<br/>AI model shown on monitor"]
-  adv["Nordea adviser<br/>rules and code, no AI model"]
-  subgraph MON["2 · Developer monitor"]
-    mon["/dev-monitor.html<br/>needs DEV_MONITOR=1<br/>read-only, every 3 s<br/>customer picker"]
-  end
-
-  files --> py
-  py --> sb
-  py -. "--target file" .-> lf
-  py -. "reload" .-> srv
-  sb --> srv
-  lf --> srv
-  srv --> app
-  srv --> gate
-  gate --> abel
-  gate --> adv
-  srv -. "preview reads, no side effects" .-> mon
+  b1 --> a1
+  b2 --> a2
+  b3 --> a3
 ```
 
 ## What this branch is for
