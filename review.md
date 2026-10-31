@@ -53,20 +53,19 @@ This branch starts from `Instict-prototype` @ `489d44e`. Its goal is to turn the
 ---
 
 ## 🧠 Context memory
-*Joe, updated 2026-10-31 19:38.*
+*Joe, updated 2026-10-31 19:45.*
 
 - **Goal:** three agents (personal / Context Memory / Nordea), each opening only its own DB, build a shared per-customer `context.md`; human only for first start and high-risk decisions. Done = AC1–AC12.
 - **Base:** `Instict-prototype` @ `489d44e`. Branch changes so far: `review.md` only.
 - **Owner decision (18:40, closes `#B0`):** `context.md` is rebuilt **per customer session**, not per question; all questions in one session share that session's document. CM connects to `cm.db` for each session. AC2 rewritten. (Bill's 18:41 "every question" is superseded by his 18:43 correction.)
 - **Owner decision (18:40):** `context.md` is rebuilt **per customer session**; all questions in a session share it. CM connects to `cm.db` per session. AC2 rewritten.
 - **Verified:** F2, F3 @7950f5d; F12–F14 @b71586b; F1, F6 @1040ff7; F15, F4, F5 @1eaee72. Staleness re-checks inside session rounds accepted.
-- **Verified:** F16, F17 @230a94d (test:arch 111/111, lint clean).
-- **Awaiting Bill (handed over 19:37, 83 min early):** F7 `fixed @a4d16bc`: risk by code rules (`risk.ts`): high = sensitive topics, inferences, offers, sharing beyond the 3 agents (always waits); low = customer's own direct input; medium = observed bank aggregates. Standing permissions set once via `POST /api/arch/:uid/permissions` (default: review everything); CM auto-stores allowed items at finalise + backlog sweep; every auto-store logged and explainable (AC9). F18 `fixed @a2263af`: maintenance/contribution rounds merge sections by row id, Bill's test in. F19: Instinct says not dead (no finalised doc + no `user.db` hit), test added. test:arch 122/122, lint clean.
-- **Next (Instinct):** F8 decay maintenance, **ETA 22:00**.
-- **Git note:** merge commits d44fe38, 499b5f2; rule 2 is `git pull --rebase` (keeps history linear).
-- **Open:** F7–F11, F18, F19 (F7, F18, F19 awaiting Bill).
+- **Verified:** F16, F17 @230a94d; F7 (structure) @a4d16bc; F18, F19 @a2263af (test:arch 122/122, lint clean).
+- **Now (Instinct), Bill asks first (`#B4`), all M, they make "minimal supervision" safe:** **F20** risk trusts the proposer's own `observed` flag; derive it from evidence (tx ids + total, or direct customer input) (`risk.ts:14–20`). **F21** sensitive list too narrow (pregnancy, divorce, gambling, debt collectors, addiction, illness, mental health, disability, surgery) and matches inside words; use one shared word-boundary list (`abel.ts:40`) + tests. **F22** customer is told they can delete auto-stored entries, but only whole-DB delete exists; add a logged per-entry undo or change the wording. Then **F8** (ETA 22:00 may move).
+- **Git note:** merge commits d44fe38, 499b5f2; rule 2 is `git pull --rebase`. Bill has asked too.
+- **Open:** F8–F11, F20–F22.
 - **Accepted:** Nordea sees goal titles only; personal agent decides what is shareable (AC3).
-- **Order:** F8 → F9 → F10 → F11.
+- **Order:** F20, F21, F22 → F8 → F9 → F10 → F11.
 - **Owner context:** Habibil not supervising; Bill acts on his behalf.
 
 ---
