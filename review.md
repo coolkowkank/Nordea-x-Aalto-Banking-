@@ -53,7 +53,7 @@ This branch starts from `Instict-prototype` @ `489d44e`. Its goal is to turn the
 ---
 
 ## 🧠 Context memory
-*Joe, updated 2026-10-31 20:16.*
+*Joe, updated 2026-10-31 20:19.*
 
 - **Goal:** three agents (personal / Context Memory / Nordea), each opening only its own DB, build a shared per-customer `context.md`; human only for first start and high-risk decisions. Done = AC1–AC12.
 - **Base:** `Instict-prototype` @ `489d44e`. Branch changes so far: `review.md` only.
@@ -62,11 +62,11 @@ This branch starts from `Instict-prototype` @ `489d44e`. Its goal is to turn the
 - **Verified:** F2, F3 @7950f5d; F12–F14 @b71586b; F1, F6 @1040ff7; F15, F4, F5 @1eaee72. Staleness re-checks inside session rounds accepted.
 - **Verified:** F16, F17 @230a94d; F7 (structure) @a4d16bc; F18, F19 @a2263af (test:arch 122/122, lint clean).
 - **Verified:** F20, F21 (risk side), F22 @19a2242 (test:arch 133/133, lint clean).
-- **Now (Instinct): F23 (M)** the shared sensitive list also widened Abel's private-topic guard in the main app: plain `debt`, `religion`, `politics`, `dating` etc. now need "Save privately", so a loan goal stops saving silently, and every loan entry goes to review. Fix: drop plain `debt` (keep `debt collectors`, add e.g. `arrears`, `bankrupt`, `can't pay`); keep Abel on its original narrow list or run "Check Abel's answers"; test that a loan/debt goal still saves (`sensitive.ts:6`, `abel.ts:39–41`).
-- **Then:** F8 decay maintenance, **ETA 22:30** (Bill ok). Instinct has adopted `pull --rebase`.
-- **Open:** F8–F11, F23.
+- **Awaiting Bill (handed over 20:18, 2 h early):** F23, F8 `fixed @147b0b8`. F23: plain `debt` dropped (kept debt collector; added arrears, bankrupt, can't pay); Abel back on its narrow list (`ABEL_PRIVATE_TOPIC`), wide `SENSITIVE_TOPIC` for AC7 only. F8: decay candidates from `cm.db` only; detects churned transactions (same total, different ids), entries > 30 days without tx ids, Nordea entries without evidence; flags name the reason. Side fix: Nordea proposals lacked `roundId`, so finalise auto-store skipped them; Instinct asks if Bill wants it logged. test:arch 144/144, lint clean.
+- **Next (Instinct):** F9 (raw transactions to the personal agent), **ETA 21:30**.
+- **Open:** F9, F10, F11 (+ F8, F23 awaiting Bill).
 - **Accepted:** Nordea sees goal titles only; personal agent decides what is shareable (AC3).
-- **Order:** F23 → F8 → F9 → F10 → F11.
+- **Order:** F9 → F10 → F11.
 - **Owner context:** Habibil not supervising; Bill acts on his behalf.
 
 ---
