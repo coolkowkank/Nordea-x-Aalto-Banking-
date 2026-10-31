@@ -15,8 +15,8 @@
  * Usage: npx tsx scripts/rag-demo.ts --uid lauri "what do you know about my car saving?"
  */
 import { pathToFileURL } from 'node:url';
-import { loadUserDb } from '../src/server/arch/store.js';
-import { agentQuery } from '../src/server/arch/agents.js';
+import { loadUserDb } from '../src/server/arch/store/userStore.js';
+import { agentQuery } from '../src/server/arch/orchestrator.js';
 
 const args = process.argv.slice(2);
 const uid = (() => { const i = args.indexOf('--uid'); return i >= 0 ? args[i + 1] : 'lauri'; })();

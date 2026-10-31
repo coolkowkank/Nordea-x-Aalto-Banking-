@@ -1,0 +1,157 @@
+/**
+ * The NORDEA agent. It works for Nordea and opens ONLY the Nordea DB (plus the shared bus
+ * and the bank's core data feed it syncs from). It answers with aggregates, proposes
+ * goal-relevant insights, and confirms or refreshes stored values when the Context Memory
+ * agent asks. It never opens the User DB or the Context Memory DB.
+ * Boundary pinned by the AC1 source-scan test: this module imports no other agent's store.
+ */
+import { db } from '../../db.js';
+import type { AgentMessage, NordeaDb } from '../types.js';
+import { words, overlaps, CATEGORY_HINTS } from '../text.js';
+import { loadNordeaDb, saveNordeaDb, nordeaFileExists } from '../store/nordeaStore.js';
+import { appendMessage, loadBus, updateMessage } from '../store/busStore.js';
+import { registerHandler } from '../dispatcher.js';
+import { recordProposals, roundDone } from '../rounds.js';
+
+/** The Nordea agent syncs its own DB from the bank's core data (the app's bank records). */
+export function refreshFromCore(uid: string): NordeaDb {
+  const fresh: NordeaDb = {
+    userId: uid,
+    accounts: db.getBankAccounts(uid).map((a) => ({ ...a })),
+    transactions: db.getTransactions(uid).map((t) => ({ ...t })),
+  };
+  saveNordeaDb(fresh);
+  return fresh;
+}
+
+/** The Nordea DB starts as a one-time copy of the customer's bank data the app already holds. */
+export function prepare(uid: string): { transactions: number; accounts: number } {
+  if (nordeaFileExists(uid)) {
+    const existing = loadNordeaDb(uid)!;
+    return { transactions: existing.transactions.length, accounts: existing.accounts.length };
+  }
+  const fresh = refreshFromCore(uid);
+  return { transactions: fresh.transactions.length, accounts: fresh.accounts.length };
+}
+
+/** Match transactions against shared goal TITLES (goal details never leave the User DB). */
+function matchForTitles(nordea: NordeaDb, titles: string[]) {
+  const gw = titles.flatMap((t) => words(t));
+  const hinted = new Set(gw.flatMap((w) => CATEGORY_HINTS[w] ?? []));
+  return nordea.transactions.filter((t) =>
+    overlaps(gw, words(`${t.description ?? ''} ${t.counterparty ?? ''}`)) || hinted.has(t.category));
+}
+
+const totalOf = (matches: { amount: number }[]) => Math.round(matches.reduce((s, t) => s + Math.abs(t.amount), 0) * 100) / 100;
+
+function pendingProposalSummaries(uid: string): Set<string> {
+  return new Set(loadBus(uid).messages.filter((m) => m.type === 'propose' && m.status === 'pending').map((m) => m.summary));
+}
+
+function handleMessage(uid: string, msg: AgentMessage) {
+  const payload = (msg.payload ?? {}) as Record<string, unknown>;
+
+  // --- Contribution query from the Context Memory agent (inside a build round).
+  if (msg.type === 'query' && payload.purpose === 'contribute' && typeof payload.roundId === 'string') {
+    const goals = (payload.goals ?? []) as { id: string; title: string }[];
+    prepare(uid);
+    const nordea = loadNordeaDb(uid)!;
+    const alreadyPending = pendingProposalSummaries(uid);
+    const proposals: { messageId: string; title: string; detail: string; matched: number; total: number }[] = [];
+    for (const goal of goals) {
+      const matches = matchForTitles(nordea, [goal.title]);
+      if (!matches.length) continue;
+      const total = totalOf(matches);
+      const title = `Activity related to goal "${goal.title}"`;
+      if (alreadyPending.has(title)) continue; // no duplicate pending proposals
+      const detail = `${matches.length} transaction${matches.length === 1 ? '' : 's'} totalling ${total} EUR relate to this goal (matched on category and description keywords). Proposed by the Nordea agent from the Nordea DB only - the raw transactions stay there.`;
+      const posted = appendMessage(uid, {
+        from: 'nordea', to: 'cm', type: 'propose', status: 'pending',
+        summary: title,
+        payload: { inReplyTo: msg.id, goalIds: [goal.id], detail, transactionIds: matches.slice(0, 25).map((t) => t.id), total },
+      });
+      proposals.push({ messageId: posted.id, title, detail, matched: matches.length, total });
+    }
+    recordProposals(uid, payload.roundId, proposals);
+    appendMessage(uid, {
+      from: 'nordea', to: 'cm', type: 'reply', status: 'pending',
+      summary: `Nordea agent proposes ${proposals.length} goal-relevant cabinet entr${proposals.length === 1 ? 'y' : 'ies'} (nothing else leaves the Nordea DB).`,
+      payload: { inReplyTo: msg.id, purpose: 'contribute', roundId: payload.roundId, proposals: proposals.map((p) => p.messageId) },
+    });
+    updateMessage(uid, msg.id, { status: 'answered' });
+    roundDone(uid, payload.roundId, 'nordea');
+    return;
+  }
+
+  // --- A direct question for the Nordea agent (agent-query transport): aggregates only.
+  if (msg.type === 'query' && typeof payload.question === 'string') {
+    prepare(uid);
+    const nordea = loadNordeaDb(uid)!;
+    const q = words(payload.question);
+    const hinted = new Set(q.flatMap((w) => CATEGORY_HINTS[w] ?? []));
+    const matches = nordea.transactions.filter((t) =>
+      hinted.has(t.category) || overlaps(q, words(`${t.category} ${t.description ?? ''}`)));
+    const total = totalOf(matches);
+    const categories = [...new Set(matches.map((t) => t.category))];
+    appendMessage(uid, {
+      from: 'nordea', to: msg.from, type: 'reply',
+      summary: `Nordea agent returns an aggregate over ${matches.length} transaction${matches.length === 1 ? '' : 's'} from the Nordea DB (no account identifiers).`,
+      payload: {
+        inReplyTo: msg.id,
+        from: 'nordea-db',
+        matchCount: matches.length,
+        totalAbsEur: total,
+        categories,
+        sample: matches.slice(0, 3).map((t) => ({ date: t.date, category: t.category, amount: t.amount, description: t.description ?? null })),
+      },
+    });
+    updateMessage(uid, msg.id, { status: 'answered' });
+    return;
+  }
+
+  // --- Refresh request from the Context Memory agent: confirm or refresh stored values.
+  if (msg.type === 'refresh' && typeof payload.roundId === 'string') {
+    const items = (payload.items ?? []) as { entryId: string; title: string; goalIds?: string[]; goalTitles: string[]; was: number }[];
+    prepare(uid);
+    const nordea = loadNordeaDb(uid)!;
+    const alreadyPending = pendingProposalSummaries(uid);
+    const results = items.map((item) => {
+      const matches = matchForTitles(nordea, item.goalTitles);
+      const nowTotal = totalOf(matches);
+      const changed = item.was !== nowTotal;
+      if (changed && !alreadyPending.has(item.title)) {
+        appendMessage(uid, {
+          from: 'nordea', to: 'cm', type: 'propose', status: 'pending',
+          summary: item.title,
+          payload: {
+            goalIds: item.goalIds ?? [],
+            detail: `${matches.length} transactions totalling ${nowTotal} EUR relate to this goal (refreshed after the earlier values went stale). Proposed by the Nordea agent from the Nordea DB only.`,
+            transactionIds: matches.slice(0, 25).map((t) => t.id), total: nowTotal, refreshOf: item.entryId,
+          },
+        });
+      }
+      return { entryId: item.entryId, title: item.title, was: item.was, now: nowTotal, changed, matched: matches.length };
+    });
+    appendMessage(uid, {
+      from: 'nordea', to: 'cm', type: 'reply', status: 'pending',
+      summary: `Nordea agent confirms current values for ${results.length} entr${results.length === 1 ? 'y' : 'ies'}; ${results.filter((r) => r.changed).length} changed.`,
+      payload: { inReplyTo: msg.id, purpose: 'refresh', roundId: payload.roundId, results },
+    });
+    updateMessage(uid, msg.id, { status: 'answered' });
+    roundDone(uid, payload.roundId, 'nordea');
+    return;
+  }
+
+  // --- App control: refresh the Nordea DB from the bank's core data (import / resume / turn-on).
+  if (msg.type === 'control' && payload.control === 'refresh-from-core') {
+    const fresh = refreshFromCore(uid);
+    if (typeof payload.inform === 'string' && payload.inform) {
+      appendMessage(uid, { from: 'nordea', to: 'user', type: 'inform', summary: payload.inform.replace('{n}', String(fresh.transactions.length)).replace('{m}', `${fresh.accounts.length} account${fresh.accounts.length === 1 ? '' : 's'}`) });
+    }
+    appendMessage(uid, { from: 'nordea', to: 'app', type: 'reply', summary: 'Nordea DB refreshed from core bank data.', payload: { inReplyTo: msg.id, updated: true, transactions: fresh.transactions.length, accounts: fresh.accounts.length } });
+    updateMessage(uid, msg.id, { status: 'answered' });
+    return;
+  }
+}
+
+registerHandler('nordea', handleMessage);

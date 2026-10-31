@@ -8,7 +8,7 @@ import { getAllAgents } from './agentRegistry.js';
 import { aiStatus } from './llm.js';
 import { feedStatus } from './nordeaFeed.js';
 import { CabinetEntry } from '../types.js';
-import { loadUserDb, loadCmDb, loadNordeaDb, loadBus, nordeaFileExists } from './arch/store.js';
+import { loadUserDb, loadCmDb, loadNordeaDb, loadBus, nordeaFileExists } from './arch/store/index.js';
 
 function serialize(e: CabinetEntry) {
   return {

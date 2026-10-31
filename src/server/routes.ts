@@ -6,7 +6,7 @@ import { previewCabinetForAgent, readCabinetThroughGateway } from './accessGatew
 import { summary as dataRewardsSummary } from './dataRewards.js';
 import { applyNordeaData, readNordeaFile, NordeaData } from './nordeaData.js';
 import { checkFeed, feedStatus } from './nordeaFeed.js';
-import { applyBankImportToArch } from './arch/agents.js';
+import { applyBankImportToArch } from './arch/orchestrator.js';
 import { getPartner, getAllPartners } from './partnerRegistry.js';
 import * as fin from './finance.js';
 import { abelTurn, proposeFromContent, offerHeadline, SAMPLE_CHAT, ImportItem } from './abel.js';

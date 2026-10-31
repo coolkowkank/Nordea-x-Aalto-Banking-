@@ -3,7 +3,7 @@
 import { supabaseConfigured, feedPending, feedDone } from './store.js';
 import { applyNordeaData, ApplyResult } from './nordeaData.js';
 import { db } from './db.js';
-import { applyBankImportToArch } from './arch/agents.js';
+import { applyBankImportToArch } from './arch/orchestrator.js';
 
 export interface FeedStatus {
   enabled: boolean;

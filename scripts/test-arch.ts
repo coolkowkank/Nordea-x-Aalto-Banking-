@@ -14,8 +14,8 @@ import path from 'path';
 const CABINET_DATA_DIR = fs.mkdtempSync(path.join(os.tmpdir(), 'arch-test-'));
 process.env.CABINET_DATA_DIR = CABINET_DATA_DIR;
 
-const A = await import('../src/server/arch/agents.js');
-const S = await import('../src/server/arch/store.js');
+const A = await import('../src/server/arch/orchestrator.js');
+const S = await import('../src/server/arch/store/index.js');
 
 const UID = 'testuser';
 let passed = 0;
@@ -137,7 +137,7 @@ S.saveNordeaDb(nd);
 const sc2 = A.contribute(UID2);
 check('changed facts flag the accepted entry stale', S.loadCmDb(UID2).entries[0].status === 'stale');
 const staleBus = S.loadBus(UID2).messages;
-check('flag-stale and refresh messages were exchanged', staleBus.some((m) => m.type === 'flag-stale' && m.from === 'cm' && m.to === 'personal') && staleBus.some((m) => m.type === 'refresh' && m.from === 'personal' && m.to === 'nordea'));
+check('flag-stale and refresh messages were exchanged', staleBus.some((m) => m.type === 'flag-stale' && m.from === 'cm' && m.to === 'personal') && staleBus.some((m) => m.type === 'refresh' && m.from === 'cm' && m.to === 'nordea'));
 check('a refreshed proposal waits in merge review', (sc2.staleFlags?.length ?? 0) === 1 && A.reviewQueue(UID2).length === 1, JSON.stringify(sc2.staleFlags));
 
 
@@ -308,6 +308,49 @@ A.applyBankImportToArch(UID8);
 check('while the CM agent is off, the import updates the Nordea DB without detection', S.loadNordeaDb(UID8)!.transactions.some((t) => t.description === 'Even more fuel for the car') && S.loadCmDb(UID8).entries[0].status === 'active');
 A.setAgentOff(UID8, 'cm', false);
 check('turning the CM agent back on re-checks BEFORE the cabinet serves again', S.loadCmDb(UID8).entries[0].status === 'stale');
+
+
+// --- AC1: module isolation is real - a source scan pins each agent to its own store
+const readSrc = (p: string) => fs.readFileSync(new URL(p, import.meta.url), 'utf-8');
+const personalSrc = readSrc('../src/server/arch/agents/personal.ts');
+const cmSrc = readSrc('../src/server/arch/agents/cm.ts');
+const nordeaSrc = readSrc('../src/server/arch/agents/nordea.ts');
+check('AC1: the personal agent module never opens the CM or Nordea stores', !/cmStore|nordeaStore|store\/index/.test(personalSrc));
+check('AC1: the CM agent module never opens the User or Nordea stores', !/userStore|nordeaStore|store\/index/.test(cmSrc));
+check('AC1: the Nordea agent module never opens the User or CM stores', !/userStore|cmStore|store\/index/.test(nordeaSrc));
+check('AC1: the dispatcher and round engine open no agent store at all',
+  !/(userStore|cmStore|nordeaStore)/.test(readSrc('../src/server/arch/dispatcher.ts')) && !/(userStore|cmStore|nordeaStore)/.test(readSrc('../src/server/arch/rounds.ts')));
+
+// --- AC6: a contribution runs as a real build round: open -> contributions -> done -> finalise -> stored
+const UID9 = 'rounduser';
+S.saveNordeaDb({ userId: UID9, accounts: [], transactions: [{ id: 'r1', userId: UID9, date: '2026-10-01', category: 'transport', amount: -100, account: 'current', description: 'Fuel for the car' }] });
+A.addGoalDirect(UID9, 'Save for a car');
+const rc = A.contribute(UID9) as { round: { id: string; state: string; steps: number; maxSteps: number } };
+check('AC6: the build round finalised and stored within its step limit', rc.round.state === 'stored' && rc.round.steps > 0 && rc.round.steps <= rc.round.maxSteps, JSON.stringify(rc.round));
+const R = await import('../src/server/arch/rounds.js');
+const storedRound = R.loadRound(UID9, rc.round.id)!;
+check('AC6: all three agents signalled done in the round', ['personal', 'cm', 'nordea'].every((a) => storedRound.doneSignals.includes(a as 'personal' | 'cm' | 'nordea')), storedRound.doneSignals.join(','));
+const roundBus = S.loadBus(UID9).messages;
+check('AC6: the round lifecycle is visible on the bus (round-start + done signals)', roundBus.some((m) => m.type === 'round-start') && roundBus.filter((m) => m.type === 'done').length >= 3);
+const cmDbFile = fs.readFileSync(new URL('../src/server/arch/store/cmStore.ts', import.meta.url), 'utf-8');
+check('AC6: the CM agent stores the round record in its own DB at finalise', cmDbFile.includes('storeRoundRecord'));
+
+// --- AC6: the step limit always ends a round
+const UID10 = 'limituser';
+S.saveNordeaDb({ userId: UID10, accounts: [], transactions: [{ id: 'l1', userId: UID10, date: '2026-10-01', category: 'transport', amount: -100, account: 'current', description: 'Fuel' }] });
+A.addGoalDirect(UID10, 'Save for a car');
+const lc10 = A.contribute(UID10);
+A.decideProposal(UID10, lc10.proposals[0].messageId, true);
+const limited = R.runRound(UID10, 'decay', { maxSteps: 1 });
+check('AC6: a round that cannot finish ends at its step limit', limited.state === 'step-limit', limited.state);
+
+// --- Chat boundary: the personal agent's cabinet content is a real CM-authored bus reply
+const accepted = A.decideProposal(UID9, A.reviewQueue(UID9)[0].id, true) as { id: string };
+const chatAns = A.chat(UID9, 'what do you know about my car saving?');
+const chatBus = S.loadBus(UID9).messages;
+const cmReply = chatBus.find((m) => m.type === 'reply' && m.from === 'cm' && m.to === 'personal' && ((m.payload as { matchedEntries?: unknown[] })?.matchedEntries ?? []).length > 0);
+check('the chat answer draws on a real CM-authored reply message', !!cmReply && chatAns.reply.includes('Shared context (via the Context Memory agent)'), chatAns.reply.slice(0, 100));
+check('the CM reply carries the accepted entry', JSON.stringify(cmReply?.payload ?? {}).includes(accepted.id));
 
 console.log(`\n${passed} passed, ${failed} failed`);
 process.exit(failed ? 1 : 0);

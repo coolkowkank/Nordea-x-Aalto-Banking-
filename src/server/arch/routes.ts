@@ -1,10 +1,10 @@
 import type { Express, Request, Response } from 'express';
-import { agentQuery,
-  archState, chat, addGoalDirect, connectExternalAgent, disconnectPersonalAgent,
+import {
+  agentQuery, archState, chat, addGoalDirect, connectExternalAgent, disconnectPersonalAgent,
   stageSync, decideAirlock, contribute, reviewQueue, decideProposal,
-  explainEntry, disputeEntry, setAgentOff, deleteDatabase, parkCabinet, ArchError,
-} from './agents.js';
-import { AgentId, loadCmDb } from './store.js';
+  explainEntry, disputeEntry, setAgentOff, deleteDatabase, parkCabinet, listEntries, ArchError,
+} from './orchestrator.js';
+import type { AgentId } from './types.js';
 
 /**
  * The three-database architecture: User DB (personal agent), Context Memory DB
@@ -70,7 +70,7 @@ export function registerArchRoutes(app: Express) {
   app.post('/api/arch/:uid/review/:messageId/reject', h((req, res) => res.json(decideProposal(uid(req), String(req.params.messageId), false))));
 
   // Explain / dispute.
-  app.get('/api/arch/:uid/entries', h((req, res) => res.json(loadCmDb(uid(req)))));
+  app.get('/api/arch/:uid/entries', h((req, res) => res.json(listEntries(uid(req)))));
   app.get('/api/arch/:uid/entries/:entryId/explain', h((req, res) => res.json(explainEntry(uid(req), String(req.params.entryId)))));
   app.post('/api/arch/:uid/entries/:entryId/dispute', h((req, res) => {
     const reason = String(req.body?.reason ?? '').trim();
