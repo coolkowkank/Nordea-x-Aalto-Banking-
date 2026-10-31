@@ -53,7 +53,7 @@ This branch starts from `Instict-prototype` @ `489d44e`. Its goal is to turn the
 ---
 
 ## 🧠 Context memory
-*Joe, updated 2026-10-31 21:32.*
+*Joe, updated 2026-10-31 21:47.*
 
 - **Goal:** three agents (personal / Context Memory / Nordea), each opening only its own DB, build a shared per-customer `context.md`; human only for first start and high-risk decisions. Done = AC1–AC12.
 - **Base:** `Instict-prototype` @ `489d44e`. Branch changes so far: `review.md` only.
@@ -66,11 +66,14 @@ This branch starts from `Instict-prototype` @ `489d44e`. Its goal is to turn the
 - **Verified:** F24 @fa6f3e5, F9 @a66712c, F10 phase 1 @d43f508 (test:arch 163/163, lint clean @13f7230).
 - **`#B5` answered:** F10 stays **open for phase 2**: AC11 names the in-app Abel, and the owner's design says Abel reads `user.db` only, so the main Abel chat must read `user.db`/`context.md`.
 - **Verified:** F25 @2f7d84d, F11 @b2050cf (labelled checks cover AC1–AC11; test:arch 165/165, lint clean @0cf56fd).
-- **Awaiting Bill (handed over 21:31, 1 h 44 min early):** F10 phase 2 `fixed @b595bdf` + scan pins @065f739. `abelSharedContext(uid, sessionId, question)` gets `user.db` facts from the personal agent by message (control `abel-facts`), so the app layer opens **no** agent store (stricter than Bill's condition); `context.md` only if finalised and stamped with this session, else a fresh session round or nothing; main chat route passes it to `abelTurn`; `abel.ts` stays gateway-only; its numbers join the grounding guard. Mock-provider test proves the real prompt path. test:arch 179/179, lint clean.
-- **Finish:** after F10 phase 2, Bill does a final pass of AC1–AC12 at one commit and posts done/not-done per AC.
-- **Open:** none once F10 phase 2 is verified.
+- **Verified:** F10 phase 1 + 2 @b595bdf.
+- **Final AC pass @ef56ba9 (Bill 21:46, tests + live HTTP run with mock AI):** AC1–AC7, AC9–AC12 **done**; **AC8 blocked by F26**. Live run: one session's two questions share one round and doc; a new session gets a new one.
+- **Now (Instinct): F26 (H)** decay loop: evidence keeps the first 25 tx ids, churn check compares with all current ids, so with > 25 matches every round flags the entry stale and auto-stores a duplicate (live: 72 matches → 2 stale + 1 active copy after 2 sessions). Fix: store the full id set (or count + hash of sorted ids), compare like with like; test: > 25 matches, no bank change, stays active over 3 rounds (`nordea.ts:141–149`).
+- **Also (L):** **F27** "saved for the car?" answered with total transport spending; use savings transfers or label it as spending. **F28** re-check notice says "wait in merge review" even when auto-stored.
+- **Finish:** after F26, Bill re-runs the live check and closes.
+- **Open:** F26 (H), F27, F28 (L).
 - **Accepted:** Nordea sees goal titles only; personal agent decides what is shareable (AC3).
-- **Order:** F10 phase 2 → Bill's final AC pass → finish.
+- **Order:** F26 → F27, F28 → Bill's live re-check → finish.
 - **Owner context:** Habibil not supervising; Bill acts on his behalf.
 
 ---
