@@ -665,5 +665,20 @@ check('AC9: an automatic store is disputable', S.loadCmDb(UID27).entries.find((e
 const archSrcs = ['orchestrator.ts', 'rounds.ts', 'dispatcher.ts', 'agents/personal.ts', 'agents/cm.ts', 'agents/nordea.ts'].map((f) => readSrc(`../src/server/arch/${f}`));
 check('AC10: no architecture module imports the LLM layer - the whole flow is deterministic', archSrcs.every((src) => !/llm\.js|getProvider|openai|anthropic/i.test(src)));
 
+
+// --- F25: a removed goal also flags the NORDEA-side entries on that goal, not just the customer's own.
+const UID28 = 'goalgone2';
+S.saveNordeaDb({ userId: UID28, accounts: [], transactions: [{ id: 'x1', userId: UID28, date: '2026-10-01', category: 'transport', amount: -100, account: 'current', description: 'Fuel for the car' }] });
+A.addGoalDirect(UID28, 'Save for a car');
+A.setStandingPermissions(UID28, 'high');
+A.contribute(UID28);
+const nordeaOnGoal = S.loadCmDb(UID28).entries.find((e) => e.proposedBy === 'nordea' && e.goalIds.length > 0)!;
+check('F25 setup: a Nordea entry tied to the goal is active', !!nordeaOnGoal && nordeaOnGoal.status === 'active');
+const u28 = S.loadUserDb(UID28);
+u28.goals = [];
+S.saveUserDb(u28);
+const goneRound2 = A.contribute(UID28);
+check('F25: removing the goal flags the Nordea-side entry on it stale too', S.loadCmDb(UID28).entries.find((e) => e.id === nordeaOnGoal.id)?.status === 'stale' && goneRound2.staleFlags.some((f) => f.entryId === nordeaOnGoal.id && f.reason === 'goal-removed'), JSON.stringify(goneRound2.staleFlags));
+
 console.log(`\n${passed} passed, ${failed} failed`);
 process.exit(failed ? 1 : 0);

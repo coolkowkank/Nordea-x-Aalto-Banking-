@@ -50,7 +50,9 @@ function decayCandidates(uid: string, goalIds?: string[]): { entry: ArchEntry; r
  * confirmed against the User DB BY MESSAGE - a goal the customer dropped flags its entry stale.
  */
 function goalCheckCandidates(uid: string): ArchEntry[] {
-  return loadCmDb(uid).entries.filter((e) => e.status === 'active' && e.proposedBy === 'personal' && e.goalIds.length > 0);
+  // F25: any active entry tied to a goal id - the customer's own AND the Nordea-side entries
+  // on that goal - goes stale when the goal is removed from the User DB.
+  return loadCmDb(uid).entries.filter((e) => e.status === 'active' && e.goalIds.length > 0);
 }
 
 /** Goal titles as written in the Customer section of the shared context.md (AC2). */
