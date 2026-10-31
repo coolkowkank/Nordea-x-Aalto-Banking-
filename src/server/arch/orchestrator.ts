@@ -132,7 +132,18 @@ export function abelSharedContext(uid: string, sessionId: string, question: stri
     }
     const fresh = loadContext(uid);
     if (fresh && fresh.sessionId === sessionId && fresh.finalisedAt) {
-      out.sharedContext = renderContextMd(uid, fresh);
+      // F30: Abel sees ACTIVE rows only - a stale or disputed row must not be served as a
+      // fact (its numbers would also pass the grounding guard). Only Abel's copy is
+      // filtered; the stored document keeps the marks and its history.
+      const activeOnly = {
+        ...fresh,
+        sections: {
+          customer: { ...fresh.sections.customer, rows: fresh.sections.customer.rows.filter((r) => !r.status || r.status === 'active') },
+          memory: { ...fresh.sections.memory, rows: fresh.sections.memory.rows.filter((r) => !r.status || r.status === 'active') },
+          nordea: { ...fresh.sections.nordea, rows: fresh.sections.nordea.rows.filter((r) => !r.status || r.status === 'active') },
+        },
+      };
+      out.sharedContext = renderContextMd(uid, activeOnly);
       out.provenance.push(`context.md session ${sessionId} (the shared document, finalised ${fresh.finalisedAt.slice(0, 10)})`);
     }
   }

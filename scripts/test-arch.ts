@@ -754,6 +754,25 @@ A.parkCabinet(UID27, true);
 const parkedShared = A.abelSharedContext(UID27, 'conv-abel-2', 'laptop');
 check('F10p2: a parked cabinet serves no document; the customer\'s own User DB facts still reach Abel', !parkedShared.sharedContext && !!parkedShared.userDbFacts);
 
+// --- F30: stale and disputed rows never reach Abel as facts (only Abel's copy is filtered).
+const UID33 = 'abeldisp';
+S.saveNordeaDb({ userId: UID33, accounts: [], transactions: [{ id: 'dd1', userId: UID33, date: '2026-10-01', category: 'transport', amount: -1234, account: 'current', description: 'Fuel for the car' }] });
+A.addGoalDirect(UID33, 'Save for a car');
+A.setStandingPermissions(UID33, 'high');
+A.contribute(UID33);
+check('F30 setup: the active aggregate reaches Abel', (A.abelSharedContext(UID33, 'f30-s1', 'car').sharedContext ?? '').includes('1234 EUR'));
+S.saveNordeaDb({ userId: UID33, accounts: [], transactions: [{ id: 'dd2', userId: UID33, date: '2026-10-02', category: 'transport', amount: -999, account: 'current', description: 'Car wash' }] });
+A.contribute(UID33); // churn: the 1234 entry goes stale, the refreshed 999 is stored automatically
+const f30Active = S.loadCmDb(UID33).entries.find((e) => e.status === 'active' && e.proposedBy === 'nordea')!;
+A.disputeEntry(UID33, f30Active.id, 'not mine');
+S.saveNordeaDb({ userId: UID33, accounts: [], transactions: [{ id: 'dd3', userId: UID33, date: '2026-10-03', category: 'transport', amount: -50, account: 'current', description: 'Parking' }] });
+const f30 = A.abelSharedContext(UID33, 'f30-s2', 'car');
+check('F30: the stale figure and the disputed figure are both absent from the context Abel receives', !(f30.sharedContext ?? '').includes('1234 EUR') && !(f30.sharedContext ?? '').includes('999 EUR'), (f30.sharedContext ?? '').slice(0, 200));
+check('F30: the fresh bank figure still reaches Abel (filtering drops marks, not data)', (f30.sharedContext ?? '').includes('50 EUR'));
+const f30Doc = S.loadContext(UID33)!;
+check("F30: the STORED document still records the marks - only Abel's copy is filtered", f30Doc.sections.memory.rows.some((r) => r.status === 'stale' && r.detail.includes('1234')) && f30Doc.sections.memory.rows.some((r) => r.status === 'disputed' && r.detail.includes('999')), f30Doc.sections.memory.rows.map((r) => `${r.status}:${r.detail.slice(0, 40)}`).join(' | '));
+
+
 // The main-chat path itself: Abel's real turn carries the shared context into the system prompt (mock provider, no AI spend).
 applyNordeaData('lauri', { accounts: [{ key: 'current', currency: 'EUR' }, { key: 'savings' }], transactions: [{ date: '2026-10-25', amount: 3000, description: 'SALARY', category: 'SALARY' }] }, 'test seed');
 const { setProviderForTests } = await import('../src/server/llm.js');
