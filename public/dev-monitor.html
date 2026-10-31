@@ -82,7 +82,7 @@
   <div class="windows">
     <div class="window w-user">
       <div class="wtitle"><div class="dots"><div class="dot" style="background:#ff5f57"></div><div class="dot" style="background:#febc2e"></div><div class="dot" style="background:#28c840"></div></div><h2>User context</h2></div>
-      <div class="agentline"><span>Managing agent: <b>Abel</b> (user agent) - configured role; a running agent process is not instrumented<br><span id="abel-activity">observed activity: …</span><br><span id="abel-ai">AI model: …</span></span></div>
+      <div class="agentline"><span>Managing agent: <b>Abel</b> (user agent) - <span id="abel-ai">AI model: …</span><br><span id="abel-activity">observed activity: …</span></span></div>
       <div class="cards" id="user-cards"></div>
       <div class="statusbar" id="user-db"></div>
     </div>
@@ -97,7 +97,7 @@
 
     <div class="window w-nordea">
       <div class="wtitle"><div class="dots"><div class="dot" style="background:#ff5f57"></div><div class="dot" style="background:#febc2e"></div><div class="dot" style="background:#28c840"></div></div><h2>Nordea agent context</h2></div>
-      <div class="agentline"><span>Managing agent: <b>Nordea adviser</b> - configured role; a running agent process is not instrumented<br><span id="adviser-activity">observed activity: …</span><br><span id="adviser-ai">AI model: …</span></span></div>
+      <div class="agentline"><span>Managing agent: <b>Nordea adviser</b> - <span id="adviser-ai">AI model: …</span><br><span id="adviser-activity">observed activity: …</span></span></div>
       <div class="cards" id="nordea-cards"></div>
       <div class="statusbar" id="nordea-db"></div>
     </div>
@@ -191,7 +191,7 @@ async function tick() {
     return parts.join(' · ');
   };
   document.getElementById('abel-ai').textContent = aiLine(d.ai);
-  document.getElementById('adviser-ai').textContent = d.usesLlm && d.usesLlm.adviser ? aiLine(d.ai) : 'AI model: none - the adviser role is rules and code, no language model';
+  document.getElementById('adviser-ai').textContent = d.usesLlm && d.usesLlm.adviser ? aiLine(d.ai) : 'No AI model - rules and code: its cards come from account-data analysis, and it reads only during a one-time share';
 
   // User panel
   renderCards(document.getElementById('user-cards'), d.panels.user.entries,
