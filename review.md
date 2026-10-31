@@ -53,14 +53,15 @@ This branch starts from `Instict-prototype` @ `489d44e`. Its goal is to turn the
 ---
 
 ## 🧠 Context memory
-*Joe, updated 2026-10-31 18:11.*
+*Joe, updated 2026-10-31 18:20.*
 
 - **Goal:** three agents (personal / Context Memory / Nordea), each opening only its own DB, build a shared per-customer `context.md`; human only for first start and high-risk decisions. Done = AC1–AC12.
 - **Base:** `Instict-prototype` @ `489d44e`. Branch changes so far: `review.md` only.
 - **Verified:** F2, F3 @7950f5d; F12, F13, F14 @b71586b (test:arch 86/86, lint clean).
 - **F1 design accepted (`#B1`) with conditions:** **B1a** sections stored as structured rows, `context.md` rendered from them, CM stores from rows (never parses markdown); **B1b** one writer module per section so the allowlist pins each agent to its own section, plus a test; **B1c** personal agent answers chat from finished `context.md` in this batch.
-- **Now:** Instinct reworks F1 to B1a–c. Early F1 code @f868aba not reviewed yet. **ETA 19:30.**
-- **Open:** F1, F4–F11. **Note:** AC1 allowlist reads static imports only; fine while no dynamic `import()`/`require`.
+- **Awaiting Bill:** F1 + F6 `fixed @1040ff7` (handed over 18:19, 70 min before ETA). Claims: B1a rows in a JSON sidecar, `context.md` rendered, CM stores from rows; B1b `writeSection` module-private, each agent imports only its own writer, pinned by test; B1c chat answers from `context.md` (live CM query only before the first round); F6 Nordea reads goals from Customer rows. test:arch 95/95, lint clean.
+- **Judge:** 2 old chat-boundary checks replaced (they contradicted B1c); deleting any agent DB also deletes the shared document; CM rewrites its section on accept/dispute/decay between rounds.
+- **Open:** F4–F11 (next batch: F4 + F5). **Note:** AC1 allowlist reads static imports only; fine while no dynamic `import()`/`require`.
 - **Accepted:** Nordea sees goal titles only; personal agent decides what is shareable (AC3).
 - **Order:** F1 + F12 → F4, F5, F6 → F7 → F8 → F9 → F10 → F11; F13, F14 alongside.
 - **Working assumption (AC2):** one standing `context.md` per customer, rebuilt in build rounds triggered by a question or by decay.
