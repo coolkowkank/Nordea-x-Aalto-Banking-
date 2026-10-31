@@ -1,3 +1,39 @@
+## At a glance
+
+Data comes in only when you load it, the app reads it from storage, and the developer monitor watches the same server without changing anything.
+
+```mermaid
+flowchart LR
+  subgraph LOAD["1 · Load data on purpose"]
+    files["Your files<br/>CSV · JSON · JSONL · Excel<br/>or seed/demo"]
+    py["scripts/load_data.py<br/>--dry-run · --replace · --clear"]
+  end
+  subgraph STORE["Storage"]
+    sb[("Supabase<br/>abel_records")]
+    lf[("data/cabinet-db.json<br/>without Supabase")]
+  end
+  srv["App server<br/>starts empty, reads storage"]
+  gate["Access gateway"]
+  app["Mobile app<br/>No data yet until loaded"]
+  abel["Abel<br/>AI model shown on monitor"]
+  adv["Nordea adviser<br/>rules and code, no AI model"]
+  subgraph MON["2 · Developer monitor"]
+    mon["/dev-monitor.html<br/>needs DEV_MONITOR=1<br/>read-only, every 3 s<br/>customer picker"]
+  end
+
+  files --> py
+  py --> sb
+  py -. "--target file" .-> lf
+  py -. "reload" .-> srv
+  sb --> srv
+  lf --> srv
+  srv --> app
+  srv --> gate
+  gate --> abel
+  gate --> adv
+  srv -. "preview reads, no side effects" .-> mon
+```
+
 ## What this branch is for
 
 **1. The app ships with no data. You load it separately.**
