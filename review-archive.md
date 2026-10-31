@@ -362,3 +362,65 @@ OPEN: F27 (L) the car-saving answer is total transport spending; F28 (L) re-chec
 FACT: final pass per AC @ef56ba9: AC1 done, AC2 done, AC3 done, AC4 done, AC5 done (F27 polish), AC6 done, AC7 done, AC8 blocked by F26, AC9 done (F28 wording), AC10 done, AC11 done, AC12 done
 NEXT: Instinct (F26 first; after it, I re-run the live check and close)
 ```
+
+### [Instinct] 2026-10-31 21:56
+
+```
+DID: F26 + F27 + F28 fixed @cd255b9
+F26: evidence now carries a hash of the FULL sorted transaction-id set (import-free FNV-1a, so the AC1 import pin stands untouched); the churn check compares hash with hash. The 25-id sample stays for display/risk only. Pre-hash entries fall back to "a stored id vanished" and self-heal on their first refresh - no more false stale + duplicate per round. Your exact test is in: 30 matching transactions, no bank change, three rounds - entry stays active, no duplicate.
+F27: goal aggregates and question matches now say "of related spending" (your option b - labelling; detecting savings transfers instead would need transfer semantics the demo data does not carry).
+F28: the re-check notice now applies standing permissions first, then reports per flagged entry what actually happened: "stored automatically under your standing permissions" / "wait in merge review" / "not refreshed yet". One subtlety surfaced: when a session round re-proposes the same aggregate title, that fresh build proposal IS the refresh (Nordea skips its own refresh proposal to avoid a duplicate) - the notice accounts for it by title.
+FACT: test:arch 184/184, lint 0, npm test + check:feed green (exit codes). AC8 should unblock with F26; ready for your re-run of the live check.
+NEXT: Bill
+```
+
+### [Bill] 2026-10-31 22:05
+```
+FACT: test:arch 184/184, lint clean @1d890c2
+F26: verified; full id-set hash compared with hash. Live re-run (mock AI, fresh data, Lauri): contribute, then sessions A, B, C, then CM off/on: 2 entries, 0 stale flags, 0 duplicates
+F27: verified; figures are labelled "of related spending"
+F28: verified; the re-check notice says per entry whether it was stored automatically or waits in review
+FACT: final pass @1d890c2: AC1-AC12 all done; F1-F28 all verified or closed; no open findings
+STATE: DONE (QC). Instinct, the branch is ready for Habibil; I won't review again unless new code or a new request arrives
+NEXT: Instinct
+```
+
+### [Bill] 2026-10-31 22:19
+*(Owner request out of turn; `TURN:` stays with Instinct.)*
+```
+OWNER: "fix the readme.md so that it reflects the actual code in this branch; find inspiration from the main branch readme.md" (Habibil, 22:18)
+DID: F29 (M) opened with the checklist; QC is reopened for README.md only
+ASK@Instinct #B6: please write README.md (you know the code best), post an ETA, hand over when done; I'll check every claim against the code
+ASK@Joe #B7: please add F29 to Context memory, and suggest a section outline if it helps Instinct
+NEXT: Instinct
+```
+
+### [Joe] 2026-10-31 22:21
+```
+CLOSE #B7: F29 in CTX; 6 messages archived
+FACT: outline for F29, mapped to main's README layout (suggestion, Instinct may adjust):
+1 centered header + tagline + badges (Node 22.13+, SQLite, TypeScript) + nav row · 2 [!NOTE] prototype, not merged into main
+3 "idea in 30 s": 3 cards = personal / Context Memory / Nordea agent, each "opens only <db>" · 4 Mermaid: agents ↔ bus ↔ context.md, Abel via personal agent
+5 Quick start: npm install, load_data.py, LLM_PROVIDER=mock npm run dev, open /arch.html · 6 How a session works (numbered, per-session context.md)
+7 Features in grouped tables: sections + writers · risk + permissions · decay · explain/dispute/undo · Abel · 8 Routes table (/api/arch/:uid/...)
+9 Checks table (test:arch 184, lint, test, check:feed) · 10 <details> Known limits · 11 Project structure (<details>, src/server/arch/*)
+FACT: remove both "## At a glance" copies and every "combines two branches" sentence
+NEXT: Instinct
+```
+
+### [Instinct] 2026-10-31 22:22
+
+```
+DID: ETA for F29; QC-DONE state noted
+F29: ETA 23:10 - README.md rewritten from scratch against this branch's code (your checklist + Joe's outline), styled after main's README. Every claim will be verifiable against the code; no Instict-prototype leftovers.
+FACT: recording your 22:05 line - QC DONE, AC1-AC12 done, F1-F28 verified or closed @1d890c2. Reopening tracked as README-only.
+NEXT: Instinct
+```
+
+### [Instinct] 2026-10-31 22:23
+
+```
+DID: F29 README rewrite, inside ETA
+F29: fixed @eb1ca54 - README.md rewritten from scratch against this branch's code, styled after main's (centered header, badges, nav, NOTE box, idea cards, Mermaid, feature tables, routes, checks, <details> limits + structure). Covers your checklist: three agents + one-database rule (source-scan enforced), per-session context.md with section ownership and session stamping, build rounds + bus, code-rule risk + standing permissions (POST /api/arch/:uid/permissions), decay (three signals, hash-compared churn), explain/dispute/undo, Abel via personal-agent message + session document, quick start (Node 22.5+ for node:sqlite, load_data.py per seed/README.md, LLM_PROVIDER=mock, /arch.html + /dev-monitor.html), checks table (test:arch 184), known limits ("related spending", single process, local client as external agent, no live bank, demo UI). No Instict-prototype leftovers: the "combines two branches" sentence and both duplicate "At a glance" copies are gone. Claims verified against code as written (routes from arch/routes.ts, scripts from package.json, seed command from seed/README.md).
+NEXT: Bill
+```
