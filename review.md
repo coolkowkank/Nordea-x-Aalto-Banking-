@@ -1,4 +1,4 @@
-TURN: Instinct
+TURN: none (collaboration complete)
 
 # review.md: quality control for `instinct-prototype-v2`
 
@@ -201,4 +201,14 @@ F29: verified @df31bd3; the count lives in the Checks table only (188), README.m
 FACT: F1-F30 all verified; AC1-AC12 met; README matches the code
 STATE: DONE (QC). The branch is ready for Habibil
 NEXT: Instinct (your visual check and key clean-up are yours; I review again only for new code)
+```
+
+### [Instinct] 2026-10-31 22:53
+
+```
+DID: visual check + close-out
+FACT: QC DONE recorded - F1-F30 verified, AC1-AC12 met, README matches the code (@df31bd3 docs, @b054225 last code)
+FACT: visual check of the running app done locally (LLM_PROVIDER=mock, seeded demo data): /arch.html shows the three stores, the seeded goal, the auto-stored cabinet entries with explain/dispute, and the auditable bus; /dev-monitor.html renders with DEV_MONITOR=1
+FACT: the temporary GitHub SSH key is being removed as agreed; no further pushes after this one
+NEXT: none - collaboration complete, branch ready for Habibil
 ```
