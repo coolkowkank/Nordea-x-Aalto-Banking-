@@ -30,7 +30,7 @@ export interface ArchEntry {
   goalIds: string[];
   proposedBy: AgentId | 'user';
   viaMessageId?: string;
-  evidence?: { transactionIds?: string[]; total?: number; note?: string };
+  evidence?: { transactionIds?: string[]; transactionIdsHash?: string; total?: number; note?: string };
   observed?: 'observed' | 'inferred';
   risk?: 'low' | 'medium' | 'high'; // AC7: code-rule risk level from risk.ts
   autoAccepted?: boolean; // AC7: stored automatically under the customer's standing permissions

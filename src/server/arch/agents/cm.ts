@@ -19,7 +19,7 @@ import { loadRound, roundDone, recordStaleFlags } from '../rounds.js';
 export const PARKED_WORDING = 'The cabinet is parked: the Context Memory agent is not reading or supplying it. Your entries are kept - nothing was deleted. Reconnect the cabinet explicitly to resume.';
 
 type DecayReason = 'evidence' | 'aged' | 'missing-evidence';
-interface RefreshItem { entryId: string; title: string; goalIds: string[]; goalTitles: string[]; was: number | null; storedIds: string[]; reason: DecayReason }
+interface RefreshItem { entryId: string; title: string; goalIds: string[]; goalTitles: string[]; was: number | null; storedIds: string[]; storedIdsHash?: string; reason: DecayReason }
 interface RefreshResult { entryId: string; title: string; was: number | null; now: number; changed: boolean; matched: number; idsChanged?: boolean; reason?: DecayReason }
 
 /** Entries are re-checked against current bank data once they are this old, even if totals match (F8). */
@@ -126,7 +126,7 @@ function autoStoreRoundProposals(uid: string, roundId?: string) {
   for (const proposal of pending) {
     const risk = assessProposalRisk(proposal);
     if (risk === 'high') continue; // high risk always waits for the customer
-    const p = (proposal.payload ?? {}) as { goalIds?: string[]; detail?: string; transactionIds?: string[]; total?: number; observed?: 'observed' | 'inferred' };
+    const p = (proposal.payload ?? {}) as { goalIds?: string[]; detail?: string; transactionIds?: string[]; transactionIdsHash?: string; total?: number; observed?: 'observed' | 'inferred' };
     if (cm.entries.some((e) => e.status === 'active' && norm(e.title) === norm(proposal.summary))) {
       updateMessage(uid, proposal.id, { status: 'accepted' }); // dedupe: keep the existing entry
       continue;
@@ -138,7 +138,7 @@ function autoStoreRoundProposals(uid: string, roundId?: string) {
       goalIds: p.goalIds ?? [],
       proposedBy: proposal.from === 'personal' ? 'personal' : 'nordea',
       viaMessageId: proposal.id,
-      evidence: { transactionIds: p.transactionIds, total: p.total },
+      evidence: { transactionIds: p.transactionIds, transactionIdsHash: p.transactionIdsHash, total: p.total },
       observed: deriveObserved(proposal), // F20: derived from evidence, not the proposer's flag
       risk,
       autoAccepted: true,
@@ -162,6 +162,7 @@ function sendRefreshRequest(uid: string, roundId: string, candidates: { entry: A
     goalTitles: e.goalIds.map((id) => titleById.get(id)).filter((t): t is string => !!t),
     was: e.evidence?.total ?? null,
     storedIds: e.evidence?.transactionIds ?? [],
+    storedIdsHash: e.evidence?.transactionIdsHash,
     reason,
   }));
   appendMessage(uid, {
@@ -357,7 +358,28 @@ function handleMessage(uid: string, msg: AgentMessage) {
         });
       }
       saveCmDb(cm);
-      appendMessage(uid, { from: 'cm', to: 'user', type: 'inform', summary: `Re-check before reuse: ${flags.length} accepted entr${flags.length === 1 ? 'y was' : 'ies were'} flagged stale against current bank data; refreshed figures wait in merge review.` });
+      // F28: apply standing permissions to this round's proposals FIRST, then say which
+      // actually happened per flagged entry - a same-title replacement is auto-stored,
+      // waiting in merge review, or not proposed. (A round's fresh build proposal IS the
+      // refresh when it carries the flagged entry's title - the Nordea agent skips its own
+      // refresh proposal then, to avoid duplicates.)
+      autoStoreRoundProposals(uid, payload.roundId);
+      const normT = (t: string) => t.toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim();
+      const entriesNow = loadCmDb(uid).entries;
+      const roundProps = loadBus(uid).messages.filter((m) => m.type === 'propose'
+        && (m.payload as { roundId?: string } | undefined)?.roundId === payload.roundId);
+      let autoStored = 0, waiting = 0, notProposed = 0;
+      for (const f of flags) {
+        if (entriesNow.some((e) => e.status === 'active' && normT(e.title) === normT(f.title))) autoStored++;
+        else if (roundProps.some((m) => m.status === 'pending' && normT(m.summary) === normT(f.title))) waiting++;
+        else notProposed++;
+      }
+      const parts: string[] = [];
+      if (autoStored > 0) parts.push(`${autoStored === flags.length ? 'refreshed figures' : `${autoStored} refreshed`} stored automatically under your standing permissions`);
+      if (waiting > 0) parts.push(waiting === flags.length ? 'refreshed figures wait in merge review' : `${waiting} refreshed wait${waiting === 1 ? 's' : ''} in merge review`);
+      if (notProposed > 0) parts.push(`${notProposed} not refreshed yet`);
+      const outcome = parts.length ? parts.join(', ') + '.' : 'no refreshed figures were proposed.';
+      appendMessage(uid, { from: 'cm', to: 'user', type: 'inform', summary: `Re-check before reuse: ${flags.length} accepted entr${flags.length === 1 ? 'y was' : 'ies were'} flagged stale against current bank data; ${outcome}` });
     }
     const round = loadRound(uid, payload.roundId);
     // Keep the round's question context (F15): a session document must not lose its memory rows.
@@ -430,7 +452,7 @@ function handleMessage(uid: string, msg: AgentMessage) {
         return;
       }
       updateMessage(uid, messageId, { status: 'accepted' });
-      const p = (proposal.payload ?? {}) as { goalIds?: string[]; detail?: string; transactionIds?: string[]; total?: number; observed?: 'observed' | 'inferred' };
+      const p = (proposal.payload ?? {}) as { goalIds?: string[]; detail?: string; transactionIds?: string[]; transactionIdsHash?: string; total?: number; observed?: 'observed' | 'inferred' };
       const entry: ArchEntry = {
         id: newId('entry'),
         title: proposal.summary,
@@ -439,7 +461,7 @@ function handleMessage(uid: string, msg: AgentMessage) {
         // F4: any agent can propose; provenance records who (only agents send proposals)
         proposedBy: proposal.from === 'personal' ? 'personal' : 'nordea',
         viaMessageId: proposal.id,
-        evidence: { transactionIds: p.transactionIds, total: p.total },
+        evidence: { transactionIds: p.transactionIds, transactionIdsHash: p.transactionIdsHash, total: p.total },
         observed: deriveObserved(proposal), // F20: derived from evidence, not the proposer's flag
         status: 'active',
         createdAt: now(),

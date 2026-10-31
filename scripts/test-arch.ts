@@ -589,6 +589,45 @@ const noevRound = A.contribute(UID24);
 check('F8: an entry stored without evidence is flagged when bank data gives a picture', S.loadCmDb(UID24).entries.find((e) => e.id === noevEntry.id)?.status === 'stale' && noevRound.staleFlags.some((f) => f.entryId === noevEntry.id && f.reason === 'missing-evidence'), JSON.stringify(noevRound.staleFlags));
 
 
+// --- F26: with MORE than 25 matching transactions the decay check must compare like with like.
+const UID40 = 'manytxuser';
+const manyTx = Array.from({ length: 30 }, (_, i) => ({ id: `m${i + 1}`, userId: UID40, date: '2026-10-01', category: 'transport' as const, amount: -10, account: 'current' as const, description: 'Fuel for the car' }));
+S.saveNordeaDb({ userId: UID40, accounts: [], transactions: manyTx });
+A.addGoalDirect(UID40, 'Save for a car');
+A.setStandingPermissions(UID40, 'high');
+A.contribute(UID40);
+const manyEntry = S.loadCmDb(UID40).entries.find((e) => e.proposedBy === 'nordea')!;
+check('F26 setup: aggregate stores a full-set id hash plus the 25-id display sample', typeof manyEntry.evidence?.transactionIdsHash === 'string' && manyEntry.evidence?.transactionIds?.length === 25, JSON.stringify(manyEntry.evidence).slice(0, 120));
+const manyR2 = A.contribute(UID40);
+const manyR3 = A.contribute(UID40);
+check('F26: >25 matches and no bank change - the aggregate stays ACTIVE over three rounds, no stale duplicate', manyR2.staleFlags.length === 0 && manyR3.staleFlags.length === 0 && S.loadCmDb(UID40).entries.filter((e) => e.title.includes('Activity related')).length === 1 && S.loadCmDb(UID40).entries.every((e) => e.status === 'active'), `round2 flags: ${manyR2.staleFlags.length}, round3 flags: ${manyR3.staleFlags.length}, entries: ${S.loadCmDb(UID40).entries.map((e) => e.status + ':' + e.title.slice(0, 30)).join(' | ')}`);
+
+// --- F27: a saving-goal aggregate is labelled as SPENDING, not as savings.
+check('F27: the goal aggregate names the figure as related spending', manyEntry.detail.includes('spending'), manyEntry.detail);
+
+// --- F28: the re-check notice says which outcome actually happened.
+const UID41 = 'noticeuser';
+S.saveNordeaDb({ userId: UID41, accounts: [], transactions: [{ id: 'w1', userId: UID41, date: '2026-10-01', category: 'transport', amount: -60, account: 'current', description: 'Fuel for the car' }] });
+A.addGoalDirect(UID41, 'Save for a car');
+A.setStandingPermissions(UID41, 'high');
+A.contribute(UID41);
+S.saveNordeaDb({ userId: UID41, accounts: [], transactions: [{ id: 'w1', userId: UID41, date: '2026-10-01', category: 'transport', amount: -60, account: 'current', description: 'Fuel for the car' }, { id: 'w2', userId: UID41, date: '2026-10-02', category: 'transport', amount: -40, account: 'current', description: 'Car wash' }] });
+A.contribute(UID41);
+const noticeAuto = S.loadBus(UID41).messages.filter((m) => m.type === 'inform' && m.summary.startsWith('Re-check before reuse')).pop();
+check('F28: under standing permissions the notice says the refresh was stored automatically', !!noticeAuto && noticeAuto.summary.includes('stored automatically under your standing permissions') && !noticeAuto.summary.includes('wait in merge review'), noticeAuto?.summary ?? 'no notice');
+
+const UID42 = 'noticeuser2';
+S.saveNordeaDb({ userId: UID42, accounts: [], transactions: [{ id: 'v1', userId: UID42, date: '2026-10-01', category: 'transport', amount: -60, account: 'current', description: 'Fuel for the car' }] });
+A.addGoalDirect(UID42, 'Save for a car');
+A.setStandingPermissions(UID42, 'high');
+A.contribute(UID42);
+A.setStandingPermissions(UID42, 'all');
+S.saveNordeaDb({ userId: UID42, accounts: [], transactions: [{ id: 'v1', userId: UID42, date: '2026-10-01', category: 'transport', amount: -60, account: 'current', description: 'Fuel for the car' }, { id: 'v2', userId: UID42, date: '2026-10-02', category: 'transport', amount: -40, account: 'current', description: 'Car wash' }] });
+A.contribute(UID42);
+const noticeReview = S.loadBus(UID42).messages.filter((m) => m.type === 'inform' && m.summary.startsWith('Re-check before reuse')).pop();
+check('F28: under review-everything the notice still says the refresh waits in merge review', !!noticeReview && noticeReview.summary.includes('wait in merge review'), noticeReview?.summary ?? 'no notice');
+
+
 // --- F23: the shared list must not make everyday banking talk "sensitive".
 const SENS = await import('../src/server/sensitive.js');
 check('F23: plain loan/debt talk is NOT high risk in the AC7 rule', ['pay off my student loan debt', 'mortgage and car loan repayment'].every((t) => RK.assessProposalRisk(fakeMsg('nordea', { transactionIds: ['t1'], total: 10 }, t)) === 'medium'));

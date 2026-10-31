@@ -16,6 +16,15 @@ import { appendMessage, loadBus, updateMessage } from '../store/busStore.js';
 import { registerHandler } from '../dispatcher.js';
 import { recordProposals, roundDone } from '../rounds.js';
 
+/** F26: evidence carries a hash of the FULL sorted id set, so churn checks compare like
+ * with like. The 25-id sample stays for display/risk only - never for comparison.
+ * FNV-1a, no imports: change detection only, not security. */
+const hashIds = (ids: string[]) => {
+  let h = 0x811c9dc5;
+  for (const c of [...ids].sort().join('|')) { h ^= c.codePointAt(0)!; h = Math.imul(h, 0x01000193) >>> 0; }
+  return h.toString(16).padStart(8, '0');
+};
+
 /** The Nordea agent syncs its own DB from the bank's core data (the app's bank records). */
 export function refreshFromCore(uid: string): NordeaDb {
   const fresh: NordeaDb = {
@@ -70,20 +79,20 @@ function handleMessage(uid: string, msg: AgentMessage) {
       const hinted = new Set(questionWords.flatMap((w) => CATEGORY_HINTS[w] ?? []));
       const qm = nordea.transactions.filter((t) =>
         overlaps(questionWords, words(`${t.description ?? ''} ${t.counterparty ?? ''}`)) || hinted.has(t.category));
-      if (qm.length) sectionRows.push({ id: `nq-${payload.roundId as string}`, title: 'Relevant to your question', detail: `${qm.length} transaction${qm.length === 1 ? '' : 's'} totalling ${totalOf(qm)} EUR`, source: 'nordea', observed: 'observed', evidence: { total: totalOf(qm), matched: qm.length, transactionIds: qm.slice(0, 25).map((t) => t.id) }, at: now() });
+      if (qm.length) sectionRows.push({ id: `nq-${payload.roundId as string}`, title: 'Relevant to your question', detail: `${qm.length} transaction${qm.length === 1 ? '' : 's'} totalling ${totalOf(qm)} EUR of related spending`, source: 'nordea', observed: 'observed', evidence: { total: totalOf(qm), matched: qm.length, transactionIds: qm.slice(0, 25).map((t) => t.id), transactionIdsHash: hashIds(qm.map((t) => t.id)) }, at: now() });
     }
     for (const goal of goals) {
       const matches = matchForTitles(nordea, [goal.title]);
       if (!matches.length) continue;
       const total = totalOf(matches);
-      sectionRows.push({ id: `nagg-${goal.id}`, title: goal.title, detail: `${matches.length} transaction${matches.length === 1 ? '' : 's'} totalling ${total} EUR`, source: 'nordea', evidence: { total, matched: matches.length, transactionIds: matches.slice(0, 25).map((t) => t.id) }, at: now() });
+      sectionRows.push({ id: `nagg-${goal.id}`, title: goal.title, detail: `${matches.length} transaction${matches.length === 1 ? '' : 's'} totalling ${total} EUR of related spending`, source: 'nordea', evidence: { total, matched: matches.length, transactionIds: matches.slice(0, 25).map((t) => t.id), transactionIdsHash: hashIds(matches.map((t) => t.id)) }, at: now() });
       const title = `Activity related to goal "${goal.title}"`;
       if (alreadyPending.has(title)) continue; // no duplicate pending proposals
-      const detail = `${matches.length} transaction${matches.length === 1 ? '' : 's'} totalling ${total} EUR relate to this goal (matched on category and description keywords). Proposed by the Nordea agent from the Nordea DB only - the raw transactions stay there.`;
+      const detail = `${matches.length} transaction${matches.length === 1 ? '' : 's'} totalling ${total} EUR of related spending relate to this goal (matched on category and description keywords). Proposed by the Nordea agent from the Nordea DB only - the raw transactions stay there.`;
       const posted = appendMessage(uid, {
         from: 'nordea', to: 'cm', type: 'propose', status: 'pending',
         summary: title,
-        payload: { inReplyTo: msg.id, roundId: payload.roundId, goalIds: [goal.id], detail, transactionIds: matches.slice(0, 25).map((t) => t.id), total },
+        payload: { inReplyTo: msg.id, roundId: payload.roundId, goalIds: [goal.id], detail, transactionIds: matches.slice(0, 25).map((t) => t.id), transactionIdsHash: hashIds(matches.map((t) => t.id)), total },
       });
       proposals.push({ messageId: posted.id, title, detail, matched: matches.length, total });
     }
@@ -131,18 +140,24 @@ function handleMessage(uid: string, msg: AgentMessage) {
 
   // --- Refresh request from the Context Memory agent: confirm or refresh stored values.
   if (msg.type === 'refresh' && typeof payload.roundId === 'string') {
-    const items = (payload.items ?? []) as { entryId: string; title: string; goalIds?: string[]; goalTitles: string[]; was: number | null; storedIds?: string[]; reason?: 'evidence' | 'aged' | 'missing-evidence' }[];
+    const items = (payload.items ?? []) as { entryId: string; title: string; goalIds?: string[]; goalTitles: string[]; was: number | null; storedIds?: string[]; storedIdsHash?: string; reason?: 'evidence' | 'aged' | 'missing-evidence' }[];
     prepare(uid);
     const nordea = loadNordeaDb(uid)!;
     const alreadyPending = pendingProposalSummaries(uid);
     const results = items.map((item) => {
       const matches = matchForTitles(nordea, item.goalTitles);
       const nowTotal = totalOf(matches);
-      const currentIds = matches.map((t) => t.id).sort();
-      const storedIds = [...(item.storedIds ?? [])].sort();
+      const currentIds = matches.map((t) => t.id);
+      const currentHash = hashIds(currentIds);
+      const storedIds = item.storedIds ?? [];
       // F8: decay is more than a changed total - churned transactions (same total, different
       // payments) and evidence that was never stored both count as decay.
-      const idsChanged = storedIds.length > 0 && JSON.stringify(storedIds) !== JSON.stringify(currentIds);
+      // F26: compare the FULL id sets via their hashes. Entries stored before hashes existed
+      // (25-id sample only) fall back to "a stored id vanished"; the first refresh stores a
+      // hash, so they self-heal and never false-flag on >25 matches again.
+      const idsChanged = item.storedIdsHash
+        ? item.storedIdsHash !== currentHash
+        : storedIds.length > 0 && storedIds.some((id) => !currentIds.includes(id));
       // F8 age rule: an entry past the age threshold whose stored total has NO transaction ids
       // to verify against is flagged so the refresh stores verifiable evidence.
       const agedUnverifiable = item.reason === 'aged' && storedIds.length === 0;
@@ -154,8 +169,8 @@ function handleMessage(uid: string, msg: AgentMessage) {
           payload: {
             roundId: payload.roundId,
             goalIds: item.goalIds ?? [],
-            detail: `${matches.length} transactions totalling ${nowTotal} EUR relate to this goal (${item.was == null ? 'the stored entry had no evidence to check' : 'refreshed after the earlier values went stale'}). Proposed by the Nordea agent from the Nordea DB only.`,
-            transactionIds: matches.slice(0, 25).map((t) => t.id), total: nowTotal, refreshOf: item.entryId,
+            detail: `${matches.length} transactions totalling ${nowTotal} EUR of related spending relate to this goal (${item.was == null ? 'the stored entry had no evidence to check' : 'refreshed after the earlier values went stale'}). Proposed by the Nordea agent from the Nordea DB only.`,
+            transactionIds: matches.slice(0, 25).map((t) => t.id), transactionIdsHash: currentHash, total: nowTotal, refreshOf: item.entryId,
           },
         });
       }
@@ -167,7 +182,7 @@ function handleMessage(uid: string, msg: AgentMessage) {
       const rows: ContextRow[] = [];
       for (const g of docGoals) {
         const gm = matchForTitles(nordea, [g.title]);
-        if (gm.length) rows.push({ id: `nagg-${g.id}`, title: g.title, detail: `${gm.length} transaction${gm.length === 1 ? '' : 's'} totalling ${totalOf(gm)} EUR (refreshed against current bank data)`, source: 'nordea', evidence: { total: totalOf(gm), matched: gm.length, transactionIds: gm.slice(0, 25).map((t) => t.id) }, at: now() });
+        if (gm.length) rows.push({ id: `nagg-${g.id}`, title: g.title, detail: `${gm.length} transaction${gm.length === 1 ? '' : 's'} totalling ${totalOf(gm)} EUR of related spending (refreshed against current bank data)`, source: 'nordea', evidence: { total: totalOf(gm), matched: gm.length, transactionIds: gm.slice(0, 25).map((t) => t.id), transactionIdsHash: hashIds(gm.map((t) => t.id)) }, at: now() });
       }
       // F18: maintenance merges - refreshed figures update matching rows, no row is dropped.
       const merged = [...readSectionRows(uid, 'nordea').filter((r) => !rows.some((n) => n.id === r.id)), ...rows];
