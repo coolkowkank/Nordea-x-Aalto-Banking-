@@ -1,28 +1,61 @@
 ## At a glance
 
-What this branch changes in how the Nordea-side bank data is stored.
+How the Nordea-side data is stored. These are the real records the app writes when it applies the bundled
+example feed row ([`supabase/nordea-feed-example.csv`](supabase/nordea-feed-example.csv)) for the demo customer Lauri.
 
-```mermaid
-flowchart LR
-  subgraph B["Before"]
-    direction TB
-    b1["Ids by position<br/>nd-lauri-0, nd-lauri-1 …"]
-    b2["Every import replaces<br/>the whole list"]
-    b3["Balances overwritten,<br/>no history"]
-    b4["Nordea cards with<br/>no source shown"]
-  end
-  subgraph A["With Bank_database"]
-    direction TB
-    a1["Stable ids + banking detail<br/>bankId · status · counterparty"]
-    a2["Snapshot or incremental import<br/>known rows skipped, every import logged"]
-    a3["Dated balance snapshots<br/>history kept"]
-    a4["Nordea cards carry evidence<br/>transactions · period · when"]
-  end
-  b1 --> a1
-  b2 --> a2
-  b3 --> a3
-  b4 --> a4
-```
+**Supabase tables.** Every record is one row of `abel_records`; the `kind` column says which table below it belongs to.
+
+| Table | Columns |
+|---|---|
+| `abel_records` | `kind` · `id` · `user_id` · `data` (JSON) · `updated_at` |
+| `nordea_feed` (inbox) | `id` · `user_id` · `data` (JSON) · `note` · `created_at` · `applied_at` · `result` |
+
+| kind | id | user_id | data |
+|---|---|---|---|
+| `bankAccounts` | `acc-lauri-current` | `lauri` | `{ "key": "current", "iban": "FI29 1234 …", … }` |
+| `transactions` | `nd-lauri-bank-ND-20261027-0001` | `lauri` | `{ "date": "2026-10-27", "amount": -32.4, … }` |
+| `balanceSnapshots` | `snap-lauri-current-2026-10-30-batch-…` | `lauri` | `{ "balance": 1104.3, "at": "2026-10-30", … }` |
+| `importBatches` | `batch-lauri-mvw0c4fv-wfup` | `lauri` | `{ "mode": "incremental", "added": 7, … }` |
+
+**Bank accounts** (`bankAccounts`)
+
+| id | key | iban | type | currency |
+|---|---|---|---|---|
+| `acc-lauri-current` | `current` | FI29 1234 5678 9012 34 | current account | EUR |
+| `acc-lauri-savings` | `savings` | FI29 1234 5678 9012 35 | savings | EUR |
+| `acc-lauri-carFund` | `carFund` | FI29 1234 5678 9012 36 | savings goal | EUR |
+
+**Transactions** (`transactions`, 4 of the 7 from this batch)
+
+| id | account | date | valueDate | amount | description | counterparty | status | category | categorySource | batchId |
+|---|---|---|---|---|---|---|---|---|---|---|
+| `nd-lauri-bank-ND-20261027-0001` | current | 2026-10-27 | 2026-10-27 | -32.40 EUR | K-Supermarket Kamppi | K-Supermarket Kamppi | booked | groceries | feed | `batch-lauri-mvw0c4fv-wfup` |
+| `nd-lauri-bank-ND-20261028-0003` | current | 2026-10-28 | 2026-10-28 | -45.00 EUR | VR Train Ticket Helsinki-Tampere | VR-Yhtyma Oy | booked | transport *(original: TRAVEL)* | app | `batch-lauri-mvw0c4fv-wfup` |
+| `nd-lauri-bank-ND-20261030-0005` | current | 2026-10-30 | – | -12.90 EUR | Cafe Java | Cafe Java | pending | restaurants | app | `batch-lauri-mvw0c4fv-wfup` |
+| `nd-lauri-bank-ND-20261030-0007` | savings | 2026-10-30 | 2026-10-30 | 200.00 EUR | Auto deposit from Current Account | Nordea | booked | savings_transfer_in | feed | `batch-lauri-mvw0c4fv-wfup` |
+
+Older demo transactions keep their simple form (`tx-house-2024-11` · current · 2024-11-01 · -1150 · housing · Rent & Housing charge).
+
+**Balance snapshots** (`balanceSnapshots`)
+
+| id | accountKey | balance | at | source | batchId |
+|---|---|---|---|---|---|
+| `snap-lauri-current-2026-10-30-batch-…` | current | 1104.30 | 2026-10-30 | Supabase nordea_feed row 1 | `batch-lauri-mvw0c4fv-wfup` |
+| `snap-lauri-savings-2026-10-30-batch-…` | savings | 14800.00 | 2026-10-30 | Supabase nordea_feed row 1 | `batch-lauri-mvw0c4fv-wfup` |
+| `snap-lauri-carFund-2026-10-30-batch-…` | carFund | 2350.00 | 2026-10-30 | Supabase nordea_feed row 1 | `batch-lauri-mvw0c4fv-wfup` |
+
+**Import batches** (`importBatches`)
+
+| id | source | mode | received | added | skipped | updated | rejected |
+|---|---|---|---|---|---|---|---|
+| `batch-lauri-mvw0c4fv-wfup` | Supabase nordea_feed row 1 | incremental | 7 | 7 | 0 | 0 | 0 |
+
+**Nordea observations with evidence** (`cabinetEntries`, field `evidence`)
+
+| id | title | evidence: transactions | period | inputsHash | reviewed |
+|---|---|---|---|---|---|
+| `lauri-obs-salary` | Your salary went up in May 2026 | 24 (`tx-sal-2024-11`, `tx-sal-2024-12`, …) | 2025-11 → 2026-10 | `14c0f3k` | no, waiting for the customer |
+| `lauri-obs-restaurants` | You've been eating out more | 12 (`tx-rest-2025-10`, `tx-rest-2025-11`, …) | 2025-10 → 2026-09 | `1kkvhq0` | no, waiting for the customer |
 
 ## What this branch is for
 
