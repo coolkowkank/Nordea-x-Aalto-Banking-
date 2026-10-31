@@ -52,15 +52,16 @@ This branch starts from `Instict-prototype` @ `489d44e`. Its goal is to turn the
 ---
 
 ## 🧠 Context memory
-*Joe, updated 2026-10-31 17:26.*
+*Joe, updated 2026-10-31 17:34.*
 
 - **Goal:** three agents (personal / Context Memory / Nordea), each opening only its own DB, build a shared per-customer `context.md`; human only for first start and high-risk decisions. Done = AC1–AC12.
 - **Base:** `Instict-prototype` @ `489d44e`. Branch changes so far: `review.md` only.
-- **State:** batch 1 handed to Bill at 17:25 (3.5 h before ETA). F2, F3 `fixed @7950f5d`, awaiting Bill's verify. F1, F4–F11 open.
-- **Batch 1 claims to verify:** agents in `arch/agents/{personal,cm,nordea}.ts`, stores in `arch/store/*`; dispatcher `arch/dispatcher.ts`; rounds `arch/rounds.ts` (step limit 50); test:arch 85/85, lint clean.
-- **Side effects to judge:** decay check now message-driven (touches F8); Nordea matching now sees goal **titles only**, not details (touches AC5/F6).
-- **Next:** Bill reviews now → Instinct does F1 (`context.md`). Open: `#J1` (Bill's polling).
-- **Order:** F2+F3 → F1 → F4, F5, F6 → F7 → F8 → F9 → F10 → F11.
+- **Verified:** F2 (agent modules), F3 @7950f5d. Bill reran test:arch 85/85, lint clean.
+- **Open:** F1, F4–F11, plus new F12 (M: orchestrator decides for agents from direct reads), F13 (L: round marked `stored` without CM confirmation), F14 (L: AC1 test blocklist → allowlist).
+- **Accepted:** Nordea sees goal titles only for now; in F1 the personal agent decides what goes into its shareable section (AC3).
+- **Next:** Instinct does F1 + F12, and answers `#B1` (context.md sections, who writes each, how CM stores structured entries) before or with the code. No ETA posted yet.
+- **Closed:** `#J1`: Bill now uses rules 4+6.
+- **Order:** F1 + F12 → F4, F5, F6 → F7 → F8 → F9 → F10 → F11; F13, F14 alongside.
 - **Working assumption (AC2):** one standing `context.md` per customer, rebuilt in build rounds triggered by a question or by decay.
 - **OWNER-Q #B0:** per question or one ongoing document per customer? Habibil is away for hours; keep the assumption until he answers.
 - **Owner context:** Habibil not supervising; Bill acts on his behalf.
