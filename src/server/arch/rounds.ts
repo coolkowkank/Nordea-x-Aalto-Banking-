@@ -6,7 +6,7 @@
  *
  * This module opens only the bus. It never touches an agent's database.
  */
-import { appendMessage, busKvGet, busKvSet } from './store/busStore.js';
+import { appendMessage, busKvGet, busKvSet, loadBus } from './store/busStore.js';
 import { dispatchPending } from './dispatcher.js';
 import { newId, now } from './types.js';
 import type { AgentId, BuildRound, StaleFlag } from './types.js';
@@ -106,13 +106,18 @@ export function runRound(uid: string, trigger: BuildRound['trigger'], opts?: { m
   if (round.state !== 'step-limit') {
     round.state = 'finalizing';
     saveRound(uid, round);
-    appendMessage(uid, {
+    const fin = appendMessage(uid, {
       from: 'app', to: 'cm', type: 'control', status: 'pending',
       summary: `Finalise build round ${round.id}.`,
       payload: { control: 'finalize-round', roundId: round.id },
     });
     dispatchPending(uid, { maxDeliver: round.maxSteps - round.steps, onDeliver: () => { round.steps++; } });
-    round.state = 'stored';
+    // The round is 'stored' only when the CM agent confirms it stored the record itself (F13).
+    const confirmed = loadBus(uid).messages.some(
+      (m) => m.type === 'reply' && m.from === 'cm' && (m.payload as { inReplyTo?: string; stored?: boolean } | undefined)?.inReplyTo === fin.id && (m.payload as { stored?: boolean }).stored === true,
+    );
+    round.state = confirmed ? 'stored' : 'failed';
+    if (!confirmed) round.note = 'the Context Memory agent did not confirm storing the round record';
   }
   round.closedAt = now();
   saveRound(uid, round);

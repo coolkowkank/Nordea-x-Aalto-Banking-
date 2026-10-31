@@ -154,6 +154,17 @@ function handleMessage(uid: string, msg: AgentMessage) {
   if (msg.type === 'control') {
     const control = payload.control as string;
 
+    if (control === 'status') {
+      const cm = loadCmDb(uid);
+      appendMessage(uid, {
+        from: 'cm', to: 'app', type: 'reply',
+        summary: 'Context Memory agent reports its own status.',
+        payload: { inReplyTo: msg.id, parked: !!cm.parked, entries: cm.entries.length, hasActiveEntry: cm.entries.some((e) => e.status === 'active') },
+      });
+      updateMessage(uid, msg.id, { status: 'answered' });
+      return;
+    }
+
     if (control === 'park' || control === 'resume') {
       const want = control === 'park';
       const cm = loadCmDb(uid);
@@ -254,6 +265,12 @@ function handleMessage(uid: string, msg: AgentMessage) {
         // The CM agent stores the structured round record in its own DB (AC4/AC6).
         storeRoundRecord(uid, JSON.stringify(round));
       }
+      // Confirm to the round engine: the round is 'stored' only on this reply (F13).
+      appendMessage(uid, {
+        from: 'cm', to: 'app', type: 'reply',
+        summary: `Context Memory agent confirms round ${roundId} is stored in the Context Memory DB.`,
+        payload: { inReplyTo: msg.id, roundId, stored: !!round, proposals: round?.proposals.length ?? 0, staleFlags: round?.staleFlags.length ?? 0 },
+      });
       appendMessage(uid, { from: 'cm', to: 'user', type: 'inform', summary: `Context Memory agent finalised build round ${roundId}: ${round?.proposals.length ?? 0} proposal${(round?.proposals.length ?? 0) === 1 ? '' : 's'} for review, ${round?.staleFlags.length ?? 0} stale flag${(round?.staleFlags.length ?? 0) === 1 ? '' : 's'}; the round record is stored in the Context Memory DB.` });
       updateMessage(uid, msg.id, { status: 'answered' });
       return;

@@ -315,9 +315,15 @@ const readSrc = (p: string) => fs.readFileSync(new URL(p, import.meta.url), 'utf
 const personalSrc = readSrc('../src/server/arch/agents/personal.ts');
 const cmSrc = readSrc('../src/server/arch/agents/cm.ts');
 const nordeaSrc = readSrc('../src/server/arch/agents/nordea.ts');
-check('AC1: the personal agent module never opens the CM or Nordea stores', !/cmStore|nordeaStore|store\/index/.test(personalSrc));
-check('AC1: the CM agent module never opens the User or Nordea stores', !/userStore|nordeaStore|store\/index/.test(cmSrc));
-check('AC1: the Nordea agent module never opens the User or CM stores', !/userStore|cmStore|store\/index/.test(nordeaSrc));
+// Allowlist (F14): each agent module may import only its own store, the bus store, the
+// dispatcher, the round engine, text helpers and shared types - plus, for the Nordea agent,
+// the bank's core data source (../../db.js). Any other import fails, however it is named.
+const importsOf = (src: string) => [...src.matchAll(/from\s+['"]([^'"]+)['"]/g)].map((m) => m[1]);
+const AGENT_SHARED = ['../types.js', '../text.js', '../store/busStore.js', '../dispatcher.js', '../rounds.js'];
+const onlyAllowed = (src: string, ownStore: string, extra: string[] = []) => importsOf(src).every((spec) => [...AGENT_SHARED, ownStore, ...extra].includes(spec));
+check('AC1: the personal agent module imports only its own store plus shared bus/round infra', onlyAllowed(personalSrc, '../store/userStore.js'), importsOf(personalSrc).join(','));
+check('AC1: the CM agent module imports only its own store plus shared bus/round infra', onlyAllowed(cmSrc, '../store/cmStore.js'), importsOf(cmSrc).join(','));
+check('AC1: the Nordea agent module imports only its own store plus shared infra and the core bank source', onlyAllowed(nordeaSrc, '../store/nordeaStore.js', ['../../db.js']), importsOf(nordeaSrc).join(','));
 check('AC1: the dispatcher and round engine open no agent store at all',
   !/(userStore|cmStore|nordeaStore)/.test(readSrc('../src/server/arch/dispatcher.ts')) && !/(userStore|cmStore|nordeaStore)/.test(readSrc('../src/server/arch/rounds.ts')));
 
@@ -327,6 +333,8 @@ S.saveNordeaDb({ userId: UID9, accounts: [], transactions: [{ id: 'r1', userId: 
 A.addGoalDirect(UID9, 'Save for a car');
 const rc = A.contribute(UID9) as { round: { id: string; state: string; steps: number; maxSteps: number } };
 check('AC6: the build round finalised and stored within its step limit', rc.round.state === 'stored' && rc.round.steps > 0 && rc.round.steps <= rc.round.maxSteps, JSON.stringify(rc.round));
+check("AC6: the round is 'stored' only on the CM agent's own finalise confirmation (F13)",
+  S.loadBus(UID9).messages.some((m) => m.from === 'cm' && m.to === 'app' && (m.payload as { roundId?: string; stored?: boolean } | undefined)?.roundId === rc.round.id && (m.payload as { stored?: boolean }).stored === true));
 const R = await import('../src/server/arch/rounds.js');
 const storedRound = R.loadRound(UID9, rc.round.id)!;
 check('AC6: all three agents signalled done in the round', ['personal', 'cm', 'nordea'].every((a) => storedRound.doneSignals.includes(a as 'personal' | 'cm' | 'nordea')), storedRound.doneSignals.join(','));

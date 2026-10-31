@@ -202,7 +202,17 @@ export function decideAirlock(uid: string, batchId: string, approve: boolean) {
 // ---------- Message handler: what the personal agent does when the bus delivers ----------
 
 function handleMessage(uid: string, msg: AgentMessage) {
-  const payload = (msg.payload ?? {}) as { roundId?: string; purpose?: string; goalIds?: string[] };
+  const payload = (msg.payload ?? {}) as { roundId?: string; purpose?: string; goalIds?: string[]; control?: string };
+  if (msg.type === 'control' && payload.control === 'status') {
+    const u = loadUserDb(uid);
+    appendMessage(uid, {
+      from: 'personal', to: 'app', type: 'reply',
+      summary: 'Personal agent reports its own status.',
+      payload: { inReplyTo: msg.id, goals: u.goals.length },
+    });
+    updateMessage(uid, msg.id, { status: 'answered' });
+    return;
+  }
   if (msg.type === 'round-start' && payload.roundId) {
     // The personal agent starts the build: it shares the customer's goal id+title list
     // (titles only travel further - goal details stay in the User DB by default).

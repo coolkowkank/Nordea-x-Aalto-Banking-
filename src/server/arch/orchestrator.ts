@@ -12,7 +12,7 @@ import {
   beginChat, finishChat, postAgentQuery, readAgentReply, personalLabel,
 } from './agents/personal.js';
 import { PARKED_WORDING, publishParkState } from './agents/cm.js';
-import { prepare as nordeaPrepare } from './agents/nordea.js';
+import './agents/nordea.js'; // side effect: registers the Nordea agent's bus handler
 import { loadUserDb, saveUserDb, deleteUserDb } from './store/userStore.js';
 import { loadCmDb, deleteCmDb } from './store/cmStore.js';
 import { loadNordeaDb, nordeaFileExists, deleteNordeaDb } from './store/nordeaStore.js';
@@ -65,17 +65,23 @@ export function agentQuery(uid: string, to: 'cm' | 'nordea', question: string): 
 export function contribute(uid: string) {
   requireAgentOn(uid, 'nordea');
   requireAgentOn(uid, 'cm');
-  if (loadCmDb(uid).parked) throw new ArchError(409, PARKED_WORDING); // app-layer gate; the CM agent stays the authority
-  const counts = nordeaPrepare(uid);
+  // The agents report their own state by control message; the app never opens their DBs (F12).
+  const cmStatus = controlRoundTrip(uid, 'cm', 'Context Memory agent status before a contribution round.', { control: 'status' }) as { parked?: boolean; entries?: number };
+  if (cmStatus.parked) throw new ArchError(409, PARKED_WORDING); // the CM agent's own answer gates the round
+  const counts = controlRoundTrip(uid, 'nordea', 'Prepare the Nordea DB for a contribution round.', { control: 'prepare' }) as { transactions?: number };
   if (!counts.transactions) throw new ArchError(409, 'The Nordea DB has no transactions yet. Load bank data first (scripts/load_data.py).');
-  const u = loadUserDb(uid);
+  let goalCount: number | null = null;
+  if (!getOff(uid).includes('personal')) {
+    const pStatus = controlRoundTrip(uid, 'personal', 'Personal agent status before a contribution round.', { control: 'status' }) as { goals?: number };
+    goalCount = pStatus.goals ?? null;
+  }
   const round = runRound(uid, 'contribution');
   return {
     askedVia: round.id,
     proposals: round.proposals,
     staleFlags: round.staleFlags,
-    skippedGoals: u.goals.length - round.proposals.length,
-    existingCabinetEntries: loadCmDb(uid).entries.length,
+    skippedGoals: goalCount === null ? 0 : Math.max(0, goalCount - round.proposals.length),
+    existingCabinetEntries: cmStatus.entries ?? 0,
     round: { id: round.id, state: round.state, steps: round.steps, maxSteps: round.maxSteps },
   };
 }
@@ -159,10 +165,12 @@ export function parkCabinet(uid: string, park: boolean) {
  */
 function recheckBeforeReuse(uid: string): BuildRound['staleFlags'] {
   const off = getOff(uid);
-  if (off.includes('cm') || off.includes('nordea')) return [];
-  const u = loadUserDb(uid);
-  const cm = loadCmDb(uid);
-  if (cm.parked || !u.goals.length || !cm.entries.some((e) => e.status === 'active')) return [];
+  if (off.includes('cm') || off.includes('nordea') || off.includes('personal')) return [];
+  // Same guards as before, but each agent reports its own state by control message (F12).
+  const cmStatus = controlRoundTrip(uid, 'cm', 'Context Memory agent status before a decay re-check.', { control: 'status' }) as { parked?: boolean; hasActiveEntry?: boolean };
+  if (cmStatus.parked || !cmStatus.hasActiveEntry) return [];
+  const pStatus = controlRoundTrip(uid, 'personal', 'Personal agent status before a decay re-check.', { control: 'status' }) as { goals?: number };
+  if (!pStatus.goals) return [];
   refreshNordeaFromCore(uid);
   return runRound(uid, 'decay').staleFlags;
 }
@@ -179,8 +187,9 @@ export function applyBankImportToArch(uid: string): { updated: boolean; reason?:
   if (getOff(uid).includes('nordea')) return { updated: false, reason: 'the Nordea agent is off', staleFlags: [] };
   refreshNordeaFromCore(uid, 'Nordea agent updated the Nordea DB from the new bank import ({n} transactions, {m}) and re-checked accepted cabinet entries.');
   let staleFlags: BuildRound['staleFlags'] = [];
-  if (!getOff(uid).includes('cm') && !loadCmDb(uid).parked) {
-    staleFlags = runRound(uid, 'decay').staleFlags;
+  if (!getOff(uid).includes('cm') && !getOff(uid).includes('personal')) {
+    const cmStatus = controlRoundTrip(uid, 'cm', 'Context Memory agent status before a decay re-check.', { control: 'status' }) as { parked?: boolean };
+    if (!cmStatus.parked) staleFlags = runRound(uid, 'decay').staleFlags;
   }
   return { updated: true, staleFlags };
 }

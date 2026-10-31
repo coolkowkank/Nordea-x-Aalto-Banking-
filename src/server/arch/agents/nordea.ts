@@ -142,6 +142,14 @@ function handleMessage(uid: string, msg: AgentMessage) {
     return;
   }
 
+  // --- App control: prepare the Nordea DB (seed from core on first use) and report counts.
+  if (msg.type === 'control' && payload.control === 'prepare') {
+    const counts = prepare(uid);
+    appendMessage(uid, { from: 'nordea', to: 'app', type: 'reply', summary: `Nordea agent prepared its DB: ${counts.transactions} transactions, ${counts.accounts} accounts.`, payload: { inReplyTo: msg.id, ...counts } });
+    updateMessage(uid, msg.id, { status: 'answered' });
+    return;
+  }
+
   // --- App control: refresh the Nordea DB from the bank's core data (import / resume / turn-on).
   if (msg.type === 'control' && payload.control === 'refresh-from-core') {
     const fresh = refreshFromCore(uid);

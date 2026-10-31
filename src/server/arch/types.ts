@@ -66,7 +66,7 @@ export interface StaleFlag { entryId: string; title: string; was: number; nowIs:
 export interface BuildRound {
   id: string;
   trigger: 'contribution' | 'decay';
-  state: 'open' | 'collecting' | 'finalizing' | 'stored' | 'step-limit';
+  state: 'open' | 'collecting' | 'finalizing' | 'stored' | 'step-limit' | 'failed';
   participants: AgentId[];
   doneSignals: AgentId[];
   steps: number;
