@@ -52,7 +52,9 @@ export function registerDevMonitor(app: Express) {
     // Without ?userId, show lauri if loaded, else the first customer there is (like the app does).
     const userId = asked || (db.getUser('lauri') ? 'lauri' : Object.keys(db.getState().users)[0]);
     const user = db.getUser(userId);
-    if (!user) return res.status(404).json({ error: `No customer “${userId}”`, code: 'NO_USER' });
+    // Every loaded customer, for the page's customer picker.
+    const customers = Object.values(db.getState().users).map((u) => ({ id: u.id, name: u.name }));
+    if (!user) return res.status(404).json({ error: `No customer “${userId}”`, code: 'NO_USER', customers });
 
     const all = db.getCabinetEntries(userId).filter((e) => e.status !== 'archived');
 
@@ -76,6 +78,7 @@ export function registerDevMonitor(app: Express) {
       generatedAt: new Date().toISOString(),
       userId,
       userName: user.name,
+      customers,
       storage: db.status(),
       feed: feedStatus(),
       // Configured agent manifests (static roles), not proof of running agents.

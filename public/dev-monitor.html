@@ -15,6 +15,8 @@
   .badge-ro span { font-weight:400; opacity:.85; }
   .badge-live { background:#14201a; border:1px solid #2ea043; color:#7ee2a0; font-size:13px; padding:8px 14px; border-radius:8px; }
   .badge-live.err { border-color:#cf222e; color:#ff9b94; background:#241314; }
+  .who { color:#b7bec7; font-size:13px; display:flex; align-items:center; gap:8px; }
+  .who select { background:#1f2329; color:#e6e9ed; border:1px solid #3a4048; border-radius:8px; padding:7px 10px; font-size:13.5px; }
   .gapnote { background:#3a2f14; border:1px solid #9a6700; color:#e8c468; border-radius:10px; padding:10px 16px;
              font-size:13.5px; margin-bottom:16px; line-height:1.45; }
   .windows { display:flex; gap:22px; align-items:stretch; }
@@ -72,6 +74,7 @@
       <small id="subtitle">Read-only monitoring of the real app state · polls every 3 s</small>
     </div>
     <div class="badges">
+      <label class="who">Customer <select id="who" aria-label="Customer to monitor"></select></label>
       <div class="badge-live" id="live">connecting…</div>
       <div class="badge-ro">READ-ONLY <span>· display only, no controls</span></div>
     </div>
@@ -116,7 +119,26 @@
 <script>
 const params = new URLSearchParams(location.search);
 // Without ?userId the server picks lauri, or the first customer when there is no lauri.
-const userId = params.get('userId');
+// The picker changes only which customer is watched (kept in the address as ?userId=), never any data.
+let userId = params.get('userId');
+const who = document.getElementById('who');
+function fillPicker(customers, current) {
+  const key = customers.map((c) => c.id + ':' + c.name).join('|');
+  if (who.dataset.key !== key) {
+    who.innerHTML = customers.map((c) => `<option value="${esc(c.id)}">${esc(c.name)} (${esc(c.id)})</option>`).join('');
+    who.dataset.key = key;
+  }
+  if (current) who.value = current;
+}
+who.addEventListener('change', () => {
+  userId = who.value;
+  const u = new URL(location.href);
+  u.searchParams.set('userId', userId);
+  history.replaceState(null, '', u);
+  knownIds = new Set();
+  firstLoad = true;
+  tick();
+});
 let knownIds = new Set();
 let firstLoad = true;
 
@@ -148,8 +170,12 @@ async function tick() {
   const live = document.getElementById('live');
   let d;
   try {
-    const r = await fetch(`/api/dev/monitor${userId ? `?userId=${encodeURIComponent(userId)}` : ''}`, { cache: 'no-store' });
+    const asked = userId;
+    const r = await fetch(`/api/dev/monitor${asked ? `?userId=${encodeURIComponent(asked)}` : ''}`, { cache: 'no-store' });
     const body = await r.json().catch(() => ({}));
+    // A poll for the previously picked customer may land after a switch: drop it.
+    if (asked !== userId) return;
+    if (body.customers) fillPicker(body.customers, body.userId || (r.ok ? null : ''));
     if (!r.ok) {
       // No data / no such customer / monitor off are states, not outages: say which.
       live.className = 'badge-live err';
