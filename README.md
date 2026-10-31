@@ -20,3 +20,7 @@ View your app in AI Studio: https://ai.studio/apps/8fb23cbd-15fa-415e-a3bd-7c874
 2. Set the `GEMINI_API_KEY` in [.env.local](.env.local) to your Gemini API key
 3. Run the app:
    `npm run dev`
+
+## Saving data in Supabase
+
+First-time setup (SQL Editor, keys, checks): see [supabase/README.md](supabase/README.md).
