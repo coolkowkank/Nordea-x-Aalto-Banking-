@@ -6,6 +6,10 @@ import path from 'path';
 
 process.env.CABINET_DATA_DIR = fs.mkdtempSync(path.join(os.tmpdir(), 'cabinet-test-'));
 
+// The app ships with no data: seed the throwaway directory from the bundled demo dataset.
+const { writeDemoDb } = await import('./demo-data.js');
+writeDemoDb(process.env.CABINET_DATA_DIR);
+
 let failures = 0;
 function check(name: string, cond: boolean, extra = '') {
   console.log(`${cond ? 'PASS' : 'FAIL'}  ${name}${cond ? '' : `  ${extra}`}`);
@@ -14,6 +18,7 @@ function check(name: string, cond: boolean, extra = '') {
 
 const { db } = await import('../src/server/db.js');
 const { applyNordeaData, parseCsv } = await import('../src/server/nordeaData.js');
+await db.init();
 
 const USER = 'lauri';
 

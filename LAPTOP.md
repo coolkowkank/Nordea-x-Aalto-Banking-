@@ -23,6 +23,13 @@ AI Studio keeps using Gemini. Nothing here changes it.
    Leave the Supabase lines out. The laptop then saves its data in `data/cabinet-db.json` on the laptop, and it
    won't change the data the AI Studio app uses.
 
+## Data
+The app starts with no data and shows "No data yet" until you load some. See `seed/README.md`.
+Without Supabase, load the demo customers into the laptop's own file:
+```
+python scripts/load_data.py seed/demo --target file
+```
+
 ## Every time
 1. Connect the **Aalto VPN**.
 2. In the black window, in the project folder: `npm run dev`

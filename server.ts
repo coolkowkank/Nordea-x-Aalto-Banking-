@@ -8,6 +8,7 @@ import { readCabinetThroughGateway } from './src/server/accessGateway.js';
 import { getAllAgents, getAgentManifest } from './src/server/agentRegistry.js';
 import { CabinetEntry, UndoRecord } from './src/types.js';
 import { registerV14Routes } from './src/server/routes.js';
+import { registerDevMonitor } from './src/server/devMonitor.js';
 import { startFeedWatcher } from './src/server/nordeaFeed.js';
 import { setProvider } from './src/server/llm.js';
 import { mockProvider } from './src/server/llmMock.js';
@@ -77,10 +78,25 @@ app.patch('/api/users/:userId', (req, res) => {
   res.json({ user });
 });
 
+// The app ships with no data. Load it with scripts/load_data.py; these two only clear it or read it again.
 app.post('/api/users/reset', async (req, res) => {
-  await deleteAllDocumentFiles();
-  const state = db.resetToSeed();
-  res.json({ message: 'Database reset to initial fictional seeds', state });
+  try {
+    await deleteAllDocumentFiles();
+    await db.clearAll();
+    res.json({ message: 'All data deleted. Load data again with scripts/load_data.py.' });
+  } catch (err: any) {
+    res.status(500).json({ error: String(err?.message || err) });
+  }
+});
+
+// scripts/load_data.py calls this after loading, so the running app sees the new data without a restart.
+app.post('/api/admin/reload', async (req, res) => {
+  try {
+    const state = await db.reload();
+    res.json({ message: 'Data read again.', users: Object.keys(state.users).length, status: db.status() });
+  } catch (err: any) {
+    res.status(500).json({ error: String(err?.message || err) });
+  }
 });
 
 // 3. Cabinet Entries & Access Gateway
@@ -280,6 +296,9 @@ app.get('/api/transactions', (req, res) => {
 
 // 9. Chat, button actions and everything new in v14 live in routes.ts
 registerV14Routes(app);
+
+// Read-only developer monitoring panel (display only, no controls): /dev-monitor.html
+registerDevMonitor(app);
 
 // Vite Middleware Mounting (Development) or Static File Serving (Production)
 async function startServer() {

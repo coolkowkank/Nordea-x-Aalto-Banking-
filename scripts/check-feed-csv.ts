@@ -66,10 +66,13 @@ if (data) {
 // --- 3. Dry-run against a throwaway copy of the demo database ---
 if (data) {
   const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'feed-check-'));
-  fs.copyFileSync(path.resolve('data/cabinet-db.json'), path.join(tmp, 'cabinet-db.json'));
+  // The app ships with no data: seed the throwaway directory from the bundled demo dataset.
+  const { writeDemoDb } = await import('./demo-data.js');
+  writeDemoDb(tmp);
   process.env.CABINET_DATA_DIR = tmp;
   const { db } = await import('../src/server/db.js');
   const { applyNordeaData } = await import('../src/server/nordeaData.js');
+  await db.init();
   const userId = rec.user_id;
   check('customer exists in the demo database', !!db.getUser(userId), `unknown customer "${userId}"`);
   const before = db.getTransactions(userId).length;
