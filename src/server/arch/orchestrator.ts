@@ -167,6 +167,11 @@ export function decideProposal(uid: string, messageId: string, accept: boolean):
 
 // ---------- Explain / dispute ----------
 
+/** AC7: the customer sets standing permissions once (first start); until then nothing is automatic. */
+export function setStandingPermissions(uid: string, reviewLevel: 'all' | 'high') {
+  return controlRoundTrip(uid, 'cm', `Customer sets standing permissions: ${reviewLevel === 'high' ? 'only high risk waits for review' : 'everything waits for review'}.`, { control: 'set-permissions', reviewLevel }) as { reviewLevel: string };
+}
+
 export function explainEntry(uid: string, entryId: string) {
   const reply = controlRoundTrip(uid, 'cm', `Explain entry ${entryId}.`, { control: 'explain', entryId });
   const { entry, via } = reply as { entry: ArchEntry; via: { id: string; at: string } | null };
@@ -185,7 +190,7 @@ export function explainEntry(uid: string, entryId: string) {
       who: entry.proposedBy === 'nordea' ? 'Proposed by the Nordea agent from the Nordea DB' : entry.proposedBy === 'user' ? 'Added by you directly' : `Proposed by the ${entry.proposedBy} agent`,
       when: entry.createdAt,
       why: goals.length ? `Matched your goal${goals.length === 1 ? '' : 's'}: ${goals.join(', ')}` : 'No goal link recorded',
-      reviewedBy: via ? `You accepted it in merge review (message ${via.id}, ${via.at})` : 'No review message recorded',
+      reviewedBy: entry.autoAccepted ? `Stored automatically under your standing permissions (${entry.risk ?? 'low'} risk; message ${via?.id ?? 'n/a'})` : via ? `You accepted it in merge review (message ${via.id}, ${via.at})` : 'No review message recorded',
       evidence: entry.evidence ?? null,
       status: entry.status,
       disputeReason: entry.disputeReason ?? null,
@@ -289,7 +294,7 @@ export function archState(uid: string) {
     },
     databases: {
       user: { goals: u.goals.length, personalFacts: u.personalFacts.length, profile: !!u.profileName },
-      contextMemory: { entries: cm.entries.length, disputed: cm.entries.filter((e) => e.status === 'disputed').length, parked: !!cm.parked },
+      contextMemory: { entries: cm.entries.length, disputed: cm.entries.filter((e) => e.status === 'disputed').length, parked: !!cm.parked, permissions: cm.permissions ?? null },
       nordea: nordea ? { accounts: nordea.accounts.length, transactions: nordea.transactions.length } : null,
     },
     contextMd: (() => { const d = loadContext(uid); return d ? renderContextMd(uid, d) : null; })(),

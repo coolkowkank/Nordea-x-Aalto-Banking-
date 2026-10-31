@@ -330,7 +330,7 @@ const nordeaSrc = readSrc('../src/server/arch/agents/nordea.ts');
 // dispatcher, the round engine, text helpers and shared types - plus, for the Nordea agent,
 // the bank's core data source (../../db.js). Any other import fails, however it is named.
 const importsOf = (src: string) => [...src.matchAll(/from\s+['"]([^'"]+)['"]/g)].map((m) => m[1]);
-const AGENT_SHARED = ['../types.js', '../text.js', '../store/busStore.js', '../store/contextStore.js', '../dispatcher.js', '../rounds.js']; // contextStore = the AC2 shared document, section writers pinned below
+const AGENT_SHARED = ['../types.js', '../text.js', '../store/busStore.js', '../store/contextStore.js', '../dispatcher.js', '../rounds.js', '../risk.js']; // contextStore = the AC2 shared document, section writers pinned below
 const onlyAllowed = (src: string, ownStore: string, extra: string[] = []) => importsOf(src).every((spec) => [...AGENT_SHARED, ownStore, ...extra].includes(spec));
 check('AC1: the personal agent module imports only its own store plus shared bus/round infra', onlyAllowed(personalSrc, '../store/userStore.js'), importsOf(personalSrc).join(','));
 check('AC1: the CM agent module imports only its own store plus shared bus/round infra', onlyAllowed(cmSrc, '../store/cmStore.js'), importsOf(cmSrc).join(','));
@@ -451,6 +451,32 @@ const g14 = A.chat(UID14, 'my goal is to visit Japan next summer');
 check('F17: the goal reply still comes back', g14.reply.includes('Saved "to visit Japan next summer"'), g14.reply.slice(0, 80));
 const doc14 = S.loadContext(UID14)!;
 check('F17: the session round already contains the just-typed goal', doc14.sections.customer.rows.some((r) => r.title.toLowerCase().includes('japan')), JSON.stringify(doc14.sections.customer.rows.map((r) => r.title)));
+
+
+// --- F7 (AC7): risk levels by code rules; standing permissions set once; only high risk waits.
+const UID15 = 'riskuser';
+S.saveNordeaDb({ userId: UID15, accounts: [], transactions: [{ id: 'k1', userId: UID15, date: '2026-10-01', category: 'transport', amount: -100, account: 'current', description: 'Fuel for the car' }] });
+A.addGoalDirect(UID15, 'Save for a car');
+A.contribute(UID15);
+check('F7: first start defaults to review-everything (no standing permissions set yet)', A.reviewQueue(UID15).length === 2 && S.loadCmDb(UID15).entries.length === 0, `queue ${A.reviewQueue(UID15).length}`);
+A.setStandingPermissions(UID15, 'high');
+const cm15 = S.loadCmDb(UID15);
+const autoLow = cm15.entries.find((e) => e.proposedBy === 'personal');
+const autoMed = cm15.entries.find((e) => e.proposedBy === 'nordea');
+check('F7: own-goal proposal auto-stored as LOW risk under standing permissions', !!autoLow && autoLow.risk === 'low' && autoLow.autoAccepted === true, JSON.stringify(autoLow).slice(0, 120));
+check('F7: Nordea aggregate auto-stored as MEDIUM risk under standing permissions', !!autoMed && autoMed.risk === 'medium' && autoMed.autoAccepted === true, JSON.stringify(autoMed).slice(0, 120));
+check('F7: automatic stores are logged to the customer (AC9 transparency)', S.loadBus(UID15).messages.some((m) => m.type === 'inform' && m.from === 'cm' && m.summary.includes('Stored automatically')));
+check('F7: nothing left waiting in merge review after permissions are set', A.reviewQueue(UID15).length === 0);
+const autoExplain = A.explainEntry(UID15, autoMed!.id);
+check('F7: explain shows the automatic store and its risk level', autoExplain.explanation.reviewedBy.includes('automatically') && autoExplain.explanation.reviewedBy.includes('medium'), autoExplain.explanation.reviewedBy);
+
+// High risk always waits: a sensitive-topic goal is proposed by the personal agent but NOT stored.
+const UID16 = 'riskhigh';
+S.saveNordeaDb({ userId: UID16, accounts: [], transactions: [{ id: 'h1', userId: UID16, date: '2026-10-01', category: 'groceries', amount: -20, account: 'current', description: 'Weekly groceries' }] });
+A.addGoalDirect(UID16, 'therapy fund');
+A.setStandingPermissions(UID16, 'high');
+A.contribute(UID16);
+check('F7: a sensitive-topic proposal is HIGH risk and waits for the customer', S.loadCmDb(UID16).entries.length === 0 && A.reviewQueue(UID16).length === 1, `entries ${S.loadCmDb(UID16).entries.length} queue ${A.reviewQueue(UID16).length}`);
 
 console.log(`\n${passed} passed, ${failed} failed`);
 process.exit(failed ? 1 : 0);

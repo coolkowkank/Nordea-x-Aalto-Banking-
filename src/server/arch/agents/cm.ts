@@ -8,6 +8,7 @@
 import { newId, now } from '../types.js';
 import type { AgentMessage, ArchEntry, StaleFlag } from '../types.js';
 import { words, overlaps, overlapScore } from '../text.js';
+import { assessProposalRisk } from '../risk.js';
 import { loadCmDb, saveCmDb, storeRoundRecord, storeContextSnapshot } from '../store/cmStore.js';
 import { loadContext, readSectionRows, renderContextMd, writeHeader, writeMemorySection } from '../store/contextStore.js';
 import type { ContextRow } from '../store/contextStore.js';
@@ -81,6 +82,49 @@ function writeMemoryFromEntries(uid: string, meta?: { roundId: string; trigger: 
   const rows = q.length ? retrieveRelevant(uid, q) : [];
   const merged = merge ? [...readSectionRows(uid, 'memory').filter((r) => !rows.some((n) => n.id === r.id)), ...rows] : rows;
   writeMemorySection(uid, merged, meta);
+}
+
+/**
+ * AC7: after a round finalises, proposals whose code-rule risk level the customer's standing
+ * permissions allow are stored automatically - logged, explainable, disputable (AC9). High
+ * risk (sensitive topics, inferences, offers, sharing beyond the three agents) always waits.
+ */
+function autoStoreRoundProposals(uid: string, roundId?: string) {
+  const cm = loadCmDb(uid);
+  const reviewLevel = cm.permissions?.reviewLevel ?? 'all';
+  if (reviewLevel === 'all') return; // no standing permissions set yet: everything waits
+  const norm = (t: string) => t.toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim();
+  const pending = loadBus(uid).messages.filter((m) =>
+    m.type === 'propose' && m.status === 'pending' && (roundId === undefined || (m.payload as { roundId?: string } | undefined)?.roundId === roundId));
+  let changed = false;
+  for (const proposal of pending) {
+    const risk = assessProposalRisk(proposal);
+    if (risk === 'high') continue; // high risk always waits for the customer
+    const p = (proposal.payload ?? {}) as { goalIds?: string[]; detail?: string; transactionIds?: string[]; total?: number; observed?: 'observed' | 'inferred' };
+    if (cm.entries.some((e) => e.status === 'active' && norm(e.title) === norm(proposal.summary))) {
+      updateMessage(uid, proposal.id, { status: 'accepted' }); // dedupe: keep the existing entry
+      continue;
+    }
+    const entry: ArchEntry = {
+      id: newId('entry'),
+      title: proposal.summary,
+      detail: p.detail ?? '',
+      goalIds: p.goalIds ?? [],
+      proposedBy: proposal.from === 'personal' ? 'personal' : 'nordea',
+      viaMessageId: proposal.id,
+      evidence: { transactionIds: p.transactionIds, total: p.total },
+      observed: p.observed ?? (p.total != null ? 'observed' : 'inferred'),
+      risk,
+      autoAccepted: true,
+      status: 'active',
+      createdAt: now(),
+    };
+    cm.entries.push(entry); // only the CM agent writes the Context Memory DB
+    changed = true;
+    updateMessage(uid, proposal.id, { status: 'accepted' });
+    appendMessage(uid, { from: 'cm', to: 'user', type: 'inform', summary: `Stored automatically under your standing permissions (${risk} risk): "${entry.title}". You can explain, dispute or delete it anytime.` });
+  }
+  if (changed) saveCmDb(cm);
 }
 
 /** Ask the Nordea agent to confirm or refresh the stored values behind decay candidates (AC8). */
@@ -364,6 +408,21 @@ function handleMessage(uid: string, msg: AgentMessage) {
       return;
     }
 
+    if (control === 'set-permissions') {
+      // AC7 first start: the customer sets standing permissions once; until then nothing is
+      // automatic (reviewLevel 'all' = every proposal waits in merge review).
+      const reviewLevel = payload.reviewLevel === 'high' ? 'high' : 'all';
+      const cm = loadCmDb(uid);
+      saveCmDb({ ...cm, permissions: { reviewLevel } });
+      appendMessage(uid, { from: 'cm', to: 'user', type: 'inform', summary: reviewLevel === 'high'
+        ? 'Standing permissions saved: only HIGH-risk items wait for your review; low and medium risk items are stored automatically (always logged, explainable, disputable).'
+        : 'Standing permissions saved: every cabinet item waits for your review.' });
+      autoStoreRoundProposals(uid); // apply the new permissions to the review backlog too
+      appendMessage(uid, { from: 'cm', to: 'app', type: 'reply', summary: 'Standing permissions saved.', payload: { inReplyTo: msg.id, reviewLevel } });
+      updateMessage(uid, msg.id, { status: 'answered' });
+      return;
+    }
+
     if (control === 'finalize-round') {
       const roundId = payload.roundId as string;
       const round = loadRound(uid, roundId);
@@ -375,6 +434,7 @@ function handleMessage(uid: string, msg: AgentMessage) {
         const doc = loadContext(uid);
         if (doc) storeContextSnapshot(uid, round.id, renderContextMd(uid, doc), JSON.stringify(doc.sections));
       }
+      if (round) autoStoreRoundProposals(uid, round.id);
       // Confirm to the round engine: the round is 'stored' only on this reply (F13).
       appendMessage(uid, {
         from: 'cm', to: 'app', type: 'reply',

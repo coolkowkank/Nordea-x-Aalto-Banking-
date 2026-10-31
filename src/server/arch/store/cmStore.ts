@@ -9,9 +9,14 @@ import type { ArchEntry, CmDb } from '../types.js';
 const emptyCm = (userId: string): CmDb => ({ userId, entries: [] });
 
 /** F5: observed/inferred provenance landed after the first schema - add the column to old DBs. */
-function ensureObservedColumn(db: ReturnType<typeof openDb>) {
+function ensureColumn(db: ReturnType<typeof openDb>, name: string, ddl: string) {
   const cols = db.prepare('PRAGMA table_info(entries)').all() as { name: string }[];
-  if (!cols.some((c) => c.name === 'observed')) db.exec('ALTER TABLE entries ADD COLUMN observed TEXT');
+  if (!cols.some((c) => c.name === name)) db.exec(`ALTER TABLE entries ADD COLUMN ${ddl}`);
+}
+function ensureColumns(db: ReturnType<typeof openDb>) {
+  ensureColumn(db, 'observed', 'observed TEXT');
+  ensureColumn(db, 'risk', 'risk TEXT');
+  ensureColumn(db, 'auto_accepted', 'auto_accepted INTEGER');
 }
 
 export function loadCmDb(uid: string): CmDb {
@@ -19,7 +24,7 @@ export function loadCmDb(uid: string): CmDb {
   if (!fs.existsSync(fileFor(uid, 'cm'))) return emptyCm(uid);
   const db = openDb(fileFor(uid, 'cm'), 'cm');
   try {
-    ensureObservedColumn(db);
+    ensureColumns(db);
     const entries = (db.prepare('SELECT * FROM entries ORDER BY created_at').all() as Record<string, string>[])
       .map((r) => ({
         id: r.id, title: r.title, detail: r.detail, goalIds: JSON.parse(r.goal_ids) as string[],
@@ -29,27 +34,32 @@ export function loadCmDb(uid: string): CmDb {
         status: r.status as ArchEntry['status'],
         ...(r.dispute_reason ? { disputeReason: r.dispute_reason } : {}),
         ...(r.observed ? { observed: r.observed as ArchEntry['observed'] } : {}),
+        ...(r.risk ? { risk: r.risk as ArchEntry['risk'] } : {}),
+        ...(r.auto_accepted ? { autoAccepted: true } : {}),
         createdAt: r.created_at,
       }));
     const parked = kvGet(db, 'parked') === '1';
-    return { userId: uid, entries, ...(parked ? { parked: true } : {}) };
+    const rawPerms = kvGet(db, 'permissions');
+    const permissions = rawPerms ? (JSON.parse(rawPerms) as CmDb['permissions']) : undefined;
+    return { userId: uid, entries, ...(parked ? { parked: true } : {}), ...(permissions ? { permissions } : {}) };
   } finally { db.close(); }
 }
 
 export function saveCmDb(d: CmDb) {
   const db = openDb(fileFor(d.userId, 'cm'), 'cm');
   try {
-    ensureObservedColumn(db);
+    ensureColumns(db);
     kvSet(db, 'parked', d.parked ? '1' : null);
+    kvSet(db, 'permissions', d.permissions ? JSON.stringify(d.permissions) : null);
     db.exec('BEGIN');
     db.prepare('DELETE FROM entries').run();
     const ins = db.prepare(`INSERT INTO entries
-      (id, title, detail, goal_ids, proposed_by, via_message_id, evidence, status, dispute_reason, created_at, observed)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`);
+      (id, title, detail, goal_ids, proposed_by, via_message_id, evidence, status, dispute_reason, created_at, observed, risk, auto_accepted)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`);
     for (const e of d.entries) {
       ins.run(e.id, e.title, e.detail, JSON.stringify(e.goalIds), e.proposedBy,
         e.viaMessageId ?? null, e.evidence ? JSON.stringify(e.evidence) : null,
-        e.status, e.disputeReason ?? null, e.createdAt, e.observed ?? null);
+        e.status, e.disputeReason ?? null, e.createdAt, e.observed ?? null, e.risk ?? null, e.autoAccepted ? 1 : 0);
     }
     db.exec('COMMIT');
   } finally { db.close(); }

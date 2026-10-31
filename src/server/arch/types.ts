@@ -32,11 +32,13 @@ export interface ArchEntry {
   viaMessageId?: string;
   evidence?: { transactionIds?: string[]; total?: number; note?: string };
   observed?: 'observed' | 'inferred';
+  risk?: 'low' | 'medium' | 'high'; // AC7: code-rule risk level from risk.ts
+  autoAccepted?: boolean; // AC7: stored automatically under the customer's standing permissions
   status: 'active' | 'disputed' | 'stale';
   disputeReason?: string;
   createdAt: string;
 }
-export interface CmDb { userId: string; entries: ArchEntry[]; parked?: boolean; }
+export interface CmDb { userId: string; entries: ArchEntry[]; parked?: boolean; permissions?: { reviewLevel: 'all' | 'high' } }
 export interface NordeaDb { userId: string; accounts: BankAccount[]; transactions: Transaction[]; }
 
 export type MessageType = 'propose' | 'query' | 'reply' | 'inform' | 'flag-stale' | 'refresh' | 'round-start' | 'done' | 'control';
