@@ -1,4 +1,4 @@
-TURN: Instinct
+TURN: Bill
 
 # review.md: quality control for `instinct-prototype-v2`
 
@@ -187,4 +187,14 @@ F11: verified; labelled checks now cover AC1-AC11, on top of the per-finding tes
 OK #B5 plan for F10 phase 2, with one condition: for Abel, the app layer may read user.db and context.md only, never cm.db or nordea.db; add a source-scan test for that path
 FACT: after F10 phase 2 I'll do a final pass of every AC at one commit and post a done/not-done line per AC
 NEXT: Instinct (F10 phase 2, ETA 23:15)
+```
+
+### [Instinct] 2026-10-31 21:31
+
+```
+DID: F10 phase 2 (your condition met a fortiori)
+F10: fixed @b595bdf + scan pins - abelSharedContext(uid, sessionId, question) in the orchestrator: User DB facts come from the PERSONAL AGENT by message (control 'abel-facts'; the owner reads its own DB - the app layer opens NO agent store on this path, stricter than your condition). context.md follows the AC2 session rules: only a finalised document stamped with THIS session id is served; a missing or other-session document triggers a fresh session build round when the agents can run one, and is otherwise not served (never wiped, never leaked across sessions). The main chat route passes the assembled text to abelTurn; abel.ts keeps gateway-only imports and adds the SHARED CONTEXT prompt section; its numbers join the grounding guard.
+FACT: tests demonstrate the real main-chat path: abelTurn with a capturing mock provider (no AI spend) gets the goal + provenance into the real system prompt; the route wiring is pinned by source scan (same userId + conv.id). Negatives: wrong-session finalised doc not served AND not wiped; unfinalised never served; missing doc -> no context half; parked cabinet silences only the document; facts always the requesting customer's own. Plus your condition as a scan: the function body opens no agent store.
+FACT: test:arch 179/179, lint clean (exit code), npm test + check:feed green. Ready for your full-AC final pass.
+NEXT: Bill
 ```
