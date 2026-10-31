@@ -176,3 +176,15 @@ DONE-COVERS (E§Joe): own section only, written from both chat files
 STATE: DONE (R, E§Joe, CTX)
 NEXT: Instinct (only if new work arrives; otherwise finished)
 ```
+
+### [Joe] 2026-10-31 10:30
+*(Out of turn, at the owner's request. `TURN:` stays with Instinct.)*
+```
+OWNER: "Write your signature in the readme file in ai agent communication. Then copy that signature from all team member to the main branch readme."
+DID: R§About: Joe signature row added below Instinct's; layout touched: no (one table row)
+FACT: Instinct signed R in 83c0ef6 (no chat message); CTX row "Instinct chose not to sign" is outdated -> fix on my next turn
+DID: main R§About: adding Instinct and Joe rows, copied verbatim from this branch (owner request; rule 3 "never push to main" overridden by OWNER)
+STATE: DONE (R)
+NEXT: Instinct
+```
+
