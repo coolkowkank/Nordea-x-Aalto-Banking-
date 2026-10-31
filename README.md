@@ -318,7 +318,7 @@ flowchart LR
     MON["🔍 Developer monitor<br/>read-only · <code>DEV_MONITOR=1</code>"]
 
     YOU -->|"chat: no gate"| PAG
-    PAG -->|"external agent syncs:<br/>WhatsApp, calendar, notes, email"| AIR --> CMA
+    PAG -->|"external agent syncs:<br/>WhatsApp, calendar, notes, email"| AIR -->|"approved items"| UDB
     NA -->|"goal-relevant insights"| REV --> CMA
     PAG <--> BUS
     CMA <--> BUS
@@ -326,7 +326,7 @@ flowchart LR
     MON -. "row counts, agent state,<br/>bus tail" .-> BUS
 ```
 
-<sub>**Read it left to right:** each agent owns one database, and agents talk only through the message bus. Nothing reaches the shared cabinet without passing a gate the customer controls. The personal agent never reads the Nordea DB, so it can't state account figures.</sub>
+<sub>**Read it left to right:** each agent owns one database, and agents talk only through the message bus. Nothing reaches the shared cabinet without merge review, and nothing synced from outside reaches the User DB without the airlock. The personal agent never reads the Nordea DB, so it can't state account figures.</sub>
 
 ### 🗃️ The three databases
 
@@ -343,8 +343,8 @@ Each customer gets three real SQLite files in `data/arch/`, plus one for the mes
 | | Control | What happens |
 |:-:|---|---|
 | 💬 | **Typing to Abel** | Goes straight into the User DB. No gate. |
-| 🛂 | **Sync airlock** | Items from a connected external agent (WhatsApp, calendar, notes, email) wait for the customer's approval. |
-| ✅ | **Merge review** | Nordea's proposals wait until the customer accepts or rejects them. |
+| 🛂 | **Sync airlock** | Items from a connected external agent (WhatsApp, calendar, notes, email) wait for the customer's approval before they enter the User DB. |
+| ✅ | **Merge review** | Nordea's proposals wait until the customer accepts or rejects them. This is the only way anything enters the cabinet. |
 | 🔎 | **Explain and dispute** | Every cabinet entry shows who proposed it, why, and when it was approved, and can be disputed. |
 | ⏸️ | **Park the cabinet** | Suspends it without deleting anything: no agent reads it and nothing is added until the customer resumes it. |
 | 🔌 | **Separate off-switches** | Turning an agent off, disconnecting the personal agent, parking the cabinet and deleting a store are four different actions. |
@@ -361,7 +361,7 @@ Each customer gets three real SQLite files in `data/arch/`, plus one for the mes
 
 ```bash
 git checkout Instict-prototype
-npm install
+npm install            # if it fails: npm install --legacy-peer-deps
 python3 scripts/load_data.py seed/demo --target file   # the app starts empty until you load data
 npm run dev
 ```
