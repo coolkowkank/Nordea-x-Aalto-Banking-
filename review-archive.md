@@ -154,3 +154,76 @@ DID: AC2 and F15 rewritten to per-session; my 18:41 message is superseded where 
 FACT: F15 now needs a session id and a session rule; one document per session, shared by all its questions
 NEXT: Instinct
 ```
+
+### [Instinct] 2026-10-31 18:45
+
+```
+ANS #B2: agreed - F15 first; F4 and F5 land inside it as you said
+FACT: adopted the per-session decision (owner, 18:40, your 18:43 correction) as the design basis; AC2 stands as rewritten
+FACT: session rule: a session ends after 30 min idle or when the client passes a different session id; the first question opens a session round with an empty document
+FACT: chat flow: question -> answer from user.db + the session document; if neither yields content, a top-up round (same document, new round id) asks the CM + Nordea agents, then answer
+FACT: F4 inside F15: the personal agent proposes new goals to the cabinet during session rounds (proposedBy taken from the proposing agent, not hardcoded)
+FACT: F5 inside F15: CM retrieval gets ranking, dedupe, conflict flags and observed|inferred markers
+FACT: removing the pre-round live-query fallback and the between-round section patching as specced; decay rounds stay as maintenance
+ETA: 20:15 F15 code + tests
+NEXT: Instinct
+```
+
+### [Instinct] 2026-10-31 19:00
+
+```
+DID: F15 per-session context.md, as specced (1)-(8); F4 and F5 landed inside it
+F15: fixed @1eaee72 - session rule as posted 18:45; first question opens a session round on an empty document; follow-ups answer from the same document; unanswered follow-ups run a top-up round on the SAME document (new round id); pre-round fallback and between-round patching removed; decay rounds stay (and now keep the round's question context)
+F4: fixed @1eaee72 - personal proposes the customer's goals to the cabinet; CM accepts with proposedBy from the real proposer
+F5: fixed @1eaee72 - CM retrieval ranks by question overlap, dedupes same-titled accepts (no duplicate entry), flags conflicting totals for one title, keeps observed|inferred (new entries.observed column, migrated)
+FACT: /api/arch/:uid/chat takes an optional sessionId and returns it; top-up is skipped for the question that just opened the session (its round already tried)
+FACT: tests 106/106 test:arch (was 95; new F4/F5/F15 coverage incl. your two: two questions share one document, new session = new document with CM retrieval on the bus); lint clean; npm test + check:feed green; live HTTP smoke of session continuity
+FACT: one design note - CM staleness re-checks still run inside session/top-up contributions (fresh figures win); two of my first test fixtures got flagged stale mid-round, which is correct behaviour
+ETA: F7 next, ETA after your review
+NEXT: Bill
+```
+
+### [Bill] 2026-10-31 19:03
+```
+FACT: test:arch 106/106, lint clean, rerun by Bill @1eaee72
+F15: verified for the normal path; all three agents overwrite their sections in a session round, and top-ups merge into the same document (cm.ts:78-83, nordea.ts:92-95)
+F4: verified; personal proposals wait in merge review like Nordea's (dispatcher never auto-delivers propose); for F7, a customer's own goal should count as low risk
+F5: verified; ranking by overlap, dedupe, conflict flag, observed|inferred (cm.ts:40-75)
+OPEN: F16 (M) when the session round doesn't run (agent off, parked, failed), chat answers from the previous session's document; the document has no sessionId
+OPEN: F17 (L) "my goal is ..." as a first message opens the round before the goal is saved
+OK: your design note; staleness re-checks inside session rounds are fine, fresh figures should win
+NEXT: Instinct (F16, F17, then F7)
+```
+
+### [Instinct] 2026-10-31 19:32
+
+```
+ANS: yes - my turn, working now (Habibil asked for an ETA here)
+DID: picked up F16 + F17 from Bill's 19:03 review; fixes in progress
+ETA: 20:00 F16+F17 code + tests handed to Bill (hand-back, not full-build completion)
+ETA: F7 next after his verify; full remaining queue F7-F11, no date yet
+NEXT: Instinct
+```
+
+### [Instinct] 2026-10-31 19:33
+
+```
+DID: F16 + F17, both fixed @230a94d
+F16: fixed @230a94d - new session always resets context.md to an empty document stamped with its session id (store-level, even when no round can run); chat serves the document only when finalised AND sessionId matches, else says plainly "shared context is unavailable this session"
+F17: fixed @230a94d - direct goal input saved BEFORE the session round opens; first-message goal lands in that session's Customer section
+FACT: your F16 test is in the suite: cm off at session start -> no old rows + the plain wording; F17 test: first-message goal in the document
+FACT: test:arch 111/111, lint clean, npm test + check:feed green, HTTP smoke of both paths
+ETA: F7 next (own-goal proposals as low risk, per your 19:03 note); ETA 21:00 for F7 hand-back
+NEXT: Bill
+```
+
+### [Bill] 2026-10-31 19:34
+```
+FACT: test:arch 111/111, lint clean, rerun by Bill @230a94d
+F16: verified; a new session resets the document to empty with its session id at store level, and chat serves it only when finalised and the id matches (orchestrator.ts:78-86, contextStore.ts resetContextForSession)
+F17: verified; direct goal input is saved before the session round opens
+OPEN: F18 (M) a decay round from a bank import replaces the session's Nordea section, dropping the question row (nordea.ts:164); the Contribute button rewrites the whole session document under its stamp
+OPEN: F19 (L) dead branch in finishChat
+OK: F7 next with ETA 21:00 is fine; please fold F18 in or do it first, it's small
+NEXT: Instinct
+```
