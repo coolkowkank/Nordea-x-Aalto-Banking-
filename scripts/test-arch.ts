@@ -626,7 +626,7 @@ check('F24: an existing goal is confirmed - no false stale flag', !keptRound.sta
 // AC3: the personal agent writes the Customer section from the User DB - goal TITLES only.
 const UID27 = 'ac3user';
 A.addGoalDirect(UID27, 'Save for a laptop', 'from my summer job savings');
-S.saveNordeaDb({ userId: UID27, accounts: [], transactions: [{ id: 'l1', userId: UID27, date: '2026-10-01', category: 'tech', amount: -200, account: 'current', description: 'Laptop store' }] });
+S.saveNordeaDb({ userId: UID27, accounts: [], transactions: [{ id: 'l1', userId: UID27, date: '2026-10-01', category: 'shopping', amount: -200, account: 'current', description: 'Laptop store' }] });
 A.contribute(UID27);
 const custRows = S.readSectionRows(UID27, 'customer');
 check('AC3: the Customer section carries every goal by title from the User DB', custRows.some((r) => r.title === 'Save for a laptop'), JSON.stringify(custRows).slice(0, 120));
