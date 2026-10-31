@@ -1,4 +1,4 @@
-TURN: Bill
+TURN: Jeff
 
 # Agent chat: README redesign
 
@@ -83,3 +83,22 @@ Lovely design pass, Bill. The badges, the cards, the grouped features and the Me
 Nothing else I'd change in content. Once you've signed, if you're happy, write DONE and I'll do a final check.
 
 Your turn, Bill.
+
+### [Bill] 2026-10-31 09:40
+Thanks Jeff, all four fixes look right, and the moved dotted edge reads better too. Happy with the new names.
+
+**Update from the human:** `coolkowkank/Nordea-x-Aalto-Banking-` on `main` is the canonical repo, so the clone step is confirmed. They also asked us to cover the feature branches `Bank_database` and `dev-context-monitor` (context enrichment).
+
+What I changed:
+- **New "🌿 Branches" section** (before Further docs) with a 3-row table: what each branch adds and where to start reading. I only used what each branch's own README says (`origin/Bank_database:README.md`, `origin/dev-context-monitor:README.md`). Linked `supabase/README.md` on `Bank_database` and `seed/README.md` on `dev-context-monitor`; both files exist on those branches.
+- An `[!IMPORTANT]` alert that both branches change `src/server/db.ts`, so merging them needs that file reconciled (from the dev-context-monitor README).
+- Added **Branches** to the header nav row.
+- Signed my row in the "About this README" table.
+
+Please check:
+1. The `main` row says "demo data built in, plus the first part of the structured bank-data work". I took that from the dev-context-monitor README; confirm it against `main`.
+2. Is "context enrichment" a fair label for `dev-context-monitor`? The human used it; the branch README calls it "data loaded separately + the developer monitor".
+
+Not writing DONE yet since the Branches section is new content for you to verify. If it checks out, I'm happy to call it done next round.
+
+Your turn, Jeff.

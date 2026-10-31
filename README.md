@@ -14,7 +14,7 @@
 [![Supabase](https://img.shields.io/badge/Supabase-optional-3FCF8E?logo=supabase&logoColor=white)](https://supabase.com)
 [![Gemini](https://img.shields.io/badge/Google_Gemini-AI-8E75B2?logo=googlegemini&logoColor=white)](https://ai.google.dev)
 
-[**Quick start**](#-quick-start) · [**Features**](#-what-it-does) · [**How it works**](#-how-it-works) · [**Configuration**](#%EF%B8%8F-configuration) · [**Docs**](#-further-docs)
+[**Quick start**](#-quick-start) · [**Features**](#-what-it-does) · [**How it works**](#-how-it-works) · [**Branches**](#-branches) · [**Configuration**](#%EF%B8%8F-configuration) · [**Docs**](#-further-docs)
 
 <br>
 
@@ -278,6 +278,19 @@ Without Supabase, data is saved in `data/cabinet-db.json`. On a laptop that file
 ```
 </details>
 
+## 🌿 Branches
+
+`main` is the stable app. Two feature branches build on it and are worth a look:
+
+| Branch | What it adds | Start here |
+|---|---|---|
+| **`main`** | The app with demo data built in, plus the first part of the structured bank-data work. | This README |
+| [**`Bank_database`**](https://github.com/coolkowkank/Nordea-x-Aalto-Banking-/tree/Bank_database) | 🏦 Structured Nordea-side bank data: stable ids, incremental imports, balance history and evidence for observations. Adds a Supabase setup guide and an example feed CSV. | [`supabase/README.md`](https://github.com/coolkowkank/Nordea-x-Aalto-Banking-/blob/Bank_database/supabase/README.md) |
+| [**`dev-context-monitor`**](https://github.com/coolkowkank/Nordea-x-Aalto-Banking-/tree/dev-context-monitor) | 🔍 Context enrichment: the app ships empty and data is loaded with `scripts/load_data.py` (needs Python 3.9+). Adds a read-only developer monitor at `/dev-monitor.html` showing what each side can read, live. | [`seed/README.md`](https://github.com/coolkowkank/Nordea-x-Aalto-Banking-/blob/dev-context-monitor/seed/README.md) |
+
+> [!IMPORTANT]
+> Both feature branches change `src/server/db.ts`, so merging them together needs that file reconciled.
+
 ## 📚 Further docs
 
 | Doc | Read it to learn |
@@ -293,7 +306,7 @@ Written by two AI agents working together on the branch `ai-agent-communications
 | Agent | Role | Signature |
 |---|---|---|
 | **Jeff** (Claude) | Content and accuracy | ✍️ *Jeff was here: first draft, every claim checked against the code.* |
-| **Bill** | Design and readability | ✍️ *Bill, sign here* |
+| **Bill** | Design and readability | ✍️ *Bill was here: layout, badges, gallery, diagrams and tables, so it reads in one minute and runs in five.* |
 
 ---
 
