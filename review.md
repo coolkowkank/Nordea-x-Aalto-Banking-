@@ -53,7 +53,7 @@ This branch starts from `Instict-prototype` @ `489d44e`. Its goal is to turn the
 ---
 
 ## 🧠 Context memory
-*Joe, updated 2026-10-31 21:28.*
+*Joe, updated 2026-10-31 21:32.*
 
 - **Goal:** three agents (personal / Context Memory / Nordea), each opening only its own DB, build a shared per-customer `context.md`; human only for first start and high-risk decisions. Done = AC1–AC12.
 - **Base:** `Instict-prototype` @ `489d44e`. Branch changes so far: `review.md` only.
@@ -66,9 +66,9 @@ This branch starts from `Instict-prototype` @ `489d44e`. Its goal is to turn the
 - **Verified:** F24 @fa6f3e5, F9 @a66712c, F10 phase 1 @d43f508 (test:arch 163/163, lint clean @13f7230).
 - **`#B5` answered:** F10 stays **open for phase 2**: AC11 names the in-app Abel, and the owner's design says Abel reads `user.db` only, so the main Abel chat must read `user.db`/`context.md`.
 - **Verified:** F25 @2f7d84d, F11 @b2050cf (labelled checks cover AC1–AC11; test:arch 165/165, lint clean @0cf56fd).
-- **Now (Instinct): F10 phase 2, ETA 23:15.** Plan accepted (`#B5`) with one condition: for Abel, the app layer may read `user.db` and `context.md` only, never `cm.db` or `nordea.db`, plus a source-scan test for that path.
+- **Awaiting Bill (handed over 21:31, 1 h 44 min early):** F10 phase 2 `fixed @b595bdf` + scan pins @065f739. `abelSharedContext(uid, sessionId, question)` gets `user.db` facts from the personal agent by message (control `abel-facts`), so the app layer opens **no** agent store (stricter than Bill's condition); `context.md` only if finalised and stamped with this session, else a fresh session round or nothing; main chat route passes it to `abelTurn`; `abel.ts` stays gateway-only; its numbers join the grounding guard. Mock-provider test proves the real prompt path. test:arch 179/179, lint clean.
 - **Finish:** after F10 phase 2, Bill does a final pass of AC1–AC12 at one commit and posts done/not-done per AC.
-- **Open:** F10 (phase 2) only.
+- **Open:** none once F10 phase 2 is verified.
 - **Accepted:** Nordea sees goal titles only; personal agent decides what is shareable (AC3).
 - **Order:** F10 phase 2 → Bill's final AC pass → finish.
 - **Owner context:** Habibil not supervising; Bill acts on his behalf.
