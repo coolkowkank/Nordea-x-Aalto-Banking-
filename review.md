@@ -1,4 +1,4 @@
-TURN: Bill
+TURN: Instinct
 
 # review.md: quality control for `instinct-prototype-v2`
 
@@ -129,7 +129,8 @@ Baseline review of `Instict-prototype` @ `489d44e` against the expectation. Seve
 | F26 | H | AC8, AC9 | **Decay loop: every round flags the bank entry stale and stores a copy.** Evidence keeps only the first 25 transaction ids (`slice(0, 25)`), but the F8 churn check compares them with *all* current matches. With more than 25 matches it always differs, so each decay or session round marks the entry stale and auto-stores a refreshed duplicate. Found in a live HTTP run (mock AI, Lauri, goal "Save for a car", 72 matches): after two sessions the cabinet held 2 stale and 1 active copy of the same entry, each flagged "total 20616 EUR -> 20616 EUR". Fix: store the full id set (or a count plus a hash of the sorted ids) and compare like with like. Test: an entry with more than 25 matching transactions and no bank change stays active over three rounds. | `agents/nordea.ts:141–149` (and every `transactionIds: matches.slice(0, 25)`) | verified @cd255b9 |
 | F27 | L | AC5 | **The answer isn't meaningful for a saving goal.** "How much have I saved for the car?" is answered with "72 transactions totalling 20616 EUR", the absolute total of all transport spending (the `car → transport` hint). For a saving goal, use savings transfers (or label the figure as spending). The logic dates from the baseline, but it's what the customer sees. | `arch/text.ts` CATEGORY_HINTS; `agents/nordea.ts` matchForTitles | verified @cd255b9 |
 | F28 | L | AC9 | Wording: after an auto-store the notice says "refreshed figures wait in merge review", but under standing permissions they were stored automatically. Make the notice say which happened. | `agents/cm.ts` re-check notice | verified @cd255b9 |
-| F29 | M | docs | **README.md doesn't describe this branch.** It is unchanged from `Instict-prototype` (it still starts with "`Instict-prototype` combines two branches", and "## At a glance" appears twice). Owner request (22:18): rewrite it to match the actual code on `instinct-prototype-v2`, taking layout inspiration from `main`'s README (centered header, badges, nav row, idea cards, Quick start, feature tables, Mermaid diagram, `<details>` blocks). Must cover: the three agents and their one-database rule; the per-session `context.md` (who writes which section; rebuilt per session); build rounds and the bus; risk levels and standing permissions (`POST /api/arch/:uid/permissions`); decay maintenance; explain, dispute and per-entry undo; in-app Abel reading `user.db` via the personal agent plus this session's `context.md`; how to run it (Node 22.13+, `load_data.py`, `LLM_PROVIDER=mock`), the routes and the checks (`test:arch` 184); known limits ("related spending", single process, no real external agent or live bank). Every claim checkable against code, with no leftovers from `Instict-prototype` that are no longer true. | `README.md` | fixed @eb1ca54 |
+| F29 | M | docs | **README.md doesn't describe this branch.** It is unchanged from `Instict-prototype` (it still starts with "`Instict-prototype` combines two branches", and "## At a glance" appears twice). Owner request (22:18): rewrite it to match the actual code on `instinct-prototype-v2`, taking layout inspiration from `main`'s README (centered header, badges, nav row, idea cards, Quick start, feature tables, Mermaid diagram, `<details>` blocks). Must cover: the three agents and their one-database rule; the per-session `context.md` (who writes which section; rebuilt per session); build rounds and the bus; risk levels and standing permissions (`POST /api/arch/:uid/permissions`); decay maintenance; explain, dispute and per-entry undo; in-app Abel reading `user.db` via the personal agent plus this session's `context.md`; how to run it (Node 22.13+, `load_data.py`, `LLM_PROVIDER=mock`), the routes and the checks (`test:arch` 184); known limits ("related spending", single process, no real external agent or live bank). Every claim checkable against code, with no leftovers from `Instict-prototype` that are no longer true. | `README.md` | reopened @eb1ca54: 7 corrections in the 22:30 message |
+| F30 | M | AC3, AC9 | **Abel can quote stale or disputed entries.** `abelSharedContext` passes the whole rendered `context.md`, including rows marked `[stale]` and `[disputed]`, and the prompt says "treat it like FACTS". Their numbers also join the grounding set (`abel.ts:648`), so a disputed figure passes the number check. Fix: give Abel only active rows (render a filtered copy), and keep non-active numbers out of `known`. Test: dispute an entry → its figure is absent from Abel's prompt and an answer quoting it is sent back. | `arch/orchestrator.ts` abelSharedContext (`renderContextMd(uid, fresh)`), `abel.ts:201–206`, `:648` | open |
 
 **Suggested order:** F1 (`context.md`) with F12 → F4, F5, F6 → F7 → F8 → F9 → F10 → F11, F13, F14 alongside.
 
@@ -209,3 +210,17 @@ ASK@Bill #J3: please check this point in your F29 review
 NEXT: Bill
 ```
 
+### [Bill] 2026-10-31 22:30
+```
+FACT: README.md @eb1ca54 is well structured and mostly accurate; 7 claims don't match the code
+F29: reopened, fix these:
+R1 :9,:63 Node 22.5+ -> 22.13+ (node:sqlite unflagged from 22.13; scripts pass no flag) (ANS #J3: Joe is right)
+R2 :74-75 the loader defaults to Supabase; add --target file for a local run (load_data.py:398, seed/README.md:31)
+R3 :81 dev monitor is off unless DEV_MONITOR=1, laptop only (devMonitor.ts:41)
+R4 :125 "three decay signals": the code also flags missing evidence and removed goals; list them all
+R5 :54 Mermaid BUS <-> context.md "section writes" is wrong; agents write their own section through their writer, not via the bus
+R6 :157 routes miss POST airlock/:batchId/reject (routes.ts:72)
+R7 :133 "Dispute: Abel stops using it" isn't true yet; see F30
+OPEN: F30 (M) Abel gets [stale] and [disputed] rows as facts, and their numbers pass grounding
+NEXT: Instinct (F30 code, then README R1-R7)
+```
