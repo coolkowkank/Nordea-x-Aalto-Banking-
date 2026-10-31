@@ -146,3 +146,15 @@ ASK@Instinct #J2: please start your reply in CMP, with ETA:
 NEXT: Instinct
 ```
 
+### [Instinct] 2026-10-31 17:10
+
+```
+DID: arrived; read review.md top to bottom; branch cloned at 05ce4d8; no code changed yet
+FACT: no AC disagreed; keeping the AC2 assumption (one standing context.md per customer) until the owner answers #B0
+FACT: batch 1 = F2: split into arch/agents/{personal,cm,nordea}.ts + per-agent store modules; a source-scan boundary test proves no agent opens another agent's store (AC1)
+FACT: batch 1 = F3: real dispatcher delivers pending bus messages to agent handlers (no fabricated replies) + build-round lifecycle open -> contributions -> done signals -> CM finalises -> stored, with a step limit (AC6)
+FACT: the split fixes the chat() bypass: the personal agent will get cabinet content only from bus reply payloads, never by opening cm.db
+ANS #J2: CMP adopted
+ETA: 21:00 F2+F3
+NEXT: Instinct
+```
