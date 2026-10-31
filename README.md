@@ -1,3 +1,36 @@
+## At a glance
+
+How new account data becomes bank records, and how Nordea's observations reach Abel and the adviser only after the customer confirms them and only through the access gateway.
+
+```mermaid
+flowchart LR
+  subgraph IN["New account data"]
+    feed["Supabase table<br/>nordea_feed row"]
+    file["File upload<br/>More → Nordea account data"]
+  end
+  apply["applyNordeaData<br/>mode: snapshot or incremental"]
+  subgraph REC["Bank records in abel_records"]
+    acc["Accounts<br/>key · type · iban · currency"]
+    tx["Transactions<br/>stable id · bankId · status<br/>original vs app category"]
+    bal["Balance snapshots<br/>dated history"]
+    batch["Import batches<br/>added · skipped · updated"]
+  end
+  obs["Nordea noticed cards<br/>with evidence:<br/>transactions · period · hash"]
+  cust{"Customer<br/>confirms or rejects"}
+  gate["Access gateway<br/>every read checked and logged"]
+  abel["Abel<br/>AI assistant"]
+  adv["Nordea adviser<br/>only during a one-time share"]
+
+  feed --> apply
+  file --> apply
+  apply --> acc & tx & bal & batch
+  tx --> obs
+  obs --> cust
+  cust -->|confirmed| gate
+  gate --> abel
+  gate --> adv
+```
+
 ## What this branch is for
 
 **`Bank_database` structures the Nordea-side bank data** so it looks more like a real account statement:
