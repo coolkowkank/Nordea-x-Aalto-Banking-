@@ -1,4 +1,4 @@
-TURN: Bill
+TURN: Instinct
 
 # review.md: quality control for `instinct-prototype-v2`
 
@@ -53,17 +53,18 @@ This branch starts from `Instict-prototype` @ `489d44e`. Its goal is to turn the
 ---
 
 ## 🧠 Context memory
-*Joe, updated 2026-10-31 19:05.*
+*Joe, updated 2026-10-31 19:34.*
 
 - **Goal:** three agents (personal / Context Memory / Nordea), each opening only its own DB, build a shared per-customer `context.md`; human only for first start and high-risk decisions. Done = AC1–AC12.
 - **Base:** `Instict-prototype` @ `489d44e`. Branch changes so far: `review.md` only.
 - **Owner decision (18:40, closes `#B0`):** `context.md` is rebuilt **per customer session**, not per question; all questions in one session share that session's document. CM connects to `cm.db` for each session. AC2 rewritten. (Bill's 18:41 "every question" is superseded by his 18:43 correction.)
 - **Owner decision (18:40):** `context.md` is rebuilt **per customer session**; all questions in a session share it. CM connects to `cm.db` per session. AC2 rewritten.
 - **Verified:** F2, F3 @7950f5d; F12–F14 @b71586b; F1, F6 @1040ff7; F15 (normal path), F4, F5 @1eaee72 (test:arch 106/106, lint clean). Staleness re-checks inside session rounds accepted.
-- **Now (Instinct): F16 (M)** if the session round doesn't run (agent off, parked, failed, step limit), chat answers from the previous session's document; fix: stamp doc with `sessionId`, reset it on session open (in round engine or store), answer only on matching id, else say shared context is unavailable; test: agent off at start gives no old rows. **F17 (L)** "my goal is …" as first message opens the round before the goal is saved. Then **F7**: Bill notes a customer's own goal should count as low risk. **No ETA yet.**
-- **Open:** F7–F11, F16, F17.
+- **Awaiting Bill (handed over 19:33):** F16, F17 `fixed @230a94d`. Claims: new session resets `context.md` to an empty doc stamped with its `sessionId` at store level, even when no round runs; chat serves the doc only if finalised and `sessionId` matches, else "shared context is unavailable this session"; direct goal input saved before the round opens. Bill's F16 test is in. test:arch 111/111, lint clean.
+- **Next (Instinct):** F7 risk levels (a customer's own goal = low risk, per Bill). **ETA 21:00.** F8–F11 not dated yet.
+- **Open:** F7–F11.
 - **Accepted:** Nordea sees goal titles only; personal agent decides what is shareable (AC3).
-- **Order:** F16, F17 → F7 → F8 → F9 → F10 → F11.
+- **Order:** F7 → F8 → F9 → F10 → F11.
 - **Owner context:** Habibil not supervising; Bill acts on his behalf.
 
 ---
@@ -120,8 +121,10 @@ Baseline review of `Instict-prototype` @ `489d44e` against the expectation. Seve
 | F13 | L | AC6 | `runRound` marks a round `stored` after the finalise dispatch without checking that the CM agent actually stored it (e.g. 0 messages delivered). Set `stored` only on the CM agent's finalise reply; otherwise `step-limit` or `failed`. | `arch/rounds.ts:114–115` | verified @b71586b |
 | F14 | L | AC1, AC12 | The AC1 test is a blocklist on three store names. An agent importing `store/common.ts` (generic `openDb` by path), `node:sqlite` or `fs` would still pass. Make it an allowlist: each agent may import only its own store, `busStore`, `dispatcher`, `rounds`, `text` and `types`. Accepted exception: `nordea.ts` importing the app's `db.ts` as Nordea's core bank source. | `scripts/test-arch.ts:318–322` | verified @b71586b |
 | F15 | H | AC2, AC3, AC4 | **Owner decision: rebuild `context.md` for every customer session** (not every question; several questions can share one session). Today chat reuses the document from the last contribution round, falls back to a live CM query before the first round, and the CM agent patches its section between rounds. Needed: (1) a session id on chat (client-supplied, or a new session after an idle gap, e.g. 30 min; state the rule); (2) the first question of a session opens a `session` round and the document starts empty, with no rows carried over from earlier sessions; (3) personal writes the shareable, relevant part of `user.db`; (4) CM retrieves from `cm.db` what is relevant to the opening question and the Customer section; (5) Nordea adds relevant aggregates; (6) CM finalises and stores new knowledge in `cm.db` (Nordea items still via merge review until F7); (7) every question in that session is answered from the session's document. If a follow-up needs something the document lacks, a top-up round may add rows to the same session document, never a fresh one; (8) remove the pre-round fallback and the between-round patching; decay rounds stay as maintenance. Tests: two questions in one session share one document and round id; a new session gets a new document with a CM retrieval on the bus. | `agents/personal.ts:93–102`, `:244`; `agents/cm.ts:48` | verified @1eaee72 (normal path); edge cases → F16, F17 |
-| F16 | M | AC2 | **A session can be answered from the previous session's document.** If any agent is off or the cabinet is parked when a session opens, no session round runs, but chat still answers from whatever `context.md` exists, which belongs to an earlier session. The same happens if the session round fails or hits its step limit. The document also doesn't record which session it belongs to, so `finishChat` can't tell. Fix: stamp the document with `sessionId`; reset it to empty when a session opens, even if the round can't run (this can be done in the round engine or the store, not by one agent clearing the others' sections); answer from the document only when its `sessionId` matches, otherwise say plainly that shared context is unavailable this session. Test: an agent off at session start gives no rows from the old session. | `orchestrator.ts:75–79`, `store/contextStore.ts:96–106` | fixed @230a94d |
-| F17 | L | AC2 | A first message like "my goal is …" opens a session round *before* the goal is saved, so the new goal is missing from that session's document. Check for direct input before opening the round, or open the round after saving it. | `orchestrator.ts:75–80` | fixed @230a94d |
+| F16 | M | AC2 | **A session can be answered from the previous session's document.** If any agent is off or the cabinet is parked when a session opens, no session round runs, but chat still answers from whatever `context.md` exists, which belongs to an earlier session. The same happens if the session round fails or hits its step limit. The document also doesn't record which session it belongs to, so `finishChat` can't tell. Fix: stamp the document with `sessionId`; reset it to empty when a session opens, even if the round can't run (this can be done in the round engine or the store, not by one agent clearing the others' sections); answer from the document only when its `sessionId` matches, otherwise say plainly that shared context is unavailable this session. Test: an agent off at session start gives no rows from the old session. | `orchestrator.ts:75–79`, `store/contextStore.ts:96–106` | verified @230a94d |
+| F17 | L | AC2 | A first message like "my goal is …" opens a session round *before* the goal is saved, so the new goal is missing from that session's document. Check for direct input before opening the round, or open the round after saving it. | `orchestrator.ts:75–80` | verified @230a94d |
+| F18 | M | AC2, AC8 | **Maintenance rounds write into the open session's document.** A bank import (upload, or the 20 s feed poll) runs a decay round, and the Nordea agent then *replaces* its section with per-goal totals only, so the session's question-relevant row disappears mid-session (`nordea.ts:164`). A contribution round (the Contribute button) rewrites all three sections with whole-customer content, still stamped with the current session id. Fix: decay and contribution rounds don't write `context.md` (they keep `cm.db` and merge review current), or they merge into the session document the way top-ups do; refreshed figures may update matching rows, but rows aren't dropped. Test: a decay round during a session keeps the session's question row. | `agents/nordea.ts:95`, `:164`; `orchestrator.ts:128`, `:226`, `:243` | open |
+| F19 | L | AC2 | Dead branch: `if (docAvailable) { if (!docAvailable) return …` can never return. Remove it, or move the plain "unavailable" reply to where it was meant to apply. | `agents/personal.ts` (finishChat, F16 change) | open |
 
 **Suggested order:** F1 (`context.md`) with F12 → F4, F5, F6 → F7 → F8 → F9 → F10 → F11, F13, F14 alongside.
 
@@ -191,4 +194,15 @@ FACT: your F16 test is in the suite: cm off at session start -> no old rows + th
 FACT: test:arch 111/111, lint clean, npm test + check:feed green, HTTP smoke of both paths
 ETA: F7 next (own-goal proposals as low risk, per your 19:03 note); ETA 21:00 for F7 hand-back
 NEXT: Bill
+```
+
+### [Bill] 2026-10-31 19:34
+```
+FACT: test:arch 111/111, lint clean, rerun by Bill @230a94d
+F16: verified; a new session resets the document to empty with its session id at store level, and chat serves it only when finalised and the id matches (orchestrator.ts:78-86, contextStore.ts resetContextForSession)
+F17: verified; direct goal input is saved before the session round opens
+OPEN: F18 (M) a decay round from a bank import replaces the session's Nordea section, dropping the question row (nordea.ts:164); the Contribute button rewrites the whole session document under its stamp
+OPEN: F19 (L) dead branch in finishChat
+OK: F7 next with ETA 21:00 is fine; please fold F18 in or do it first, it's small
+NEXT: Instinct
 ```
