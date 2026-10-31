@@ -1,4 +1,4 @@
-TURN: Bill
+TURN: Instinct
 
 # review.md: quality control for `instinct-prototype-v2`
 
@@ -126,9 +126,10 @@ Baseline review of `Instict-prototype` @ `489d44e` against the expectation. Seve
 | F17 | L | AC2 | A first message like "my goal is …" opens a session round *before* the goal is saved, so the new goal is missing from that session's document. Check for direct input before opening the round, or open the round after saving it. | `orchestrator.ts:75–80` | verified @230a94d |
 | F18 | M | AC2, AC8 | **Maintenance rounds write into the open session's document.** A bank import (upload, or the 20 s feed poll) runs a decay round, and the Nordea agent then *replaces* its section with per-goal totals only, so the session's question-relevant row disappears mid-session (`nordea.ts:164`). A contribution round (the Contribute button) rewrites all three sections with whole-customer content, still stamped with the current session id. Fix: decay and contribution rounds don't write `context.md` (they keep `cm.db` and merge review current), or they merge into the session document the way top-ups do; refreshed figures may update matching rows, but rows aren't dropped. Test: a decay round during a session keeps the session's question row. | `agents/nordea.ts:95`, `:164`; `orchestrator.ts:128`, `:226`, `:243` | verified @a2263af |
 | F19 | L | AC2 | Dead branch: `if (docAvailable) { if (!docAvailable) return …` can never return. Remove it, or move the plain "unavailable" reply to where it was meant to apply. | `agents/personal.ts` (finishChat, F16 change) | verified @a2263af (reachable; test added) |
-| F20 | M | AC7 | **Risk relies on labels the proposing agent sets itself.** `assessProposalRisk` treats a proposal as an inference only if its payload says `observed: 'inferred'`, while the stored entry is marked inferred when there is no evidence total. A proposal without evidence and without the flag is rated medium, auto-stored, and saved as `inferred`, so an inference skips the customer. Derive "observed" in the risk rule from the evidence (transaction ids and a total, or the customer's own direct input), not from the payload; same for the personal agent's `low`. | `risk.ts:14–20`; `agents/cm.ts:116`, `:365` | fixed @19a2242 |
-| F21 | M | AC7 | **Sensitive-topic list is too narrow and matches substrings.** It misses the banking-relevant ones the app already guards (pregnancy, divorce or separation, gambling, debt collectors, addiction, illness, depression or anxiety, disability, surgery). `includes()` also hits inside words ("union" in "reunion", "drug" in "drugstore"). Use one shared word-boundary list, e.g. extend the one in `abel.ts:40`, and add tests for both kinds of miss. | `risk.ts:11`, `abel.ts:40` | fixed @19a2242 |
-| F22 | M | AC9 | **Automatic stores can't be undone one by one.** The customer is told "You can explain, dispute or delete it anytime", but the only delete is the whole database (`DELETE /api/arch/:uid/db/:which`). Add a per-entry undo (CM control, logged) for auto-stored entries, or change the wording. Undo should remove the entry and keep a log line. | `agents/cm.ts` (autoStoreRoundProposals message), `routes.ts:95` | fixed @19a2242 |
+| F20 | M | AC7 | **Risk relies on labels the proposing agent sets itself.** `assessProposalRisk` treats a proposal as an inference only if its payload says `observed: 'inferred'`, while the stored entry is marked inferred when there is no evidence total. A proposal without evidence and without the flag is rated medium, auto-stored, and saved as `inferred`, so an inference skips the customer. Derive "observed" in the risk rule from the evidence (transaction ids and a total, or the customer's own direct input), not from the payload; same for the personal agent's `low`. | `risk.ts:14–20`; `agents/cm.ts:116`, `:365` | verified @19a2242 |
+| F21 | M | AC7 | **Sensitive-topic list is too narrow and matches substrings.** It misses the banking-relevant ones the app already guards (pregnancy, divorce or separation, gambling, debt collectors, addiction, illness, depression or anxiety, disability, surgery). `includes()` also hits inside words ("union" in "reunion", "drug" in "drugstore"). Use one shared word-boundary list, e.g. extend the one in `abel.ts:40`, and add tests for both kinds of miss. | `risk.ts:11`, `abel.ts:40` | verified @19a2242 for risk; side effect → F23 |
+| F22 | M | AC9 | **Automatic stores can't be undone one by one.** The customer is told "You can explain, dispute or delete it anytime", but the only delete is the whole database (`DELETE /api/arch/:uid/db/:which`). Add a per-entry undo (CM control, logged) for auto-stored entries, or change the wording. Undo should remove the entry and keep a log line. | `agents/cm.ts` (autoStoreRoundProposals message), `routes.ts:95` | verified @19a2242 |
+| F23 | M | AC7, AC10 | **The shared sensitive list changed Abel in the main app.** `abel.ts` now imports the wider list, so plain `debt`, `religion`, `church`, `politics`, `election`, `dating` and others now need the customer's "Save privately" tap. The old list was deliberately narrow (comment at `abel.ts:39`), and "debt" is everyday banking talk ("pay off my student loan debt"); a loan goal would stop saving silently. In the risk rule, plain `debt` also sends every loan-related entry to review. Fix: drop plain `debt` (keep `debt collectors`, add e.g. `can't pay`, `arrears`, `bankrupt`), and either keep Abel on its original narrow list or run "Check Abel's answers" and add a test that a loan or debt goal still saves. | `src/server/sensitive.ts:6`, `abel.ts:39–41` | open |
 
 **Suggested order:** F1 (`context.md`) with F12 → F4, F5, F6 → F7 → F8 → F9 → F10 → F11, F13, F14 alongside.
 
@@ -175,4 +176,14 @@ FACT: test:arch 133/133 (new F20/F21 unit + F22 e2e), lint clean, npm test + che
 FACT: code only @19a2242; pull --rebase from here on (noted, rule 2)
 ETA: F8 next; hand-back ETA 22:30 (F20-22 took the slot)
 NEXT: Bill
+```
+
+### [Bill] 2026-10-31 20:15
+```
+FACT: test:arch 133/133, lint clean @387cde6
+F20: verified; observed is derived from evidence, the self-flag is ignored, no evidence = high (risk.ts:15-27)
+F21: verified for the risk side (word-bounded, extended)
+F22: verified; per-entry undo for auto-stored entries, logged; manual entries go to dispute
+OPEN: F23 (M) the shared list also widens Abel's private-topic guard in the main app; plain "debt" catches everyday loan talk
+NEXT: Instinct (F23 is small; then F8, ETA 22:30 ok)
 ```
