@@ -1,4 +1,4 @@
-TURN: Instinct
+TURN: Bill
 
 # review.md: quality control for `instinct-prototype-v2`
 
@@ -104,8 +104,8 @@ Baseline review of `Instict-prototype` @ `489d44e` against the expectation. Seve
 | Id | Sev | AC | Finding | Evidence | Status |
 |:-:|:-:|:-:|---|---|:-:|
 | F1 | H | AC2 | There is no `context.md` or any shared working document. The cabinet is rows in `cm.db`; no agent sees the context as a whole. | `src/server/arch/store.ts` (only `.db` files); no markdown rendering anywhere in `src/server` | open |
-| F2 | H | AC1 | Isolation is by convention only. All three agents are functions in one module, and several functions open other agents' databases: the personal agent's `chat()` opens `cm.db`; `contribute()` opens `user.db`, `cm.db` and `nordea.db`; `explainEntry()` opens `cm.db`, `user.db` and the bus. | `arch/agents.ts` lines 86, 111, 361–367, 442–447; `store.ts` header comment ("enforced by code convention") | open |
-| F3 | H | AC6 | No build-round lifecycle and no real messaging. `postMessage` only appends to a log; nothing reads pending messages and dispatches them to an agent. HTTP routes call agent functions in a fixed order. | `store.ts:311`; `arch/routes.ts` | open |
+| F2 | H | AC1 | Isolation is by convention only. All three agents are functions in one module, and several functions open other agents' databases: the personal agent's `chat()` opens `cm.db`; `contribute()` opens `user.db`, `cm.db` and `nordea.db`; `explainEntry()` opens `cm.db`, `user.db` and the bus. | `arch/agents.ts` lines 86, 111, 361–367, 442–447; `store.ts` header comment ("enforced by code convention") | fixed @7950f5d |
+| F3 | H | AC6 | No build-round lifecycle and no real messaging. `postMessage` only appends to a log; nothing reads pending messages and dispatches them to an agent. HTTP routes call agent functions in a fixed order. | `store.ts:311`; `arch/routes.ts` | fixed @7950f5d |
 | F4 | H | AC3 | The personal agent never contributes to the shared context. Only the Nordea agent can create a cabinet entry. | `agents.ts:426` (`proposedBy: 'nordea'` is the only writer) | open |
 | F5 | H | AC4 | The Context Memory agent does no retrieval worth the name and no synthesis: keyword overlap, no ranking, no dedupe or conflict handling, no `observed` or `inferred` marker. | `agents.ts:112`, `:155` | open |
 | F6 | M | AC5, AC1 | The Nordea agent decides what to contribute from `user.db` goals it reads directly. It should read `context.md` instead. | `agents.ts:365` (`const goals = u.goals`) | open |
@@ -165,4 +165,19 @@ NEXT: Instinct
 ```
 DID: hello Bill and Joe - Instinct here, on Habibil's request confirming access: I read this file and pushed this message as Instinctcollab, so read + write both work
 NEXT: Instinct
+```
+
+### [Instinct] 2026-10-31 17:25
+
+```
+DID: F2 split into arch/agents/{personal,cm,nordea}.ts + arch/store/{userStore,cmStore,nordeaStore,busStore}.ts; each agent module imports only its own store + bus @7950f5d
+DID: F3 real dispatcher (arch/dispatcher.ts) delivers pending bus messages to registered agent handlers; build rounds (arch/rounds.ts): open -> contributions -> done signals -> CM finalises -> stored, step limit 50 @7950f5d
+F2: fixed @7950f5d
+F3: fixed @7950f5d
+FACT: test:arch 85/85 (74 previous + 11 new: AC1 source scans, AC6 round lifecycle, chat boundary), lint clean, test + check:feed green @7950f5d
+FACT: chat() bypass gone: personal agent reads cabinet content only from CM-authored bus replies, never opens cm.db
+FACT: decay check now message-driven per AC8: CM asks personal for goal titles, asks Nordea to confirm/refresh; no direct DB reads anywhere
+FACT: goal DETAILS no longer reach Nordea matching (titles only travel on the bus) - honest consequence of real messaging; matching otherwise unchanged
+ETA: next batch F1 (context.md) after your review
+NEXT: Bill
 ```
