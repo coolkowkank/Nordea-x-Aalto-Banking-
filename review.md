@@ -1,4 +1,4 @@
-TURN: Instinct
+TURN: Bill
 
 # review.md: quality control for `instinct-prototype-v2`
 
@@ -132,7 +132,7 @@ Baseline review of `Instict-prototype` @ `489d44e` against the expectation. Seve
 | F27 | L | AC5 | **The answer isn't meaningful for a saving goal.** "How much have I saved for the car?" is answered with "72 transactions totalling 20616 EUR", the absolute total of all transport spending (the `car → transport` hint). For a saving goal, use savings transfers (or label the figure as spending). The logic dates from the baseline, but it's what the customer sees. | `arch/text.ts` CATEGORY_HINTS; `agents/nordea.ts` matchForTitles | verified @cd255b9 |
 | F28 | L | AC9 | Wording: after an auto-store the notice says "refreshed figures wait in merge review", but under standing permissions they were stored automatically. Make the notice say which happened. | `agents/cm.ts` re-check notice | verified @cd255b9 |
 | F29 | M | docs | **README.md doesn't describe this branch.** It is unchanged from `Instict-prototype` (it still starts with "`Instict-prototype` combines two branches", and "## At a glance" appears twice). Owner request (22:18): rewrite it to match the actual code on `instinct-prototype-v2`, taking layout inspiration from `main`'s README (centered header, badges, nav row, idea cards, Quick start, feature tables, Mermaid diagram, `<details>` blocks). Must cover: the three agents and their one-database rule; the per-session `context.md` (who writes which section; rebuilt per session); build rounds and the bus; risk levels and standing permissions (`POST /api/arch/:uid/permissions`); decay maintenance; explain, dispute and per-entry undo; in-app Abel reading `user.db` via the personal agent plus this session's `context.md`; how to run it (Node 22.13+, `load_data.py`, `LLM_PROVIDER=mock`), the routes and the checks (`test:arch` 184); known limits ("related spending", single process, no real external agent or live bank). Every claim checkable against code, with no leftovers from `Instict-prototype` that are no longer true. | `README.md` | reopened @eb1ca54: 7 corrections in the 22:30 message |
-| F30 | M | AC3, AC9 | **Abel can quote stale or disputed entries.** `abelSharedContext` passes the whole rendered `context.md`, including rows marked `[stale]` and `[disputed]`, and the prompt says "treat it like FACTS". Their numbers also join the grounding set (`abel.ts:648`), so a disputed figure passes the number check. Fix: give Abel only active rows (render a filtered copy), and keep non-active numbers out of `known`. Test: dispute an entry → its figure is absent from Abel's prompt and an answer quoting it is sent back. | `arch/orchestrator.ts` abelSharedContext (`renderContextMd(uid, fresh)`), `abel.ts:201–206`, `:648` | open |
+| F30 | M | AC3, AC9 | **Abel can quote stale or disputed entries.** `abelSharedContext` passes the whole rendered `context.md`, including rows marked `[stale]` and `[disputed]`, and the prompt says "treat it like FACTS". Their numbers also join the grounding set (`abel.ts:648`), so a disputed figure passes the number check. Fix: give Abel only active rows (render a filtered copy), and keep non-active numbers out of `known`. Test: dispute an entry → its figure is absent from Abel's prompt and an answer quoting it is sent back. | `arch/orchestrator.ts` abelSharedContext (`renderContextMd(uid, fresh)`), `abel.ts:201–206`, `:648` | fixed @b054225 |
 
 **Suggested order:** F1 (`context.md`) with F12 → F4, F5, F6 → F7 → F8 → F9 → F10 → F11, F13, F14 alongside.
 
@@ -225,4 +225,14 @@ R6 :157 routes miss POST airlock/:batchId/reject (routes.ts:72)
 R7 :133 "Dispute: Abel stops using it" isn't true yet; see F30
 OPEN: F30 (M) Abel gets [stale] and [disputed] rows as facts, and their numbers pass grounding
 NEXT: Instinct (F30 code, then README R1-R7)
+```
+
+### [Instinct] 2026-10-31 22:47
+
+```
+DID: F30 code + README R1-R7
+F30: fixed @b054225 - abelSharedContext renders a filtered copy of the session document with ACTIVE rows only; the stored context.md keeps [stale]/[disputed] marks and history. Non-active numbers therefore never enter Abel's prompt or his grounding set. Tests: stale figure (1234) and disputed figure (999) both absent from Abel's context while the fresh bank figure (50) still arrives; the stored document still carries both marks. 188/188, lint 0.
+F29: R1 Node 22.13+ (both places; Joe #J3 right, node:sqlite unflagged from 22.13); R2 quick start uses --target file with the Supabase note; R3 dev monitor marked DEV_MONITOR=1 laptop-only; R4 all five decay signals listed (incl. missing evidence + removed goal); R5 Mermaid: the bus<->context.md "section writes" edge removed, agents write their own section through their writer; R6 airlock reject route added; R7 dispute row now states the F30 behaviour (filtered from Abel's context, mark kept in the document). All @7a3728b.
+FACT: test:arch 188/188, lint 0 (exit codes). Ready for re-review.
+NEXT: Bill
 ```
