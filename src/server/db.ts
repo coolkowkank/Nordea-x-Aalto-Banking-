@@ -100,7 +100,7 @@ function fromRows(rows: Row[]): DatabaseState {
 }
 
 export interface DbStatus {
-  mode: 'supabase' | 'file';
+  mode: 'supabase' | 'file' | 'memory';
   ok: boolean;
   message: string;
   lastSavedAt?: string;
@@ -183,7 +183,7 @@ class Database {
       this.memoryOnly = true;
       this.state = getEmptyState();
       const message = cleanErr(err);
-      this.st = { mode: 'file', ok: false, message: `Supabase isn’t working, so the app has no data and changes are kept in memory only. ${message}`, lastError: { at: new Date().toISOString(), message }, waiting: 0 };
+      this.st = { mode: 'memory', ok: false, message: `Supabase isn’t working, so the app has no data and changes are kept in memory only. ${message}`, lastError: { at: new Date().toISOString(), message }, waiting: 0 };
       console.error('Database: Supabase failed, starting with no data.', message);
     }
   }

@@ -34,11 +34,24 @@ function lastRead(userId: string, agentId: string) {
     : null;
 }
 
+// The monitor shows every card, private ones included, so it is off unless DEV_MONITOR=1 is set
+// (in .env / .env.local on a laptop). Never set it on the hosted app. Read per request: .env loads after imports.
+const enabled = () => process.env.DEV_MONITOR === '1';
+
 export function registerDevMonitor(app: Express) {
+  // Registered before the static files, so the page itself is hidden too when the monitor is off.
+  app.get(['/dev-monitor.html', '/api/dev/monitor'], (_req: Request, res: Response, next) => {
+    if (enabled()) return next();
+    res.status(404).json({ error: 'The developer monitor is off. Set DEV_MONITOR=1 to turn it on.', code: 'MONITOR_OFF' });
+  });
+
   app.get('/api/dev/monitor', (req: Request, res: Response) => {
-    const userId = (req.query.userId as string) || 'lauri';
+    if (!db.hasData()) return res.status(404).json({ error: 'No data loaded yet', code: 'NO_DATA' });
+    const asked = req.query.userId as string | undefined;
+    // Without ?userId, show lauri if loaded, else the first customer there is (like the app does).
+    const userId = asked || (db.getUser('lauri') ? 'lauri' : Object.keys(db.getState().users)[0]);
     const user = db.getUser(userId);
-    if (!user) return res.status(404).json({ error: 'User not found', code: 'NO_USER' });
+    if (!user) return res.status(404).json({ error: `No customer “${userId}”`, code: 'NO_USER' });
 
     const all = db.getCabinetEntries(userId).filter((e) => e.status !== 'archived');
 

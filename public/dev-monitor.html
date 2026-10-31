@@ -115,7 +115,8 @@
 
 <script>
 const params = new URLSearchParams(location.search);
-const userId = params.get('userId') || 'lauri';
+// Without ?userId the server picks lauri, or the first customer when there is no lauri.
+const userId = params.get('userId');
 let knownIds = new Set();
 let firstLoad = true;
 
@@ -147,9 +148,16 @@ async function tick() {
   const live = document.getElementById('live');
   let d;
   try {
-    const r = await fetch(`/api/dev/monitor?userId=${encodeURIComponent(userId)}`, { cache: 'no-store' });
-    if (!r.ok) throw new Error(`HTTP ${r.status}`);
-    d = await r.json();
+    const r = await fetch(`/api/dev/monitor${userId ? `?userId=${encodeURIComponent(userId)}` : ''}`, { cache: 'no-store' });
+    const body = await r.json().catch(() => ({}));
+    if (!r.ok) {
+      // No data / no such customer / monitor off are states, not outages: say which.
+      live.className = 'badge-live err';
+      live.textContent = body.code === 'NO_DATA' ? 'No data loaded yet - load data with scripts/load_data.py'
+        : body.error || `monitor endpoint unreachable - HTTP ${r.status}`;
+      return;
+    }
+    d = body;
   } catch (err) {
     live.className = 'badge-live err';
     live.textContent = `monitor endpoint unreachable - ${err.message}`;
@@ -191,15 +199,17 @@ async function tick() {
   const st = d.storage;
   const dbLine = st.mode === 'supabase'
     ? `Database: <b>Supabase · abel_records</b> - ${st.ok ? 'connected' : 'ERROR'}${st.waiting ? ` · ${st.waiting} change(s) saving` : ''}`
+    : st.mode === 'memory'
+    ? `Database: <b>memory only</b> - ERROR (Supabase is set up but can't be reached; changes are lost on restart)`
     : `Database: <b>local file data/cabinet-db.json</b> - ${st.ok ? 'in use' : 'ERROR'} (Supabase not configured)`;
   document.getElementById('user-db').innerHTML =
     `<div class="dbdot${st.ok ? '' : ' err'}"></div><span>${dbLine}<br><span style="opacity:.65">${esc(st.message || '')}</span></span>`;
-  const storeLabel = st.mode === 'supabase' ? 'Supabase · abel_records' : 'local file data/cabinet-db.json';
+  const storeLabel = st.mode === 'supabase' ? 'Supabase · abel_records' : st.mode === 'memory' ? 'memory only' : 'local file data/cabinet-db.json';
   document.getElementById('collab-db').innerHTML =
     `<div class="dbdot${share ? '' : ' warn'}"></div><span>Shared list only - <b>no own database</b><br><span style="opacity:.7">Cards mirror gateway-eligible records from the same store (${storeLabel}) · share ${share ? 'active' : 'inactive'}</span></span>`;
   const f = d.feed || {};
   document.getElementById('nordea-db').innerHTML =
-    `<div class="dbdot${st.ok ? '' : ' err'}"></div><span>Database: <b>${st.mode === 'supabase' ? 'Supabase · abel_records' : 'local file data/cabinet-db.json'}</b> - ${st.ok ? (st.mode === 'supabase' ? 'connected' : 'in use') : 'ERROR'} (same store as user window)<br><span style="opacity:.65">Input inbox: Supabase · nordea_feed - ${f.enabled ? (f.ok ? 'watching' : 'ERROR') + (f.lastCheck ? ' · last check ' + fmtTime(f.lastCheck) : '') : 'off (Supabase not configured; file upload still possible)'}${f.lastApplied ? ' · last applied ' + fmtTime(f.lastApplied.at) : ''}</span></span>`;
+    `<div class="dbdot${st.ok ? '' : ' err'}"></div><span>Database: <b>${storeLabel}</b> - ${st.ok ? (st.mode === 'supabase' ? 'connected' : 'in use') : 'ERROR'} (same store as user window)<br><span style="opacity:.65">Input inbox: Supabase · nordea_feed - ${f.enabled ? (f.ok ? 'watching' : 'ERROR') + (f.lastCheck ? ' · last check ' + fmtTime(f.lastCheck) : '') : 'off (Supabase not configured; file upload still possible)'}${f.lastApplied ? ' · last applied ' + fmtTime(f.lastApplied.at) : ''}</span></span>`;
 
   // Gap note, shown once we know the state
   const gn = document.getElementById('gapnote');

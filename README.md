@@ -23,8 +23,8 @@ View your app in AI Studio: https://ai.studio/apps/8fb23cbd-15fa-415e-a3bd-7c874
 
 The developer monitor is a separate, read-only page. To use it while the mobile app is running:
 
-1. Check out the `dev-context-monitor` branch and start the app with `npm run dev`.
+1. Turn it on: add `DEV_MONITOR=1` to `.env.local`, then start the app with `npm run dev`. It is off by default, because it shows every card, private ones included. Never set it on the hosted app.
 2. Keep the server running. The mobile app remains at the root path `/`.
-3. Open a second browser tab at the same address and port shown by the dev server, adding `/dev-monitor.html` to the end. For example, if the app is at `http://localhost:3000/`, open `http://localhost:3000/dev-monitor.html`.
+3. Open a second browser tab at the same address and port shown by the dev server, adding `/dev-monitor.html` to the end. For example, if the app is at `http://localhost:3000/`, open `http://localhost:3000/dev-monitor.html`. Add `?userId=eeva` to watch another customer.
 
 Use your actual port if it differs from `3000`. The monitor is display-only and does not provide controls.
