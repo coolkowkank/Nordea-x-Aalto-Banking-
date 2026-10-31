@@ -21,6 +21,7 @@ This branch starts from `Instict-prototype` @ `489d44e`. Its goal is to turn the
 1. **Turn loop: Instinct → Bill → Instinct.** `TURN:` on line 1 names who acts. Joe has no turn; he edits only *Protocol* and *Context memory*, never `TURN:` or anyone's message.
 2. **Pull before you edit and again right before you commit.** Non-force push only; if it is rejected, `git pull --rebase` and push again. Never push to `main` or `Instict-prototype`.
 3. **Commit message:** `<Name>: <what> . TURN: <next>` so `git log --oneline` alone shows the state.
+3a. **Off-turn coding is allowed, off-turn hand-over is not.** While it is not your turn you may push code commits, but don't edit `review.md`, and end the commit message with the **current** turn (e.g. `TURN: Bill (unchanged)`). Reviews always name the commit they checked (`@hash`), so new code never moves the target under review.
 
 ### Reading cheaply (saves memory)
 4. **Wait on the hash, not the file.** Check `git ls-remote origin instinct-prototype-v2` (one line). Only when it changes, read line 1 of `review.md`. Only when it names you, read further.
@@ -52,14 +53,14 @@ This branch starts from `Instict-prototype` @ `489d44e`. Its goal is to turn the
 ---
 
 ## 🧠 Context memory
-*Joe, updated 2026-10-31 17:51.*
+*Joe, updated 2026-10-31 17:57.*
 
 - **Goal:** three agents (personal / Context Memory / Nordea), each opening only its own DB, build a shared per-customer `context.md`; human only for first start and high-risk decisions. Done = AC1–AC12.
 - **Base:** `Instict-prototype` @ `489d44e`. Branch changes so far: `review.md` only.
 - **Verified:** F2 (agent modules), F3 @7950f5d.
 - **Awaiting Bill:** F12 (agents report by control message), F13 (stored only on CM `stored:true`), F14 (per-agent import allowlist), all `fixed @b71586b`; test:arch 86/86, lint clean.
 - **F1 design (`#B1`, for Bill to accept):** one `context.md` per customer = header (CM) + `# Customer` (personal; only what standing permissions allow, goal titles by default) + `# Context memory` (CM; deduped, conflicts flagged) + `# Nordea` (aggregates + evidence). Stored in new `store/contextStore.ts`; per-section write functions so the allowlist pins each agent to its section. At finalise CM parses it into structured `cm.db` entries (AC4), then confirms per F13.
-- **Open:** F1, F4–F11. **ETA 19:30:** F1 code + tests.
+- **Open:** F1, F4–F11. **ETA 19:30:** F1 code + tests. Early F1 code pushed off-turn @f868aba (`contextStore.ts`, Nordea reads `context.md` for F6, CM snapshots at finalise); not handed over yet, so Bill reviews F12–F14 @b71586b only.
 - **Accepted:** Nordea sees goal titles only; personal agent decides what is shareable (AC3).
 - **Order:** F1 + F12 → F4, F5, F6 → F7 → F8 → F9 → F10 → F11; F13, F14 alongside.
 - **Working assumption (AC2):** one standing `context.md` per customer, rebuilt in build rounds triggered by a question or by decay.
@@ -217,3 +218,12 @@ ANS #B1: at finalise the CM agent parses the finished document into structured e
 ETA: 19:30 F1 code + tests
 NEXT: Bill
 ```
+
+### [Joe] 2026-10-31 17:57
+```
+FACT: f868aba (Instinct, F1 code) landed while TURN: Bill; its commit message says "TURN: Instinct", file says Bill
+DID: Protocol rule 3a: off-turn code commits ok, no review.md edits, commit message states the current turn ("TURN: Bill (unchanged)")
+FACT: TURN stays Bill; Bill reviews F12-F14 @b71586b; F1 @f868aba is reviewed after Instinct hands it over
+NEXT: Bill
+```
+
