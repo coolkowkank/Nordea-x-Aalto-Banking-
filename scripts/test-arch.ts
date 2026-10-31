@@ -263,5 +263,51 @@ const hook2 = A.applyBankImportToArch(UID5);
 check('a parked cabinet still gets the source-owner DB update but NO staleness run', hook2.updated === true && hook2.staleFlags.length === 0);
 check('the import hook does nothing for a customer without the architecture', A.applyBankImportToArch('no-such-user').updated === false);
 
+// --- Resume never serves outdated facts as fresh: re-check runs before reuse
+// Scenario A: import while PARKED updates the Nordea DB without detection; reconnect re-checks.
+const UID6 = 'eeva';
+S.saveNordeaDb({ userId: UID6, accounts: [], transactions: [{ id: 'e1', userId: UID6, date: '2026-10-01', category: 'transport', amount: -100, account: 'current', description: 'Fuel for the car' }] });
+A.addGoalDirect(UID6, 'Save for a car');
+const ec = A.contribute(UID6);
+A.decideProposal(UID6, ec.proposals[0].messageId, true);
+A.parkCabinet(UID6, true);
+applyNordeaData(UID6, { mode: 'incremental', transactions: [{ date: '2026-10-21', amount: -55, category: 'transport', description: 'Extra fuel for the car', bankId: 'IMP-TEST-2' }] } as Parameters<typeof applyNordeaData>[1], 'test import while parked');
+const hookParked = A.applyBankImportToArch(UID6);
+check('while parked, the import updates the Nordea DB but raises NO stale flag yet', hookParked.updated === true && hookParked.staleFlags.length === 0 && S.loadCmDb(UID6).entries[0].status === 'active');
+const resumed = A.parkCabinet(UID6, false);
+check('reconnect re-checks BEFORE the cabinet is reused: the entry is flagged stale', resumed.staleFlags.length === 1 && S.loadCmDb(UID6).entries[0].status === 'stale', JSON.stringify(resumed.staleFlags));
+check('the reconnect re-check posted flag-stale + refresh messages', S.loadBus(UID6).messages.some((m) => m.type === 'flag-stale') && S.loadBus(UID6).messages.some((m) => m.type === 'refresh'));
+
+// Scenario B: import while the NORDEA agent is OFF does not touch its DB; turn-on refreshes + re-checks.
+const UID7 = 'alex';
+S.saveNordeaDb({ userId: UID7, accounts: [], transactions: [{ id: 'x1', userId: UID7, date: '2026-10-01', category: 'transport', amount: -100, account: 'current', description: 'Fuel for the car' }] });
+A.addGoalDirect(UID7, 'Save for a car');
+const xc = A.contribute(UID7);
+A.decideProposal(UID7, xc.proposals[0].messageId, true);
+A.setAgentOff(UID7, 'nordea', true);
+applyNordeaData(UID7, { mode: 'incremental', transactions: [{ date: '2026-10-22', amount: -77, category: 'transport', description: 'More fuel for the car', bankId: 'IMP-TEST-3' }] } as Parameters<typeof applyNordeaData>[1], 'test import while off');
+const hookOff = A.applyBankImportToArch(UID7);
+check('while the Nordea agent is off, the import hook does not touch its DB', hookOff.updated === false && !S.loadNordeaDb(UID7)!.transactions.some((t) => t.description === 'More fuel for the car'));
+A.setAgentOff(UID7, 'nordea', false);
+check('turning the Nordea agent back on refreshes its DB from current bank data', S.loadNordeaDb(UID7)!.transactions.some((t) => t.description === 'More fuel for the car'));
+check('turn-on re-checks BEFORE the agent serves again: the entry is flagged stale', S.loadCmDb(UID7).entries[0].status === 'stale');
+
+// Scenario C: import while the CM agent is OFF updates the DB without detection; turn-on re-checks.
+const UID8 = 'lauri';
+S.deleteDb(UID8, 'cm');
+S.deleteDb(UID8, 'user');
+S.deleteDb(UID8, 'nordea');
+S.saveBus(UID8, { messages: [], airlock: [] }); // clean slate for this customer (earlier scenarios left a pending proposal)
+S.saveNordeaDb({ userId: UID8, accounts: [], transactions: [{ id: 'l1', userId: UID8, date: '2026-10-01', category: 'transport', amount: -100, account: 'current', description: 'Fuel for the car' }] });
+A.addGoalDirect(UID8, 'Save for a car');
+const lc = A.contribute(UID8);
+A.decideProposal(UID8, lc.proposals[0].messageId, true);
+A.setAgentOff(UID8, 'cm', true);
+applyNordeaData(UID8, { mode: 'incremental', transactions: [{ date: '2026-10-23', amount: -33, category: 'transport', description: 'Even more fuel for the car', bankId: 'IMP-TEST-4' }] } as Parameters<typeof applyNordeaData>[1], 'test import while cm off');
+A.applyBankImportToArch(UID8);
+check('while the CM agent is off, the import updates the Nordea DB without detection', S.loadNordeaDb(UID8)!.transactions.some((t) => t.description === 'Even more fuel for the car') && S.loadCmDb(UID8).entries[0].status === 'active');
+A.setAgentOff(UID8, 'cm', false);
+check('turning the CM agent back on re-checks BEFORE the cabinet serves again', S.loadCmDb(UID8).entries[0].status === 'stale');
+
 console.log(`\n${passed} passed, ${failed} failed`);
 process.exit(failed ? 1 : 0);

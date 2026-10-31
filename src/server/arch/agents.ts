@@ -272,6 +272,32 @@ function detectStaleEntries(bus: Bus, cm: CmDb, nordea: NordeaDb, goals: Goal[])
   return staleFlags;
 }
 
+// ---------- Re-check on resume (un-park or agent back on) ----------
+
+/**
+ * Imports that arrive while the cabinet is parked or an agent is off update the Nordea DB
+ * without detection (or not at all). Before the cabinet or agent is USED again, refresh the
+ * Nordea DB from current bank data and re-check accepted entries - otherwise outdated figures
+ * would be served as fresh. Returns the stale flags raised (they also post the usual messages).
+ */
+function recheckBeforeReuse(uid: string, bus: Bus): StaleFlag[] {
+  const u = loadUserDb(uid);
+  if (u.agentsOff.includes('cm') || u.agentsOff.includes('nordea')) return [];
+  const cm = loadCmDb(uid);
+  if (cm.parked || !u.goals.length || !cm.entries.some((e) => e.status === 'active')) return [];
+  if (!nordeaFileExists(uid)) return [];
+  saveNordeaDb({
+    userId: uid,
+    accounts: db.getBankAccounts(uid).map((a) => ({ ...a })),
+    transactions: db.getTransactions(uid).map((t) => ({ ...t })),
+  });
+  const staleFlags = detectStaleEntries(bus, loadCmDb(uid), loadNordeaDb(uid)!, u.goals);
+  if (staleFlags.length) {
+    postMessage(bus, { from: 'cm', to: 'user', type: 'inform', summary: `Re-check before reuse: ${staleFlags.length} accepted entr${staleFlags.length === 1 ? 'y was' : 'ies were'} flagged stale against current bank data; refreshed figures wait in merge review.` });
+  }
+  return staleFlags;
+}
+
 // ---------- Bank import: the source owner updates its DB, then staleness detection runs ----------
 
 /**
@@ -311,15 +337,18 @@ export function applyBankImportToArch(uid: string): { updated: boolean; reason?:
  */
 export function parkCabinet(uid: string, park: boolean) {
   const cm = loadCmDb(uid);
-  if (!!cm.parked === park) return { parked: !!cm.parked, entries: cm.entries.length };
+  if (!!cm.parked === park) return { parked: !!cm.parked, entries: cm.entries.length, staleFlags: [] as StaleFlag[] };
   cm.parked = park || undefined;
   saveCmDb(cm);
   const bus = loadBus(uid);
   postMessage(bus, { from: 'cm', to: 'user', type: 'inform', summary: park
     ? `You parked the cabinet: ${cm.entries.length} entr${cm.entries.length === 1 ? 'y' : 'ies'} kept, nothing deleted. Until you reconnect it, no agent reads the cabinet and no proposals are accepted into it.`
     : 'You reconnected the cabinet. The Context Memory agent reads and supplies it again.' });
+  // Imports that arrived while parked updated the Nordea DB without detection: re-check now,
+  // before the cabinet serves again.
+  const staleFlags = park ? [] : recheckBeforeReuse(uid, bus);
   saveBus(uid, bus);
-  return { parked: park, entries: cm.entries.length };
+  return { parked: park, entries: cm.entries.length, staleFlags };
 }
 
 // ---------- Goal-filtered bank contributions (Nordea agent -> CM agent, user reviews) ----------
@@ -452,6 +481,9 @@ export function setAgentOff(uid: string, agent: AgentId, off: boolean) {
   saveUserDb(u);
   const bus = loadBus(uid);
   postMessage(bus, { from: agent, to: 'user', type: 'inform', summary: `${agent} agent turned ${off ? 'off' : 'on'}. Its database was not touched.` });
+  // While the Nordea agent is off, imports do not touch its DB at all; while the CM agent is
+  // off, imports update the Nordea DB without detection. Re-check before either serves again.
+  if (!off && (agent === 'cm' || agent === 'nordea')) recheckBeforeReuse(uid, bus);
   saveBus(uid, bus);
   return u.agentsOff;
 }
