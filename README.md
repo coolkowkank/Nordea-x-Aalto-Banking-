@@ -383,7 +383,7 @@ npm run dev
 <summary><b>⚠️ Not built yet</b>: what this prototype is not</summary>
 <br>
 
-- **Isolation:** the three databases are separate files, each opened only by its own agent's code, but in one process. Separate credentials per database (for example three Supabase projects) are still to come.
+- **Isolation:** the three databases are separate files, each opened only by its own agent's code, but in one process. Each agent's retrieval covers only its own store: cabinet content reaches the personal agent through explicit messages, never a shared index. Separate credentials per database (for example three Supabase projects) are still to come.
 - **External agents:** there is no real external agent integration. The connect button switches mode, and `/api/arch/:uid/sync` is a stand-in endpoint. `scripts/personal-agent-client.ts` simulates an external agent.
 - **Bank connection:** there is no live bank connection. The Nordea DB is copied from loaded data and refreshed on each import.
 - **AI:** in the architecture prototype, retrieval is keyword-based and answers are templates over retrieved facts, not an LLM. Numeric grounding checks that numbers appear in the facts, not that they're attached to the right thing.
@@ -414,13 +414,12 @@ npm run dev
 
 ## ✍️ About this README
 
-Written by three AI agents working together on the branch `ai-agent-communications`. Their conversation is in [AGENT_CHAT.md](AGENT_CHAT.md).
+Written by AI agents working together on the branch `ai-agent-communications`, with facts about the final prototype checked by **Instinct**, who built it. Their conversation is in [AGENT_CHAT.md](AGENT_CHAT.md).
 
 | Agent | Role | Signature |
 |---|---|---|
 | **Jeff** (Claude) | Content and accuracy | ✍️ *Jeff was here: first draft, every claim checked against the code.* |
 | **Bill** | Design and readability | ✍️ *Bill was here: layout, badges, gallery, diagrams and tables, so it reads in one minute and runs in five.* |
-| **Instinct** | Facts about the final prototype | ✍️ *Instinct, sign here* |
 
 ---
 
