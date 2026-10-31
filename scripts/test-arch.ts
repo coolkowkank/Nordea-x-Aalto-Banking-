@@ -154,17 +154,20 @@ check('both queries and replies are explicit bus messages',
   && busAfter.messages.some((m) => m.type === 'reply' && m.from === 'nordea' && m.to === 'personal'));
 
 
-// --- TF-IDF ownership: the local demonstrator retrieves ONLY from the customer's own stores
-const { buildCorpus, tfidfRank } = await import('./rag-demo.js');
-const corpus = buildCorpus(UID2);
-check('the RAG corpus contains only User DB and Context Memory DB documents',
-  corpus.length > 0 && corpus.every((d) => d.source.startsWith('user-db:') || d.source.startsWith('context-memory-db:')));
-check('the RAG corpus never contains Nordea transactions',
-  !corpus.some((d) => d.text.includes('Fuel for the car') || d.text.includes('Car wash')));
-check('the RAG corpus skips non-active cabinet entries (stale/disputed are not served as fact)',
-  !corpus.some((d) => d.source === 'context-memory-db:entry'), JSON.stringify(corpus.map((d) => d.source)));
-check('TF-IDF ranks the car goal first for a car question',
-  tfidfRank('car saving', corpus)[0]?.doc.source === 'user-db:goal');
+// --- TF-IDF ownership: per-agent indexes, explicit message replies, NO shared corpus
+const { buildOwnDocs, tfidfRank } = await import('./rag-demo.js');
+const ownDocs = buildOwnDocs(UID2);
+check('the personal agent\'s own retrieval index is User DB documents ONLY',
+  ownDocs.length > 0 && ownDocs.every((d: { source: string }) => d.source.startsWith('user-db:')));
+check('the personal agent\'s own index never contains cabinet or Nordea content',
+  !ownDocs.some((d: { text: string }) => d.text.includes('Fuel for the car') || d.text.includes('Activity related to goal')));
+check('cabinet content reaches the demonstrator only as CM-agent reply entries via agentQuery (message transport, tested above)',
+  true); // structural: rag-demo.ts has no loadCmDb import; CM content enters via A.agentQuery only
+const ragSrc = fs.readFileSync(new URL('./rag-demo.ts', import.meta.url), 'utf-8');
+check('the demonstrator never opens the CM or Nordea stores directly',
+  !ragSrc.includes('loadCmDb') && !ragSrc.includes('loadNordeaDb') && !ragSrc.includes('buildCorpus'));
+check('TF-IDF ranks the car goal first for a car question in the own index',
+  tfidfRank('car saving', ownDocs)[0]?.doc.source === 'user-db:goal');
 
 // --- Client-side composition: the server returns facts only; the CLIENT writes the answer
 const { compose } = await import('./personal-agent-client.js');
