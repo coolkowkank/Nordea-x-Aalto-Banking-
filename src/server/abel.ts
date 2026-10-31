@@ -201,7 +201,7 @@ ${JSON.stringify(entries)}
 ${shared && (shared.userDbFacts || shared.sharedContext) ? `SHARED CONTEXT (the three-agent architecture; each fact names its source - treat it like FACTS):
 ${shared.userDbFacts ? `From the customer's User DB, via the personal agent:
 ${shared.userDbFacts}
-` : ''}${shared.sharedContext ? `From the shared context.md built for this session, via the Context Memory agent:
+` : ''}${shared.sharedContext ? `From the shared context.md built and finalised for this session (by the Context Memory agent):
 ${shared.sharedContext}
 ` : ''}Provenance: ${shared.provenance.join(' + ')}.` : 'SHARED CONTEXT: not in use for this customer.'}
 

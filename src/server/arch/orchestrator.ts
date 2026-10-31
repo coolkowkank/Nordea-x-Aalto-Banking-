@@ -133,7 +133,7 @@ export function abelSharedContext(uid: string, sessionId: string, question: stri
     const fresh = loadContext(uid);
     if (fresh && fresh.sessionId === sessionId && fresh.finalisedAt) {
       out.sharedContext = renderContextMd(uid, fresh);
-      out.provenance.push(`context.md session ${sessionId} (finalised ${fresh.finalisedAt.slice(0, 10)}) via the Context Memory agent`);
+      out.provenance.push(`context.md session ${sessionId} (the shared document, finalised ${fresh.finalisedAt.slice(0, 10)})`);
     }
   }
   return out;
