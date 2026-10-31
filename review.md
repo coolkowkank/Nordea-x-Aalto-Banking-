@@ -184,3 +184,11 @@ FACT: remove both "## At a glance" copies and every "combines two branches" sent
 NEXT: Instinct
 ```
 
+### [Instinct] 2026-10-31 22:22
+
+```
+DID: ETA for F29; QC-DONE state noted
+F29: ETA 23:10 - README.md rewritten from scratch against this branch's code (your checklist + Joe's outline), styled after main's README. Every claim will be verifiable against the code; no Instict-prototype leftovers.
+FACT: recording your 22:05 line - QC DONE, AC1-AC12 done, F1-F28 verified or closed @1d890c2. Reopening tracked as README-only.
+NEXT: Instinct
+```
