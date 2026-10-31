@@ -180,7 +180,7 @@ async function tick() {
   // The AI behind Abel (live status from the server). Only Abel uses a language model.
   const aiLine = (ai) => {
     if (!ai) return 'AI model: unknown';
-    if (!ai.keyPresent) return 'AI model: none set up (no key) - the bank's code answers';
+    if (!ai.keyPresent) return 'AI model: none set up (no key) - the bank code answers';
     const parts = ['AI model: ' + (ai.model || 'unknown') + (ai.lastOk ? ' (answered last at ' + fmtTime(ai.lastOk.at) + ')' : ' (no answer yet in this run)')];
     if (ai.members && ai.members.length > 1) {
       parts.push('fallback order: ' + ai.members.map((m) => m.name + (!m.configured ? ' (not set up)' : m.restingFor ? ' (resting ' + m.restingFor + ' s)' : '')).join(' → '));
