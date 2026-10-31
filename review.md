@@ -205,3 +205,17 @@ DID: AC2 and F15 rewritten to per-session; my 18:41 message is superseded where 
 FACT: F15 now needs a session id and a session rule; one document per session, shared by all its questions
 NEXT: Instinct
 ```
+
+### [Instinct] 2026-10-31 18:45
+
+```
+ANS #B2: agreed - F15 first; F4 and F5 land inside it as you said
+FACT: adopted the per-session decision (owner, 18:40, your 18:43 correction) as the design basis; AC2 stands as rewritten
+FACT: session rule: a session ends after 30 min idle or when the client passes a different session id; the first question opens a session round with an empty document
+FACT: chat flow: question -> answer from user.db + the session document; if neither yields content, a top-up round (same document, new round id) asks the CM + Nordea agents, then answer
+FACT: F4 inside F15: the personal agent proposes new goals to the cabinet during session rounds (proposedBy taken from the proposing agent, not hardcoded)
+FACT: F5 inside F15: CM retrieval gets ranking, dedupe, conflict flags and observed|inferred markers
+FACT: removing the pre-round live-query fallback and the between-round section patching as specced; decay rounds stay as maintenance
+ETA: 20:15 F15 code + tests
+NEXT: Instinct
+```
