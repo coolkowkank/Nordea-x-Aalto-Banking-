@@ -53,27 +53,13 @@ This branch starts from `Instict-prototype` @ `489d44e`. Its goal is to turn the
 ---
 
 ## 🧠 Context memory
-*Joe, updated 2026-10-31 21:58.*
+*Joe, updated 2026-10-31 22:06.*
 
-- **Goal:** three agents (personal / Context Memory / Nordea), each opening only its own DB, build a shared per-customer `context.md`; human only for first start and high-risk decisions. Done = AC1–AC12.
-- **Base:** `Instict-prototype` @ `489d44e`. Branch changes so far: `review.md` only.
-- **Owner decision (18:40, closes `#B0`):** `context.md` is rebuilt **per customer session**, not per question; all questions in one session share that session's document. CM connects to `cm.db` for each session. AC2 rewritten. (Bill's 18:41 "every question" is superseded by his 18:43 correction.)
-- **Owner decision (18:40):** `context.md` is rebuilt **per customer session**; all questions in a session share it. CM connects to `cm.db` per session. AC2 rewritten.
-- **Verified:** F2, F3 @7950f5d; F12–F14 @b71586b; F1, F6 @1040ff7; F15, F4, F5 @1eaee72. Staleness re-checks inside session rounds accepted.
-- **Verified:** F16, F17 @230a94d; F7 (structure) @a4d16bc; F18, F19 @a2263af (test:arch 122/122, lint clean).
-- **Verified:** F20, F21 (risk side), F22 @19a2242 (test:arch 133/133, lint clean).
-- **Verified:** F23, F8 (bank side) @147b0b8; Nordea `roundId` side fix accepted, no finding (test:arch 147/147 @d43f508).
-- **Verified:** F24 @fa6f3e5, F9 @a66712c, F10 phase 1 @d43f508 (test:arch 163/163, lint clean @13f7230).
-- **`#B5` answered:** F10 stays **open for phase 2**: AC11 names the in-app Abel, and the owner's design says Abel reads `user.db` only, so the main Abel chat must read `user.db`/`context.md`.
-- **Verified:** F25 @2f7d84d, F11 @b2050cf (labelled checks cover AC1–AC11; test:arch 165/165, lint clean @0cf56fd).
-- **Verified:** F10 phase 1 + 2 @b595bdf.
-- **Final AC pass @ef56ba9 (Bill 21:46, tests + live HTTP run with mock AI):** AC1–AC7, AC9–AC12 **done**; **AC8 blocked by F26**. Live run: one session's two questions share one round and doc; a new session gets a new one.
-- **Awaiting Bill (handed over 21:56):** F26, F27, F28 `fixed @cd255b9`. F26: evidence stores an FNV-1a hash of the full sorted tx-id set (no new imports, AC1 pin intact); churn compares hash with hash; 25-id sample kept for display/risk; pre-hash entries self-heal on first refresh; Bill's test in (30 matches, 3 rounds, stays active, no duplicate). F27: figures labelled "of related spending" (demo data has no transfer semantics). F28: notice reports the real outcome per entry (auto-stored / merge review / not refreshed); a session round's re-proposal counts as the refresh. test:arch 184/184, lint 0.
-- **Finish:** after F26, Bill re-runs the live check and closes.
-- **Open:** none if Bill verifies F26–F28.
-- **Accepted:** Nordea sees goal titles only; personal agent decides what is shareable (AC3).
-- **Order:** F26 → F27, F28 → Bill's live re-check → finish.
-- **Owner context:** Habibil not supervising; Bill acts on his behalf.
+- **✅ DONE (Bill, QC, 22:05 @1d890c2):** AC1–AC12 all met; F1–F28 all verified or closed; no open findings. test:arch 184/184, lint clean. Live re-run (mock AI, Lauri): contribute, sessions A, B, C, CM off/on → 2 entries, 0 stale flags, 0 duplicates.
+- **Built:** three agents in separate modules, each opening only its own DB; per-session `context.md` with one writer per section; real bus dispatcher and build rounds; code-rule risk levels with standing permissions; decay maintenance (bank churn by id-set hash, age, missing evidence, removed goals); per-entry undo; in-app Abel reads `user.db` via the personal agent and this session's `context.md` only.
+- **Owner decision used:** `context.md` rebuilt per customer session (18:40).
+- **Known limits (accepted):** goal figures are "related spending", not savings transfers (demo data has no transfer semantics).
+- **Next:** branch ready for Habibil's review. Bill reviews again only for new code or a new request. Full history: `review-archive.md` + Messages below.
 
 ---
 
