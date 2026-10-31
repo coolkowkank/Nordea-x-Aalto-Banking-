@@ -680,5 +680,51 @@ S.saveUserDb(u28);
 const goneRound2 = A.contribute(UID28);
 check('F25: removing the goal flags the Nordea-side entry on it stale too', S.loadCmDb(UID28).entries.find((e) => e.id === nordeaOnGoal.id)?.status === 'stale' && goneRound2.staleFlags.some((f) => f.entryId === nordeaOnGoal.id && f.reason === 'goal-removed'), JSON.stringify(goneRound2.staleFlags));
 
+
+// --- F10 phase 2 / AC11: the in-app Abel reads user.db VIA the personal agent and context.md by session rules.
+const shared27 = A.abelSharedContext(UID27, 'conv-abel-1', 'laptop');
+check('F10p2: User DB facts come from the personal agent by message, with provenance', !!shared27.userDbFacts && shared27.userDbFacts.includes('Save for a laptop') && shared27.provenance.some((p) => p.includes('user-db via the personal agent')), JSON.stringify(shared27).slice(0, 140));
+check('F10p2: a fresh session gets its own FINALISED document, stamped with its exact session id', !!shared27.sharedContext && S.loadContext(UID27)?.sessionId === 'conv-abel-1' && !!S.loadContext(UID27)?.finalisedAt, (shared27.sharedContext ?? '').slice(0, 80));
+check('F10p2: the document was built by a session round for this exact session', S.loadBus(UID27).messages.some((m) => m.type === 'round-start' && (m.payload as { sessionId?: string }).sessionId === 'conv-abel-1'));
+
+// Wrong-session negative: a finalised document from ANOTHER session is not served, and is left untouched.
+const UID29 = 'sessuser';
+A.addGoalDirect(UID29, 'Save for a van');
+S.saveNordeaDb({ userId: UID29, accounts: [], transactions: [{ id: 'v1', userId: UID29, date: '2026-10-01', category: 'transport', amount: -100, account: 'current', description: 'Van parts' }] });
+A.chat(UID29, 'van', 'session-A');
+check('F10p2 setup: session A has a finalised document', S.loadContext(UID29)?.sessionId === 'session-A' && !!S.loadContext(UID29)?.finalisedAt);
+A.setAgentOff(UID29, 'cm', true);
+const wrongSess = A.abelSharedContext(UID29, 'session-B', 'anything');
+check('F10p2: finalised != current - another session\'s document is NOT served', !wrongSess.sharedContext, (wrongSess.sharedContext ?? '').slice(0, 60));
+check('F10p2: and the other session\'s document is NOT wiped when no round can run', S.loadContext(UID29)?.sessionId === 'session-A' && !!S.loadContext(UID29)?.finalisedAt);
+check('F10p2: facts are always the requesting customer\'s own (no cross-customer assembly)', !(wrongSess.userDbFacts ?? '').includes('laptop') && (wrongSess.userDbFacts ?? '').includes('van'), (wrongSess.userDbFacts ?? '').slice(0, 80));
+
+// Missing + unfinalised document negatives (CM off, so no round can build one).
+const UID30 = 'nodocuser';
+A.addGoalDirect(UID30, 'Save for a boat');
+S.saveNordeaDb({ userId: UID30, accounts: [], transactions: [{ id: 'bt1', userId: UID30, date: '2026-10-01', category: 'transport', amount: -100, account: 'current', description: 'Boat parts' }] });
+A.setAgentOff(UID30, 'cm', true);
+const noDoc = A.abelSharedContext(UID30, 'conv-x', 'boat');
+check('F10p2: no document and no way to build one -> no shared context, User DB facts still served', !noDoc.sharedContext && (noDoc.userDbFacts ?? '').includes('boat'), JSON.stringify(noDoc).slice(0, 100));
+S.resetContextForSession(UID30, 'conv-y');
+const unfinalised = A.abelSharedContext(UID30, 'conv-y', 'boat');
+check('F10p2: an UNFINALISED document is never served, even for the matching session', !unfinalised.sharedContext);
+
+// Parked negative: parking the cabinet silences the document half only.
+A.parkCabinet(UID27, true);
+const parkedShared = A.abelSharedContext(UID27, 'conv-abel-2', 'laptop');
+check('F10p2: a parked cabinet serves no document; the customer\'s own User DB facts still reach Abel', !parkedShared.sharedContext && !!parkedShared.userDbFacts);
+
+// The main-chat path itself: Abel's real turn carries the shared context into the system prompt (mock provider, no AI spend).
+applyNordeaData('lauri', { accounts: [{ key: 'current', currency: 'EUR' }, { key: 'savings' }], transactions: [{ date: '2026-10-25', amount: 3000, description: 'SALARY', category: 'SALARY' }] }, 'test seed');
+const { setProviderForTests } = await import('../src/server/llm.js');
+let capturedSystem = '';
+setProviderForTests({ name: 'capture', isConfigured: () => true, step: async (args: { system: string }) => { capturedSystem = args.system; return { calls: [{ id: 'c1', name: 'finishReply', args: { text: 'ok', suggestions: [], usedEntryIds: [], topic: 'other', couldHelp: true } }] }; } } as never);
+const ABEL = await import('../src/server/abel.js');
+await ABEL.abelTurn('lauri', 'conv-main-test', 'abel', 'hello', { userDbFacts: 'Goals: Save for a laptop', sharedContext: '- Goal: Save for a laptop (goal-1)', provenance: ['user-db via the personal agent'] });
+check('F10p2: the main Abel chat carries the shared context into its real prompt, with provenance', capturedSystem.includes('SHARED CONTEXT') && capturedSystem.includes('Save for a laptop') && capturedSystem.includes('user-db via the personal agent'));
+const routesSrc2 = readSrc('../src/server/routes.ts');
+check('F10p2: the chat route assembles shared context for the SAME customer and session it serves', /abelSharedContext\(userId, conv\.id, u\.text\)/.test(routesSrc2) && /abelTurn\(userId, conv\.id, conv\.helperId, u\.text, shared\)/.test(routesSrc2));
+
 console.log(`\n${passed} passed, ${failed} failed`);
 process.exit(failed ? 1 : 0);

@@ -98,6 +98,47 @@ export function chat(uid: string, text: string, clientSessionId?: string): { rep
   return { reply: answer.reply, used: answer.used, sessionId: session.id };
 }
 
+/**
+ * F10 phase 2 / AC11: shared context for the in-app Abel's main chat. The User DB half comes
+ * from the PERSONAL AGENT by message (it owns that DB; the app layer never opens it for Abel).
+ * The context.md half follows the AC2 session rules: only a finalised document stamped with
+ * THIS session's id is served; a missing or other-session document triggers a fresh session
+ * build round when the agents can run one - and is otherwise simply not served (never wiped,
+ * never leaked across sessions). Nothing here opens an agent's store for fact assembly.
+ */
+export function abelSharedContext(uid: string, sessionId: string, question: string): { userDbFacts?: string; sharedContext?: string; provenance: string[] } {
+  const out: { userDbFacts?: string; sharedContext?: string; provenance: string[] } = { provenance: [] };
+  if (!nordeaFileExists(uid)) return out; // the architecture is not in use for this customer
+  const off = getOff(uid);
+  if (!off.includes('personal')) {
+    const r = controlRoundTrip(uid, 'personal', 'The in-app Abel asks the personal agent for the customer facts in its own User DB.', { control: 'abel-facts' }) as {
+      goals?: { title: string; detail: string }[]; facts?: { text: string; source: string }[];
+    };
+    const bits: string[] = [];
+    if (r.goals?.length) bits.push(`Goals: ${r.goals.map((g) => g.detail ? `${g.title} (${g.detail})` : g.title).join('; ')}`);
+    if (r.facts?.length) bits.push(`Facts: ${r.facts.map((f) => f.text).join('; ')}`);
+    if (bits.length) {
+      out.userDbFacts = bits.join('\n');
+      out.provenance.push('user-db via the personal agent');
+    }
+  }
+  const parked = getCabinetParkedMirror(uid);
+  if (!parked && !off.some((a) => a === 'personal' || a === 'cm' || a === 'nordea')) {
+    const doc = loadContext(uid);
+    if (!doc || doc.sessionId !== sessionId || !doc.finalisedAt) {
+      // AC2: this session has no finished document - build one (fresh, stamped with its id).
+      resetContextForSession(uid, sessionId);
+      runRound(uid, 'session', { question, sessionId });
+    }
+    const fresh = loadContext(uid);
+    if (fresh && fresh.sessionId === sessionId && fresh.finalisedAt) {
+      out.sharedContext = renderContextMd(uid, fresh);
+      out.provenance.push(`context.md session ${sessionId} (finalised ${fresh.finalisedAt.slice(0, 10)}) via the Context Memory agent`);
+    }
+  }
+  return out;
+}
+
 // ---------- Agent-to-agent queries over the message bus (transport for the demo client) ----------
 
 export function agentQuery(uid: string, to: 'cm' | 'nordea', question: string): { reply: Record<string, unknown>; messageId: string } {

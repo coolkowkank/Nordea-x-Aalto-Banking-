@@ -219,6 +219,18 @@ export function decideAirlock(uid: string, batchId: string, approve: boolean) {
 
 function handleMessage(uid: string, msg: AgentMessage) {
   const payload = (msg.payload ?? {}) as { roundId?: string; purpose?: string; goalIds?: string[]; control?: string; trigger?: string; question?: string; sessionId?: string };
+  if (msg.type === 'control' && payload.control === 'abel-facts') {
+    // F10 phase 2 / AC11: the in-app Abel asks for the customer's facts. The personal agent is
+    // the owner of the User DB - it reads it itself and answers by message (provenance kept).
+    const u = loadUserDb(uid);
+    appendMessage(uid, {
+      from: 'personal', to: 'app', type: 'reply',
+      summary: `Personal agent returns ${u.goals.length} goal${u.goals.length === 1 ? '' : 's'} and ${u.personalFacts.length} fact${u.personalFacts.length === 1 ? '' : 's'} from the User DB for Abel.`,
+      payload: { inReplyTo: msg.id, from: 'user-db', goals: u.goals.map((g) => ({ title: g.title, detail: g.detail })), facts: u.personalFacts.map((f) => ({ text: f.text, source: f.source })) },
+    });
+    updateMessage(uid, msg.id, { status: 'answered' });
+    return;
+  }
   if (msg.type === 'control' && payload.control === 'status') {
     const u = loadUserDb(uid);
     appendMessage(uid, {

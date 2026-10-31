@@ -171,7 +171,10 @@ function factsFor(userId: string, allowed: Set<string>) {
   };
 }
 
-function systemPrompt(userId: string, helperId: string, cabinet: CabinetEntry[], blockedCount: number, facts: unknown) {
+/** F10 phase 2 / AC11: what the three-agent architecture handed Abel for this turn (by message). */
+export interface AbelSharedContext { userDbFacts?: string; sharedContext?: string; provenance: string[] }
+
+function systemPrompt(userId: string, helperId: string, cabinet: CabinetEntry[], blockedCount: number, facts: unknown, shared?: AbelSharedContext) {
   const u = db.getUser(userId)!;
   const calm = u.viewMode === 'calm';
   const entries = cabinet.map((e) => ({
@@ -194,6 +197,13 @@ ${JSON.stringify(facts)}
 
 WHAT YOU KNOW (the customer's cabinet, read through the access gateway just now; ${blockedCount} items were held back and you must not guess them):
 ${JSON.stringify(entries)}
+
+${shared && (shared.userDbFacts || shared.sharedContext) ? `SHARED CONTEXT (the three-agent architecture; each fact names its source - treat it like FACTS):
+${shared.userDbFacts ? `From the customer's User DB, via the personal agent:
+${shared.userDbFacts}
+` : ''}${shared.sharedContext ? `From the shared context.md built for this session, via the Context Memory agent:
+${shared.sharedContext}
+` : ''}Provenance: ${shared.provenance.join(' + ')}.` : 'SHARED CONTEXT: not in use for this customer.'}
 
 HOW YOU TALK
 - Warm, brief, plain English, like a caring person texting. Acknowledge feelings first. At most one question; ask if unclear.
@@ -557,13 +567,13 @@ export interface AbelReply {
   supplied?: { notes: number; accountData: boolean };
 }
 
-export async function abelTurn(userId: string, conversationId: string, helperId: string, userText: string): Promise<AbelReply> {
+export async function abelTurn(userId: string, conversationId: string, helperId: string, userText: string, shared?: AbelSharedContext): Promise<AbelReply> {
   const seen: { supplied?: AbelReply['supplied'] } = {};
-  const reply = await abelTurnInner(userId, conversationId, helperId, userText, seen);
+  const reply = await abelTurnInner(userId, conversationId, helperId, userText, seen, shared);
   return { ...reply, supplied: seen.supplied };
 }
 
-async function abelTurnInner(userId: string, conversationId: string, helperId: string, userText: string, seen: { supplied?: AbelReply['supplied'] }): Promise<AbelReply> {
+async function abelTurnInner(userId: string, conversationId: string, helperId: string, userText: string, seen: { supplied?: AbelReply['supplied'] }, shared?: AbelSharedContext): Promise<AbelReply> {
   const provider = getProvider();
 
   // Guardrail 1: read the cabinet through the gateway before every reply.
@@ -573,7 +583,7 @@ async function abelTurnInner(userId: string, conversationId: string, helperId: s
   seen.supplied = { notes: read.allowed.length, accountData: true };
   const ctx: TurnCtx = { userId, conversationId, allowedIds: new Set(read.allowed.map((e) => e.id)), cards: [], notes: [], changes: 0, offersShown: 0, extraUsed: [], userText, helperId };
   const facts = factsFor(userId, ctx.allowedIds);
-  const system = systemPrompt(userId, helperId, read.allowed, read.blocked.length, facts);
+  const system = systemPrompt(userId, helperId, read.allowed, read.blocked.length, facts, shared);
   const t0 = Date.now();
   let modelCalls = 0;
 
@@ -635,6 +645,7 @@ async function abelTurnInner(userId: string, conversationId: string, helperId: s
   collectNumbers(read.allowed.map((e) => [e.detail, e.target, e.title]), known);
   collectNumbers(customerWords, known);
   collectNumbers(facts, known);
+  if (shared) collectNumbers([shared.userDbFacts ?? '', shared.sharedContext ?? ''], known); // F10: architecture facts are quotable
   // For maths checks, only real amounts (not ids, IBANs or dates, which would make almost any number "derivable").
   const money: number[] = [];
   const numsOnly = (v: unknown) => { if (typeof v === 'number') money.push(v); else if (Array.isArray(v)) v.forEach(numsOnly); else if (v && typeof v === 'object') Object.values(v).forEach(numsOnly); };
