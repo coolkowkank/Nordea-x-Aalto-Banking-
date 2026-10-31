@@ -14,7 +14,7 @@
 [![Supabase](https://img.shields.io/badge/Supabase-optional-3FCF8E?logo=supabase&logoColor=white)](https://supabase.com)
 [![Gemini](https://img.shields.io/badge/Google_Gemini-AI-8E75B2?logo=googlegemini&logoColor=white)](https://ai.google.dev)
 
-[**Quick start**](#-quick-start) · [**Features**](#-what-it-does) · [**How it works**](#-how-it-works) · [**Branches**](#-branches) · [**Configuration**](#%EF%B8%8F-configuration) · [**Docs**](#-further-docs)
+[**Quick start**](#-quick-start) · [**Features**](#-what-it-does) · [**How it works**](#-how-it-works) · [**Final prototype**](#-final-prototype) · [**Branches**](#-branches) · [**Configuration**](#%EF%B8%8F-configuration) · [**Docs**](#-further-docs)
 
 <br>
 
@@ -278,18 +278,78 @@ Without Supabase, data is saved in `data/cabinet-db.json`. On a laptop that file
 ```
 </details>
 
+## 🧪 Final prototype
+
+The **final prototype** lives on the [`Instict-prototype`](https://github.com/coolkowkank/Nordea-x-Aalto-Banking-/tree/Instict-prototype) branch (spelled that way on GitHub). It is **not merged into `main` yet**. Everything in this section describes that branch.
+
+It combines the two feature branches (the structured bank data from `Bank_database`, and from `dev-context-monitor` an app that starts empty plus the developer monitor), and adds a working prototype of the target design: **three separate databases, one agent each, talking through explicit messages.** Open it at `/arch.html`.
+
+### The three databases
+
+Each customer gets three real SQLite files in `data/arch/`, plus one for the message bus (`<uid>.user.db`, `<uid>.cm.db`, `<uid>.nordea.db`, `<uid>.bus.db`).
+
+| Database | Agent | What it holds | Rules |
+|---|---|---|---|
+| **User DB** | Personal agent (Abel in the app, or a connected external agent) | Profile, goals, personal facts | Never reads the Nordea DB, so it can't state account figures. Says plainly when it lacks context. |
+| **Context Memory DB** | Context Memory agent | The cabinet: shared context between the customer and Nordea | Only this agent writes it. It advises; it never changes bank data. |
+| **Nordea DB** | Nordea agent | Accounts and transactions | Proposes goal-relevant insights; the customer accepts or rejects each one. |
+
+### What the customer controls
+
+| Control | What happens |
+|---|---|
+| **Typing to Abel** | Goes straight into the User DB. No gate. |
+| **Sync airlock** | Items from a connected external agent (WhatsApp, calendar, notes, email) wait for the customer's approval. |
+| **Merge review** | Nordea's proposals wait until the customer accepts or rejects them. |
+| **Explain and dispute** | Every cabinet entry shows who proposed it, why, and when it was approved, and can be disputed. |
+| **Park the cabinet** | Suspends it without deleting anything: no agent reads it and nothing is added until the customer resumes it. |
+| **Separate off-switches** | Turning an agent off, disconnecting the personal agent, parking the cabinet and deleting a store are four different actions. |
+
+**Safety built into the code**
+- **Staleness checks:** when the bank data behind a cabinet entry changes, the entry is marked stale and a refreshed proposal goes back through merge review. Resuming re-checks everything before the cabinet is used again, so outdated figures are never served as fresh.
+- **Numeric grounding:** numbers in the personal agent's replies must appear in the retrieved facts, or the reply is replaced by a plain answer with no figures.
+- **Fail-closed gateway:** an agent with no registered permissions gets nothing.
+
+### Run it
+
+**Needs:** Node.js 22.13 or newer (the prototype uses Node's built-in `node:sqlite`) and Python 3.9+ to load data.
+
+```bash
+git checkout Instict-prototype
+npm install
+python3 scripts/load_data.py seed/demo --target file   # the app starts empty until you load data
+npm run dev
+```
+
+Then open **http://localhost:3000/arch.html**. For the developer monitor, add `DEV_MONITOR=1` to `.env.local` and open `/dev-monitor.html` (laptop only: it shows private cards).
+
+| Check | What it does |
+|---|---|
+| `npm run test:arch` | 74 checks of the three-database architecture |
+| `npm test` | The bank-data model, on a throwaway copy |
+| `npm run check:feed` | Dry-runs the example Nordea feed CSV |
+| `npm run lint` | TypeScript check |
+
+### Not built yet
+
+- **Isolation:** the three databases are separate files, each opened only by its own agent's code, but in one process. Separate credentials per database (for example three Supabase projects) are still to come.
+- **External agents:** there is no real external agent integration. The connect button switches mode, and `/api/arch/:uid/sync` is a stand-in endpoint. `scripts/personal-agent-client.ts` simulates an external agent.
+- **Bank connection:** there is no live bank connection. The Nordea DB is copied from loaded data and refreshed on each import.
+- **AI:** in the architecture prototype, retrieval is keyword-based and answers are templates over retrieved facts, not an LLM. Numeric grounding checks that numbers appear in the facts, not that they're attached to the right thing.
+
 ## 🌿 Branches
 
-`main` is the stable app. Two feature branches build on it:
+`main` is the stable app. Three branches build on it:
 
 | Branch | What it adds | Start here |
 |---|---|---|
 | **`main`** | The app with demo data built in, including the structured bank-data model (stable transaction ids, incremental imports, balance history, evidence for observations). | This README · [`docs/bank-records.md`](docs/bank-records.md) |
 | [**`Bank_database`**](https://github.com/coolkowkank/Nordea-x-Aalto-Banking-/tree/Bank_database) | 🏦 Docs and tooling for that bank data: a Supabase setup guide, an example feed CSV, and `npm run check:feed`, a dry run that checks a feed CSV before you upload it. The app code is the same as `main`. | [`supabase/README.md`](https://github.com/coolkowkank/Nordea-x-Aalto-Banking-/blob/Bank_database/supabase/README.md) |
+| [**`Instict-prototype`**](https://github.com/coolkowkank/Nordea-x-Aalto-Banking-/tree/Instict-prototype) | 🧪 **The final prototype.** Combines both branches above and adds the three-database architecture. See [Final prototype](#-final-prototype). | [`README.md` on the branch](https://github.com/coolkowkank/Nordea-x-Aalto-Banking-/blob/Instict-prototype/README.md) |
 | [**`dev-context-monitor`**](https://github.com/coolkowkank/Nordea-x-Aalto-Banking-/tree/dev-context-monitor) | 🔍 **Context enrichment.** The app ships empty and data is loaded separately with `scripts/load_data.py` (needs Python 3.9+). Adds a read-only developer monitor at `/dev-monitor.html` that shows live what Abel can read, what is shared with Nordea, and every audited read. Turn it on with `DEV_MONITOR=1`, on a laptop only. | [`seed/README.md`](https://github.com/coolkowkank/Nordea-x-Aalto-Banking-/blob/dev-context-monitor/seed/README.md) |
 
 > [!IMPORTANT]
-> `dev-context-monitor` rewrites `src/server/db.ts` and does not include the structured bank-data changes that `main` has, so merging it into `main` needs that file reconciled.
+> `dev-context-monitor` rewrites `src/server/db.ts` and does not include the structured bank-data changes that `main` has, so merging it into `main` needs that file reconciled. `Instict-prototype` has already done that reconciliation.
 
 ## 📚 Further docs
 
