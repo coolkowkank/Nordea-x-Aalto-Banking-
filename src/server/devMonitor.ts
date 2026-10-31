@@ -23,9 +23,15 @@ function serialize(e: CabinetEntry) {
   };
 }
 
+// Server start time: lets the page tell activity observed in the current run
+// apart from history that was loaded with the dataset.
+const startedAt = new Date().toISOString();
+
 function lastRead(userId: string, agentId: string) {
   const log = db.getAccessLog(userId).find((l) => l.agentId === agentId);
-  return log ? { at: log.timestamp, itemsReadCount: log.itemsReadCount, blockedCount: log.blockedCount } : null;
+  return log
+    ? { at: log.timestamp, itemsReadCount: log.itemsReadCount, blockedCount: log.blockedCount, sinceStart: log.timestamp >= startedAt }
+    : null;
 }
 
 export function registerDevMonitor(app: Express) {
@@ -45,11 +51,11 @@ export function registerDevMonitor(app: Express) {
     // The adviser may only actually read while a one-time share is active.
     const shareActive = hasActiveShare(userId, 'adviser');
 
-    // Collaborative list: cards the gateway allows BOTH sides to read. Eligibility
-    // to be read by the Nordea side right now additionally requires the active share.
-    const collaborative = all
-      .filter((e) => abelOk.has(e.id) && adviserOk.has(e.id))
-      .map((e) => ({ ...serialize(e), eligibleNow: shareActive }));
+    // Cards that pass the gateway rules for BOTH sides (potential sharing).
+    const bothOk = all.filter((e) => abelOk.has(e.id) && adviserOk.has(e.id));
+    // Collaborative list: what the Nordea side can actually read NOW. Without an
+    // active one-time share that is nothing at all - the boundary is not relaxed.
+    const collaborative = shareActive ? bothOk.map((e) => serialize(e)) : [];
     const collaborativeIds = new Set(collaborative.map((e) => e.id));
 
     res.json({
@@ -70,7 +76,7 @@ export function registerDevMonitor(app: Express) {
             .filter((e) => e.source !== 'nordea')
             .map((e) => ({ ...serialize(e), agentCanRead: abelOk.has(e.id), shared: collaborativeIds.has(e.id) })),
         },
-        collaborative: { shareActive, entries: collaborative },
+        collaborative: { shareActive, entries: collaborative, potentialCount: bothOk.length },
         // Nordea role's context cards (bank-produced observations). reviewed=false
         // means the customer has not confirmed the observation yet.
         nordea: {
@@ -94,6 +100,7 @@ export function registerDevMonitor(app: Express) {
       // seed/demo holds the fictional customers lauri, eeva and alex (seed/README.md),
       // so the page can label that data as fictional rather than real bank data.
       demoPersona: ['lauri', 'eeva', 'alex'].includes(userId),
+      startedAt,
     });
   });
 }
