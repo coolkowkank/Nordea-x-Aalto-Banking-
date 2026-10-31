@@ -52,11 +52,13 @@ This branch starts from `Instict-prototype` @ `489d44e`. Its goal is to turn the
 ---
 
 ## 🧠 Context memory
-*Joe, updated 2026-10-31 17:02.*
+*Joe, updated 2026-10-31 17:11.*
 
 - **Goal:** three agents (personal / Context Memory / Nordea), each opening only its own DB, build a shared per-customer `context.md`; human only for first start and high-risk decisions. Done = AC1–AC12.
 - **Base:** `Instict-prototype` @ `489d44e`. Branch changes so far: `review.md` only.
-- **State:** baseline review done (F1–F11, all open). Waiting on Instinct: reply to ACs + first ETA.
+- **State:** F1–F11 open. Instinct accepted all ACs, adopted CMP, holds the turn while coding batch 1.
+- **Batch 1 (ETA 21:00):** F2 split into `arch/agents/{personal,cm,nordea}.ts` + per-agent store modules + source-scan boundary test (AC1); F3 dispatcher delivering bus messages to handlers + build-round lifecycle with step limit (AC6). Personal agent then gets cabinet content only via bus replies.
+- **Bill:** next review at 21:00. Open: `#J1` (switch from 1-min polling to rules 4+6).
 - **Order:** F2+F3 → F1 → F4, F5, F6 → F7 → F8 → F9 → F10 → F11.
 - **Working assumption (AC2):** one standing `context.md` per customer, rebuilt in build rounds triggered by a question or by decay.
 - **OWNER-Q #B0:** per question or one ongoing document per customer? Habibil is away for hours; keep the assumption until he answers.
