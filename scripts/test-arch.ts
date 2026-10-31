@@ -64,6 +64,12 @@ check('disconnect returns Abel as the in-app personal agent', S.loadUserDb(UID).
 // --- Decision 5: goal-filtered contribution -> merge review -> explain/dispute
 const c1 = A.contribute(UID);
 check('contribution proposes only goal-matching entries', c1.proposals.length === 1 && c1.proposals[0].matched === 2, JSON.stringify(c1.proposals));
+
+// --- AC2: the build round wrote the shared context.md; each agent wrote only its own section
+const doc1 = S.loadContext(UID);
+check('AC2: a build round writes the shared context.md with all three sections', !!doc1 && doc1.sections.customer.includes('Save for a car') && doc1.sections.nordea.includes('83.5') && fs.existsSync(S.contextMdPath(UID)));
+check('AC2: the Customer section shares goal titles only - the detail stays in the User DB', !!doc1 && !doc1.sections.customer.includes('12 000 EUR'));
+check('AC2: the CM agent stored a snapshot of the finished document at finalise', (S.loadContextSnapshot(UID) ?? '').includes('## Nordea'));
 check('no cabinet entry before review', S.loadCmDb(UID).entries.length === 0);
 const c2 = A.contribute(UID);
 check('re-running contribution does not duplicate pending proposals', c2.proposals.length === 0);
@@ -319,11 +325,14 @@ const nordeaSrc = readSrc('../src/server/arch/agents/nordea.ts');
 // dispatcher, the round engine, text helpers and shared types - plus, for the Nordea agent,
 // the bank's core data source (../../db.js). Any other import fails, however it is named.
 const importsOf = (src: string) => [...src.matchAll(/from\s+['"]([^'"]+)['"]/g)].map((m) => m[1]);
-const AGENT_SHARED = ['../types.js', '../text.js', '../store/busStore.js', '../dispatcher.js', '../rounds.js'];
+const AGENT_SHARED = ['../types.js', '../text.js', '../store/busStore.js', '../store/contextStore.js', '../dispatcher.js', '../rounds.js']; // contextStore = the AC2 shared document, section writers pinned below
 const onlyAllowed = (src: string, ownStore: string, extra: string[] = []) => importsOf(src).every((spec) => [...AGENT_SHARED, ownStore, ...extra].includes(spec));
 check('AC1: the personal agent module imports only its own store plus shared bus/round infra', onlyAllowed(personalSrc, '../store/userStore.js'), importsOf(personalSrc).join(','));
 check('AC1: the CM agent module imports only its own store plus shared bus/round infra', onlyAllowed(cmSrc, '../store/cmStore.js'), importsOf(cmSrc).join(','));
 check('AC1: the Nordea agent module imports only its own store plus shared infra and the core bank source', onlyAllowed(nordeaSrc, '../store/nordeaStore.js', ['../../db.js']), importsOf(nordeaSrc).join(','));
+check('AC2: only the personal agent module writes the Customer section', personalSrc.includes('writeCustomerSection') && !personalSrc.includes('writeMemorySection') && !personalSrc.includes('writeNordeaSection'));
+check('AC2: only the CM agent module writes the Context memory section and the header', cmSrc.includes('writeMemorySection') && cmSrc.includes('writeHeader') && !cmSrc.includes('writeCustomerSection') && !cmSrc.includes('writeNordeaSection'));
+check('AC2: only the Nordea agent module writes the Nordea section', nordeaSrc.includes('writeNordeaSection') && !nordeaSrc.includes('writeCustomerSection') && !nordeaSrc.includes('writeMemorySection'));
 check('AC1: the dispatcher and round engine open no agent store at all',
   !/(userStore|cmStore|nordeaStore)/.test(readSrc('../src/server/arch/dispatcher.ts')) && !/(userStore|cmStore|nordeaStore)/.test(readSrc('../src/server/arch/rounds.ts')));
 

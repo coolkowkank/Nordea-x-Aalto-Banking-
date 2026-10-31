@@ -8,6 +8,7 @@ import { ArchError, newId, now } from '../types.js';
 import type { AgentMessage, Goal } from '../types.js';
 import { words, overlaps } from '../text.js';
 import { loadUserDb, saveUserDb } from '../store/userStore.js';
+import { writeCustomerSection } from '../store/contextStore.js';
 import { appendMessage, getAgentsOff, loadBus, saveBus, updateMessage } from '../store/busStore.js';
 import { registerHandler } from '../dispatcher.js';
 import { roundDone } from '../rounds.js';
@@ -202,7 +203,7 @@ export function decideAirlock(uid: string, batchId: string, approve: boolean) {
 // ---------- Message handler: what the personal agent does when the bus delivers ----------
 
 function handleMessage(uid: string, msg: AgentMessage) {
-  const payload = (msg.payload ?? {}) as { roundId?: string; purpose?: string; goalIds?: string[]; control?: string };
+  const payload = (msg.payload ?? {}) as { roundId?: string; purpose?: string; goalIds?: string[]; control?: string; trigger?: string };
   if (msg.type === 'control' && payload.control === 'status') {
     const u = loadUserDb(uid);
     appendMessage(uid, {
@@ -214,13 +215,19 @@ function handleMessage(uid: string, msg: AgentMessage) {
     return;
   }
   if (msg.type === 'round-start' && payload.roundId) {
-    // The personal agent starts the build: it shares the customer's goal id+title list
-    // (titles only travel further - goal details stay in the User DB by default).
+    // The personal agent starts the build: it writes the Customer section of the shared
+    // context.md from its own User DB (AC2/AC3). Goal TITLES are shared; goal details and
+    // personal facts stay in the User DB until the customer allows sharing them.
     const u = loadUserDb(uid);
+    writeCustomerSection(uid, [
+      ...u.goals.map((g) => `- Goal: ${g.title} (${g.id})`),
+      '',
+      `_(${u.goals.length} goal${u.goals.length === 1 ? '' : 's'} shared by title; details and personal facts stay in the User DB until the customer allows sharing them.)_`,
+    ].join('\n'), { roundId: payload.roundId, trigger: String(payload.trigger ?? 'contribution') });
     appendMessage(uid, {
       from: 'personal', to: 'cm', type: 'inform', status: 'pending',
-      summary: `${personalLabel(u)} shares ${u.goals.length} goal title${u.goals.length === 1 ? '' : 's'} with the Context Memory agent for this build round.`,
-      payload: { roundId: payload.roundId, goals: u.goals.map((g) => ({ id: g.id, title: g.title })) },
+      summary: `${personalLabel(u)} wrote the Customer section of context.md (${u.goals.length} goal${u.goals.length === 1 ? '' : 's'} shared by title).`,
+      payload: { roundId: payload.roundId },
     });
     roundDone(uid, payload.roundId, 'personal');
     return;

@@ -8,7 +8,8 @@
 import { newId, now } from '../types.js';
 import type { AgentMessage, ArchEntry, StaleFlag } from '../types.js';
 import { words, overlaps } from '../text.js';
-import { loadCmDb, saveCmDb, storeRoundRecord } from '../store/cmStore.js';
+import { loadCmDb, saveCmDb, storeRoundRecord, storeContextSnapshot } from '../store/cmStore.js';
+import { loadContext, readSection, renderContextMd, writeHeader, writeMemorySection } from '../store/contextStore.js';
 import { appendMessage, findMessage, loadBus, setCabinetParkedMirror, updateMessage } from '../store/busStore.js';
 import { registerHandler } from '../dispatcher.js';
 import { loadRound, roundDone, recordStaleFlags } from '../rounds.js';
@@ -26,10 +27,42 @@ function decayCandidates(uid: string, goalIds?: string[]): ArchEntry[] {
     (!goalIds || e.goalIds.some((g) => goalIds.includes(g))));
 }
 
+/** Goal titles as written in the Customer section of the shared context.md (AC2). */
+function goalTitlesFromDoc(uid: string): Map<string, string> {
+  const map = new Map<string, string>();
+  for (const m of readSection(uid, 'customer').matchAll(/^- Goal: (.+) \(([^)]+)\)$/gm)) map.set(m[2], m[1]);
+  return map;
+}
+
+/** The CM agent's section: relevant earlier entries from its own DB (AC4). */
+function writeMemoryFromEntries(uid: string, meta?: { roundId: string; trigger: string }) {
+  const cm = loadCmDb(uid);
+  const customerWords = words(readSection(uid, 'customer'));
+  const relevant = cm.entries.filter((e) => overlaps(customerWords, words(`${e.title} ${e.detail}`)));
+  const lines = relevant.map((e) => `- [${e.status}] ${e.title}: ${e.detail} (source: ${e.proposedBy}, ${e.createdAt.slice(0, 10)})`);
+  writeMemorySection(uid, lines.length ? lines.join('\n') : '_no relevant earlier context_', meta);
+}
+
+/** Ask the Nordea agent to confirm or refresh the stored values behind decay candidates (AC8). */
+function sendRefreshRequest(uid: string, roundId: string, candidates: ArchEntry[], titleById: Map<string, string>) {
+  const items: RefreshItem[] = candidates.map((e) => ({
+    entryId: e.id,
+    title: e.title,
+    goalIds: e.goalIds,
+    goalTitles: e.goalIds.map((id) => titleById.get(id)).filter((t): t is string => !!t),
+    was: e.evidence!.total!,
+  }));
+  appendMessage(uid, {
+    from: 'cm', to: 'nordea', type: 'refresh', status: 'pending',
+    summary: `Context Memory agent asks the Nordea agent to confirm or refresh the values behind ${items.length} stored entr${items.length === 1 ? 'y' : 'ies'}.`,
+    payload: { purpose: 'refresh', roundId, items },
+  });
+}
+
 /**
  * Decay detection (AC8): the CM agent detects possible decay from stored evidence and asks
  * the Nordea agent to confirm or refresh - it cannot and does not read the Nordea DB.
- * Step one: it needs goal titles for the linked goals, so it asks the personal agent.
+ * Step one: it reads the goal titles from the shared context.md, asking the personal agent only for titles the document does not have yet.
  */
 function startDecayCheck(uid: string, roundId: string, goalIds?: string[]) {
   const candidates = decayCandidates(uid, goalIds);
@@ -40,11 +73,18 @@ function startDecayCheck(uid: string, roundId: string, goalIds?: string[]) {
     return;
   }
   const ids = [...new Set(candidates.flatMap((e) => e.goalIds))];
-  appendMessage(uid, {
-    from: 'cm', to: 'personal', type: 'query', status: 'pending',
-    summary: `Context Memory agent asks the personal agent for the titles of ${ids.length} goal${ids.length === 1 ? '' : 's'} linked to stored evidence.`,
-    payload: { purpose: 'decay-titles', roundId, goalIds: ids },
-  });
+  const docTitles = goalTitlesFromDoc(uid);
+  const missing = ids.filter((id) => !docTitles.has(id));
+  if (missing.length) {
+    // Entries added before any build round may lack document titles: ask the personal agent.
+    appendMessage(uid, {
+      from: 'cm', to: 'personal', type: 'query', status: 'pending',
+      summary: `Context Memory agent asks the personal agent for the titles of ${missing.length} goal${missing.length === 1 ? '' : 's'} missing from context.md.`,
+      payload: { purpose: 'decay-titles', roundId, goalIds: missing },
+    });
+    return;
+  }
+  sendRefreshRequest(uid, roundId, candidates, docTitles);
 }
 
 function handleMessage(uid: string, msg: AgentMessage) {
@@ -87,34 +127,23 @@ function handleMessage(uid: string, msg: AgentMessage) {
     return;
   }
 
-  // --- The personal agent shared goal titles for a contribution round.
-  if (msg.type === 'inform' && typeof payload.roundId === 'string' && Array.isArray(payload.goals)) {
-    const goals = payload.goals as { id: string; title: string }[];
+  // --- The personal agent wrote the Customer section of context.md for this round.
+  if (msg.type === 'inform' && typeof payload.roundId === 'string') {
+    writeMemoryFromEntries(uid, { roundId: payload.roundId, trigger: 'contribution' });
     appendMessage(uid, {
       from: 'cm', to: 'nordea', type: 'query', status: 'pending',
-      summary: `Context Memory agent asks the Nordea agent for transaction insights relevant to ${goals.length} goal${goals.length === 1 ? '' : 's'}.`,
-      payload: { purpose: 'contribute', roundId: payload.roundId, goals },
+      summary: 'Context Memory agent asks the Nordea agent for transaction insights relevant to the Customer section of context.md.',
+      payload: { purpose: 'contribute', roundId: payload.roundId },
     });
     return;
   }
 
-  // --- The personal agent answered with goal titles for the decay check.
+  // --- The personal agent answered with goal titles missing from the document (fallback).
   if (msg.type === 'reply' && payload.purpose === 'decay-titles' && typeof payload.roundId === 'string') {
     const goals = (payload.goals ?? []) as { id: string; title: string }[];
-    const titleById = new Map(goals.map((g) => [g.id, g.title]));
-    const candidates = decayCandidates(uid);
-    const items: RefreshItem[] = candidates.map((e) => ({
-      entryId: e.id,
-      title: e.title,
-      goalIds: e.goalIds,
-      goalTitles: e.goalIds.map((id) => titleById.get(id)).filter((t): t is string => !!t),
-      was: e.evidence!.total!,
-    }));
-    appendMessage(uid, {
-      from: 'cm', to: 'nordea', type: 'refresh', status: 'pending',
-      summary: `Context Memory agent asks the Nordea agent to confirm or refresh the values behind ${items.length} stored entr${items.length === 1 ? 'y' : 'ies'}.`,
-      payload: { purpose: 'refresh', roundId: payload.roundId, items },
-    });
+    const titleById = goalTitlesFromDoc(uid);
+    for (const g of goals) titleById.set(g.id, g.title);
+    sendRefreshRequest(uid, payload.roundId, decayCandidates(uid), titleById);
     return;
   }
 
@@ -145,6 +174,7 @@ function handleMessage(uid: string, msg: AgentMessage) {
       saveCmDb(cm);
       appendMessage(uid, { from: 'cm', to: 'user', type: 'inform', summary: `Re-check before reuse: ${flags.length} accepted entr${flags.length === 1 ? 'y was' : 'ies were'} flagged stale against current bank data; refreshed figures wait in merge review.` });
     }
+    writeMemoryFromEntries(uid, { roundId: payload.roundId, trigger: 'decay' });
     recordStaleFlags(uid, payload.roundId, flags);
     roundDone(uid, payload.roundId, 'cm');
     return;
@@ -262,8 +292,12 @@ function handleMessage(uid: string, msg: AgentMessage) {
       const roundId = payload.roundId as string;
       const round = loadRound(uid, roundId);
       if (round) {
-        // The CM agent stores the structured round record in its own DB (AC4/AC6).
+        // The CM agent stores the structured round record in its own DB (AC4/AC6)...
         storeRoundRecord(uid, JSON.stringify(round));
+        // ...stamps the shared document finalised, and stores a snapshot of it (AC2/AC4).
+        writeHeader(uid, { roundId: round.id, trigger: round.trigger, finalise: true });
+        const doc = loadContext(uid);
+        if (doc) storeContextSnapshot(uid, round.id, renderContextMd(uid, doc));
       }
       // Confirm to the round engine: the round is 'stored' only on this reply (F13).
       appendMessage(uid, {

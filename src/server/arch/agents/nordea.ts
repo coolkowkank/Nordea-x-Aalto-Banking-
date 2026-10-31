@@ -9,6 +9,7 @@ import { db } from '../../db.js';
 import type { AgentMessage, NordeaDb } from '../types.js';
 import { words, overlaps, CATEGORY_HINTS } from '../text.js';
 import { loadNordeaDb, saveNordeaDb, nordeaFileExists } from '../store/nordeaStore.js';
+import { readSection, writeNordeaSection } from '../store/contextStore.js';
 import { appendMessage, loadBus, updateMessage } from '../store/busStore.js';
 import { registerHandler } from '../dispatcher.js';
 import { recordProposals, roundDone } from '../rounds.js';
@@ -53,15 +54,19 @@ function handleMessage(uid: string, msg: AgentMessage) {
 
   // --- Contribution query from the Context Memory agent (inside a build round).
   if (msg.type === 'query' && payload.purpose === 'contribute' && typeof payload.roundId === 'string') {
-    const goals = (payload.goals ?? []) as { id: string; title: string }[];
+    // The Nordea agent reads the shared context.md - never the User DB - to decide what is
+    // relevant (F6): the goals arrive via the Customer section, not inside the message.
+    const goals = [...readSection(uid, 'customer').matchAll(/^- Goal: (.+) \(([^)]+)\)$/gm)].map((m) => ({ id: m[2], title: m[1] }));
     prepare(uid);
     const nordea = loadNordeaDb(uid)!;
     const alreadyPending = pendingProposalSummaries(uid);
     const proposals: { messageId: string; title: string; detail: string; matched: number; total: number }[] = [];
+    const sectionLines: string[] = [];
     for (const goal of goals) {
       const matches = matchForTitles(nordea, [goal.title]);
       if (!matches.length) continue;
       const total = totalOf(matches);
+      sectionLines.push(`- ${goal.title}: ${matches.length} transaction${matches.length === 1 ? '' : 's'} totalling ${total} EUR (matched on category and description keywords; aggregates only - no account identifiers, no raw transactions).`);
       const title = `Activity related to goal "${goal.title}"`;
       if (alreadyPending.has(title)) continue; // no duplicate pending proposals
       const detail = `${matches.length} transaction${matches.length === 1 ? '' : 's'} totalling ${total} EUR relate to this goal (matched on category and description keywords). Proposed by the Nordea agent from the Nordea DB only - the raw transactions stay there.`;
@@ -72,6 +77,8 @@ function handleMessage(uid: string, msg: AgentMessage) {
       });
       proposals.push({ messageId: posted.id, title, detail, matched: matches.length, total });
     }
+    // The Nordea agent's section of the shared document (AC5): aggregates + evidence only.
+    writeNordeaSection(uid, sectionLines.length ? sectionLines.join('\n') : '_no transactions match the shared goals_', { roundId: payload.roundId, trigger: 'contribution' });
     recordProposals(uid, payload.roundId, proposals);
     appendMessage(uid, {
       from: 'nordea', to: 'cm', type: 'reply', status: 'pending',
@@ -132,6 +139,16 @@ function handleMessage(uid: string, msg: AgentMessage) {
       }
       return { entryId: item.entryId, title: item.title, was: item.was, now: nowTotal, changed, matched: matches.length };
     });
+    // Keep the Nordea section of the shared document current after a refresh (AC5).
+    const docGoals = [...readSection(uid, 'customer').matchAll(/^- Goal: (.+) \(([^)]+)\)$/gm)].map((m) => ({ id: m[2], title: m[1] }));
+    if (docGoals.length) {
+      const lines: string[] = [];
+      for (const g of docGoals) {
+        const gm = matchForTitles(nordea, [g.title]);
+        if (gm.length) lines.push(`- ${g.title}: ${gm.length} transaction${gm.length === 1 ? '' : 's'} totalling ${totalOf(gm)} EUR (refreshed against current bank data; aggregates only - no account identifiers, no raw transactions).`);
+      }
+      writeNordeaSection(uid, lines.length ? lines.join('\n') : '_no transactions match the shared goals_', { roundId: payload.roundId, trigger: 'decay' });
+    }
     appendMessage(uid, {
       from: 'nordea', to: 'cm', type: 'reply', status: 'pending',
       summary: `Nordea agent confirms current values for ${results.length} entr${results.length === 1 ? 'y' : 'ies'}; ${results.filter((r) => r.changed).length} changed.`,

@@ -16,6 +16,7 @@ import './agents/nordea.js'; // side effect: registers the Nordea agent's bus ha
 import { loadUserDb, saveUserDb, deleteUserDb } from './store/userStore.js';
 import { loadCmDb, deleteCmDb } from './store/cmStore.js';
 import { loadNordeaDb, nordeaFileExists, deleteNordeaDb } from './store/nordeaStore.js';
+import { loadContext, renderContextMd } from './store/contextStore.js';
 import {
   appendMessage, findMessage, getAgentsOff, setAgentsOff, loadBus,
 } from './store/busStore.js';
@@ -238,6 +239,7 @@ export function archState(uid: string) {
       contextMemory: { entries: cm.entries.length, disputed: cm.entries.filter((e) => e.status === 'disputed').length, parked: !!cm.parked },
       nordea: nordea ? { accounts: nordea.accounts.length, transactions: nordea.transactions.length } : null,
     },
+    contextMd: (() => { const d = loadContext(uid); return d ? renderContextMd(uid, d) : null; })(),
     queues: {
       airlock: bus.airlock.filter((b) => b.status === 'pending'),
       review: bus.messages.filter((m) => m.type === 'propose' && m.status === 'pending'),
