@@ -64,6 +64,13 @@ export function registerV14Routes(app: Express) {
   app.get('/api/state', async (req, res) => {
     await sweepExpired().catch(() => 0);
     const userId = String(req.query.userId || 'lauri');
+    if (!db.hasData()) {
+      return res.status(404).json({
+        error: 'No data loaded yet',
+        code: 'NO_DATA',
+        hint: 'Load data with scripts/load_data.py (see seed/README.md).',
+      });
+    }
     const user = db.getUser(userId);
     if (!user) return res.status(404).json({ error: 'User not found' });
     const entries = db.getCabinetEntries(userId);

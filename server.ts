@@ -77,10 +77,25 @@ app.patch('/api/users/:userId', (req, res) => {
   res.json({ user });
 });
 
+// The app ships with no data. Load it with scripts/load_data.py; these two only clear it or read it again.
 app.post('/api/users/reset', async (req, res) => {
-  await deleteAllDocumentFiles();
-  const state = db.resetToSeed();
-  res.json({ message: 'Database reset to initial fictional seeds', state });
+  try {
+    await deleteAllDocumentFiles();
+    await db.clearAll();
+    res.json({ message: 'All data deleted. Load data again with scripts/load_data.py.' });
+  } catch (err: any) {
+    res.status(500).json({ error: String(err?.message || err) });
+  }
+});
+
+// scripts/load_data.py calls this after loading, so the running app sees the new data without a restart.
+app.post('/api/admin/reload', async (req, res) => {
+  try {
+    const state = await db.reload();
+    res.json({ message: 'Data read again.', users: Object.keys(state.users).length, status: db.status() });
+  } catch (err: any) {
+    res.status(500).json({ error: String(err?.message || err) });
+  }
 });
 
 // 3. Cabinet Entries & Access Gateway
