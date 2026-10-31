@@ -342,6 +342,15 @@ check('AC2: only the Nordea agent module writes the Nordea section', nordeaSrc.i
 check('AC1: the dispatcher and round engine open no agent store at all',
   !/(userStore|cmStore|nordeaStore)/.test(readSrc('../src/server/arch/dispatcher.ts')) && !/(userStore|cmStore|nordeaStore)/.test(readSrc('../src/server/arch/rounds.ts')));
 
+// --- AC11/F10: the in-app Abel (the LLM) never opens user.db or any architecture store -
+// its facts come through the access gateway. "Abel" as the architecture's personal agent is
+// the Abel mode of the personal agent (personalLabel), not the LLM module.
+const abelSrc = readSrc('../src/server/abel.ts');
+check('AC11: the in-app Abel module imports no architecture store and no user.db access',
+  !/(arch\/store|userStore|cmStore|nordeaStore|contextStore|loadUserDb)/.test(abelSrc), (abelSrc.match(/from\s+['"][^'"]+['"]/g) ?? []).join(','));
+check('AC11: Abel reads its cabinet through the access gateway, and only there',
+  abelSrc.includes('readCabinetThroughGateway') && !/abel_records/.test(abelSrc.replace(/readCabinetThroughGateway|previewCabinetForAgent/g, '')), '');
+
 // --- AC6: a contribution runs as a real build round: open -> contributions -> done -> finalise -> stored
 const UID9 = 'rounduser';
 S.saveNordeaDb({ userId: UID9, accounts: [], transactions: [{ id: 'r1', userId: UID9, date: '2026-10-01', category: 'transport', amount: -100, account: 'current', description: 'Fuel for the car' }] });
