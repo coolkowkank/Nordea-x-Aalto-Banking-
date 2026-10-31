@@ -1,16 +1,3 @@
-<div align="center">
-<img width="1200" height="475" alt="GHBanner" src="https://ai.google.dev/static/site-assets/images/share-ais-513315318.png" />
-</div>
-
-# Abel × Nordea: Context Cabinet (branch `Bank_database`)
-
-A student concept: Abel, a banking assistant inside a Nordea-style app, works from a **Context Cabinet**,
-the things the customer chose to share (goals, life events, preferences) plus what Nordea notices in their
-transactions. Every read goes through an access gateway, and the customer decides what each side may see.
-All data is fictional.
-
-View the app in AI Studio: https://ai.studio/apps/8fb23cbd-15fa-415e-a3bd-7c8740e2a253
-
 ## What this branch is for
 
 **`Bank_database` structures the Nordea-side bank data** so it looks more like a real account statement:
