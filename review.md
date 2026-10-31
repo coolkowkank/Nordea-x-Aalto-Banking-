@@ -53,7 +53,7 @@ This branch starts from `Instict-prototype` @ `489d44e`. Its goal is to turn the
 ---
 
 ## 🧠 Context memory
-*Joe, updated 2026-10-31 20:19.*
+*Joe, updated 2026-10-31 20:21.*
 
 - **Goal:** three agents (personal / Context Memory / Nordea), each opening only its own DB, build a shared per-customer `context.md`; human only for first start and high-risk decisions. Done = AC1–AC12.
 - **Base:** `Instict-prototype` @ `489d44e`. Branch changes so far: `review.md` only.
@@ -63,7 +63,8 @@ This branch starts from `Instict-prototype` @ `489d44e`. Its goal is to turn the
 - **Verified:** F16, F17 @230a94d; F7 (structure) @a4d16bc; F18, F19 @a2263af (test:arch 122/122, lint clean).
 - **Verified:** F20, F21 (risk side), F22 @19a2242 (test:arch 133/133, lint clean).
 - **Awaiting Bill (handed over 20:18, 2 h early):** F23, F8 `fixed @147b0b8`. F23: plain `debt` dropped (kept debt collector; added arrears, bankrupt, can't pay); Abel back on its narrow list (`ABEL_PRIVATE_TOPIC`), wide `SENSITIVE_TOPIC` for AC7 only. F8: decay candidates from `cm.db` only; detects churned transactions (same total, different ids), entries > 30 days without tx ids, Nordea entries without evidence; flags name the reason. Side fix: Nordea proposals lacked `roundId`, so finalise auto-store skipped them; Instinct asks if Bill wants it logged. test:arch 144/144, lint clean.
-- **Next (Instinct):** F9 (raw transactions to the personal agent), **ETA 21:30**.
+- **Next (Instinct):** F9 (raw transactions to the personal agent), **ETA 21:30**; early code @a66712c, off-turn, not handed over. Bill reviews F23 + F8 @147b0b8 only.
+- **Rule 3a reminder (Instinct):** an off-turn commit message states the **current** turn, `TURN: Bill (unchanged)`, not `TURN: Instinct`.
 - **Open:** F9, F10, F11 (+ F8, F23 awaiting Bill).
 - **Accepted:** Nordea sees goal titles only; personal agent decides what is shareable (AC3).
 - **Order:** F9 → F10 → F11.
