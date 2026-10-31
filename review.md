@@ -1,4 +1,4 @@
-TURN: Instinct
+TURN: Bill
 
 # review.md: quality control for `instinct-prototype-v2`
 
@@ -106,12 +106,12 @@ Baseline review of `Instict-prototype` @ `489d44e` against the expectation. Seve
 
 | Id | Sev | AC | Finding | Evidence | Status |
 |:-:|:-:|:-:|---|---|:-:|
-| F1 | H | AC2 | There is no `context.md` or any shared working document. The cabinet is rows in `cm.db`; no agent sees the context as a whole. | `src/server/arch/store.ts` (only `.db` files); no markdown rendering anywhere in `src/server`. **Design accepted (#B1) with conditions:** (a) the sections are stored as structured rows (agent, title, detail, evidence, observed/inferred) and `context.md` is *rendered* from them; the CM agent stores from those rows at finalise, never by parsing markdown; (b) section ownership is enforced, not by convention: one writer module per section, so the AC1 allowlist pins each agent to its own section, plus a test; (c) the personal agent answers chat from the finished `context.md` (AC3). | open |
+| F1 | H | AC2 | There is no `context.md` or any shared working document. The cabinet is rows in `cm.db`; no agent sees the context as a whole. | `src/server/arch/store.ts` (only `.db` files); no markdown rendering anywhere in `src/server`. **Design accepted (#B1) with conditions:** (a) the sections are stored as structured rows (agent, title, detail, evidence, observed/inferred) and `context.md` is *rendered* from them; the CM agent stores from those rows at finalise, never by parsing markdown; (b) section ownership is enforced, not by convention: one writer module per section, so the AC1 allowlist pins each agent to its own section, plus a test; (c) the personal agent answers chat from the finished `context.md` (AC3). | fixed @1040ff7 |
 | F2 | H | AC1 | Isolation is by convention only. All three agents are functions in one module, and several functions open other agents' databases: the personal agent's `chat()` opens `cm.db`; `contribute()` opens `user.db`, `cm.db` and `nordea.db`; `explainEntry()` opens `cm.db`, `user.db` and the bus. | `arch/agents.ts` lines 86, 111, 361–367, 442–447; `store.ts` header comment ("enforced by code convention") | verified @7950f5d (agent modules); app layer → F12 |
 | F3 | H | AC6 | No build-round lifecycle and no real messaging. `postMessage` only appends to a log; nothing reads pending messages and dispatches them to an agent. HTTP routes call agent functions in a fixed order. | `store.ts:311`; `arch/routes.ts` | verified @7950f5d; edge case → F13 |
 | F4 | H | AC3 | The personal agent never contributes to the shared context. Only the Nordea agent can create a cabinet entry. | `agents.ts:426` (`proposedBy: 'nordea'` is the only writer) | open |
 | F5 | H | AC4 | The Context Memory agent does no retrieval worth the name and no synthesis: keyword overlap, no ranking, no dedupe or conflict handling, no `observed` or `inferred` marker. | `agents.ts:112`, `:155` | open |
-| F6 | M | AC5, AC1 | The Nordea agent decides what to contribute from `user.db` goals it reads directly. It should read `context.md` instead. | `agents.ts:365` (`const goals = u.goals`) | open |
+| F6 | M | AC5, AC1 | The Nordea agent decides what to contribute from `user.db` goals it reads directly. It should read `context.md` instead. | `agents.ts:365` (`const goals = u.goals`) | fixed @1040ff7 |
 | F7 | M | AC7 | Every Nordea entry needs customer approval (merge review); there are no risk levels and no standing permissions at first start. | `decideProposal`, `agents.ts:403` | open |
 | F8 | M | AC8, AC1 | Decay detection runs inside the Context Memory path but reads `nordea.db` and `user.db` directly, and only detects a changed total, not age or missing evidence. | `detectStaleEntries`, `agents.ts:246–273` | open |
 | F9 | M | AC5 | `agent-query` to the Nordea agent returns up to 3 raw transactions (date, amount, description) to the personal agent. | `agents.ts:172` | open |
@@ -167,4 +167,21 @@ B1b: if all three agents import one contextStore with writeCustomer/Memory/Norde
 B1c: the personal agent's chat reply should come from context.md in this batch, not later
 FACT: f868aba not reviewed yet (rule 3a); I'll review F1 at the commit you hand over
 NEXT: Instinct
+```
+
+### [Instinct] 2026-10-31 18:19
+
+```
+DID: B1a sections are structured rows (id/title/detail/source/status/evidence/at) in a JSON sidecar; context.md is rendered from the rows; CM finalise stores the snapshot from the rows, never parsed markdown @1040ff7
+DID: B1b writeSection is module-private; agents can only import their own writer (writeCustomer/Memory/NordeaSection); AC2 source-scan checks pin each agent module to its own writer @1040ff7
+DID: B1c chat answers from the finished context.md (memory + nordea rows, active entries only, numbers grounded); the live CM query remains only as the pre-first-round path; parked still gated via the bus mirror @1040ff7
+DID: F6 Nordea reads goals from the Customer section rows - no goal payloads in messages, no user.db @1040ff7
+F1: fixed @1040ff7
+F6: fixed @1040ff7
+FACT: test:arch 95/95, lint clean, test + check:feed green; live smoke: chat "how much have I saved for the car?" answers 83.5 EUR with used=[user-db, context-md] @1040ff7
+FACT: two old chat-boundary checks contradicted B1c (they required a CM bus reply after a document exists); replaced with doc-path checks plus a legacy-path check on a pre-round user
+FACT: deleting any of the three agent DBs now also deletes the shared document (stale without it; rebuilt next round)
+FACT: CM rewrites its memory section on accept/dispute/decay-flag so the document tracks the cabinet between rounds
+ETA: next batch F4+F5 after your review
+NEXT: Bill
 ```
