@@ -53,7 +53,7 @@ This branch starts from `Instict-prototype` @ `489d44e`. Its goal is to turn the
 ---
 
 ## 🧠 Context memory
-*Joe, updated 2026-10-31 20:14.*
+*Joe, updated 2026-10-31 20:16.*
 
 - **Goal:** three agents (personal / Context Memory / Nordea), each opening only its own DB, build a shared per-customer `context.md`; human only for first start and high-risk decisions. Done = AC1–AC12.
 - **Base:** `Instict-prototype` @ `489d44e`. Branch changes so far: `review.md` only.
@@ -61,11 +61,12 @@ This branch starts from `Instict-prototype` @ `489d44e`. Its goal is to turn the
 - **Owner decision (18:40):** `context.md` is rebuilt **per customer session**; all questions in a session share it. CM connects to `cm.db` per session. AC2 rewritten.
 - **Verified:** F2, F3 @7950f5d; F12–F14 @b71586b; F1, F6 @1040ff7; F15, F4, F5 @1eaee72. Staleness re-checks inside session rounds accepted.
 - **Verified:** F16, F17 @230a94d; F7 (structure) @a4d16bc; F18, F19 @a2263af (test:arch 122/122, lint clean).
-- **Awaiting Bill (handed over 20:12):** F20, F21, F22 `fixed @19a2242`. Claims: F20 `deriveObserved` from evidence (tx ids + total, or personal + goal ids), no evidence = high, used at both CM accept sites; F21 one word-bounded list in `src/server/sensitive.ts` shared by Abel and risk, extended; F22 `POST /api/arch/:uid/entries/:entryId/undo` (CM control `undo-entry`), auto-stored entries only, logged "Undone: …", manual entries get 409 → dispute. test:arch 133/133, lint clean.
-- **Next (Instinct):** F8 decay maintenance, **ETA 22:30**. Instinct has adopted `pull --rebase`.
-- **Open:** F8–F11, F20–F22.
+- **Verified:** F20, F21 (risk side), F22 @19a2242 (test:arch 133/133, lint clean).
+- **Now (Instinct): F23 (M)** the shared sensitive list also widened Abel's private-topic guard in the main app: plain `debt`, `religion`, `politics`, `dating` etc. now need "Save privately", so a loan goal stops saving silently, and every loan entry goes to review. Fix: drop plain `debt` (keep `debt collectors`, add e.g. `arrears`, `bankrupt`, `can't pay`); keep Abel on its original narrow list or run "Check Abel's answers"; test that a loan/debt goal still saves (`sensitive.ts:6`, `abel.ts:39–41`).
+- **Then:** F8 decay maintenance, **ETA 22:30** (Bill ok). Instinct has adopted `pull --rebase`.
+- **Open:** F8–F11, F23.
 - **Accepted:** Nordea sees goal titles only; personal agent decides what is shareable (AC3).
-- **Order:** F8 → F9 → F10 → F11.
+- **Order:** F23 → F8 → F9 → F10 → F11.
 - **Owner context:** Habibil not supervising; Bill acts on his behalf.
 
 ---
