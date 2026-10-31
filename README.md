@@ -1,34 +1,27 @@
 ## At a glance
 
-How new account data becomes bank records, and how Nordea's observations reach Abel and the adviser only after the customer confirms them and only through the access gateway.
+What this branch changes in how the Nordea-side bank data is stored.
 
 ```mermaid
 flowchart LR
-  subgraph IN["New account data"]
-    feed["Supabase table<br/>nordea_feed row"]
-    file["File upload<br/>More → Nordea account data"]
+  subgraph B["Before"]
+    direction TB
+    b1["Ids by position<br/>nd-lauri-0, nd-lauri-1 …"]
+    b2["Every import replaces<br/>the whole list"]
+    b3["Balances overwritten,<br/>no history"]
+    b4["Nordea cards with<br/>no source shown"]
   end
-  apply["applyNordeaData<br/>mode: snapshot or incremental"]
-  subgraph REC["Bank records in abel_records"]
-    acc["Accounts<br/>key · type · iban · currency"]
-    tx["Transactions<br/>stable id · bankId · status<br/>original vs app category"]
-    bal["Balance snapshots<br/>dated history"]
-    batch["Import batches<br/>added · skipped · updated"]
+  subgraph A["With Bank_database"]
+    direction TB
+    a1["Stable ids + banking detail<br/>bankId · status · counterparty"]
+    a2["Snapshot or incremental import<br/>known rows skipped, every import logged"]
+    a3["Dated balance snapshots<br/>history kept"]
+    a4["Nordea cards carry evidence<br/>transactions · period · when"]
   end
-  obs["Nordea noticed cards<br/>with evidence:<br/>transactions · period · hash"]
-  cust{"Customer<br/>confirms or rejects"}
-  gate["Access gateway<br/>every read checked and logged"]
-  abel["Abel<br/>AI assistant"]
-  adv["Nordea adviser<br/>only during a one-time share"]
-
-  feed --> apply
-  file --> apply
-  apply --> acc & tx & bal & batch
-  tx --> obs
-  obs --> cust
-  cust -->|confirmed| gate
-  gate --> abel
-  gate --> adv
+  b1 --> a1
+  b2 --> a2
+  b3 --> a3
+  b4 --> a4
 ```
 
 ## What this branch is for
