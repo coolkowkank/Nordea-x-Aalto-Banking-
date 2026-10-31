@@ -86,7 +86,7 @@ Open **http://localhost:3000/arch.html** for the three-agent demo UI. The develo
 | `npm run lint` | Type-check with TypeScript (`tsc --noEmit`) |
 | `npm test` | Run the bank-records tests |
 | `npm run check:feed` | Validate the Nordea feed CSV applies cleanly |
-| `npm run test:arch` | Run the three-agent architecture checks (184 assertions) |
+| `npm run test:arch` | Run the three-agent architecture checks |
 
 ## 🔄 How a session works
 
@@ -165,7 +165,7 @@ All under `/api/arch/:uid/` (`src/server/arch/routes.ts`):
 
 | Check | Command | Covers |
 |---|---|---|
-| Architecture tests | `npm run test:arch` | 184 assertions: the one-database rule (source scan), per-session documents, rounds, risk rules, permissions, decay, undo, the Abel integration and its negative cases |
+| Architecture tests | `npm run test:arch` | 188 assertions: the one-database rule (source scan), per-session documents, rounds, risk rules, permissions, decay, undo, the Abel integration and its negative cases |
 | Type check | `npm run lint` | `tsc --noEmit` across the app |
 | Bank records | `npm test` | Feed loading and bank-record maths |
 | Feed CSV | `npm run check:feed` | The Nordea feed CSV applies cleanly |
@@ -199,7 +199,7 @@ public/
   arch.html        three-agent demo UI
   dev-monitor.html developer monitor
 scripts/
-  test-arch.ts     184 architecture assertions
+  test-arch.ts     the architecture assertions (count in the Checks table)
   load_data.py     fictional bank data loader (see seed/README.md)
 ```
 
