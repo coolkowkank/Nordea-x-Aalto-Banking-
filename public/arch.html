@@ -44,7 +44,7 @@
 </head>
 <body>
 <div class="topbar">
-  <div class="title">Three stores, three agents <span style="font-size:13px;background:#5a4a12;color:#e8c468;border-radius:6px;padding:3px 9px;vertical-align:middle;">LOCAL PROTOTYPE</span><small>Three JSON stores in one server process - separation by code convention, not credentials or network isolation. Every exchange between agents is an explicit message you can read below.</small></div>
+  <div class="title">Three stores, three agents <span style="font-size:13px;background:#5a4a12;color:#e8c468;border-radius:6px;padding:3px 9px;vertical-align:middle;">LOCAL PROTOTYPE</span><small>Three SQLite database files (one per store) in one server process - separation by code convention, not credentials or network isolation. Every exchange between agents is an explicit message you can read below.</small></div>
   <label class="who">Customer <input id="uid" value="lauri"></label>
 </div>
 <div class="note">The <b>sync airlock</b> gates only what a connected external personal agent pulls in (WhatsApp, calendar, notes, email). What you type to Abel goes straight in. Bank-side proposals are filtered by your goals and wait for your review. The cabinet advises - it never changes your bank data. <b>External-agent mode is simulated: no live connection to Meta or any external service - sync items are posted through a demo endpoint.</b></div>

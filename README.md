@@ -78,7 +78,7 @@ If it says "The developer monitor is off", the setting wasn't picked up (check t
 
 ## The three-database architecture
 
-`/arch.html` is the working prototype of the agreed target: three separate data stores, one agent each, explicit agent-to-agent messages. API under `/api/arch/:userId/`, tests in `scripts/test-arch.ts` (`npm run test:arch`, 27 checks), data in `data/arch/` as one JSON file per store.
+`/arch.html` is the working prototype of the agreed target: three separate data stores, one agent each, explicit agent-to-agent messages. API under `/api/arch/:userId/`, tests in `scripts/test-arch.ts` (`npm run test:arch`, 37 checks). Each store is a real SQLite database file in `data/arch/` (`<uid>.user.db`, `<uid>.cm.db`, `<uid>.nordea.db`, plus `<uid>.bus.db` for the message transport), one file per database per customer, opened through Node's built-in `node:sqlite`. The first version used JSON files; those migrate into SQLite on first open, with the original kept as a `.migrated` backup.
 
 - **User DB** - the personal agent's store (profile, goals, personal facts). Abel is the in-app personal agent; connecting an external agent (e.g. Meta Muse) swaps the role, disconnecting swaps back. Nothing is deleted either way.
 - **Context Memory DB** - the cabinet, the shared context between you and Nordea. Only the Context Memory agent writes it. It advises; it never changes bank data.
@@ -90,7 +90,13 @@ Run it: `npm install`, `python3 scripts/load_data.py seed/demo --target file`, `
 
 **What this prototype is not (yet):**
 
-- The three stores are JSON files in one server process. Agent separation is a code convention (each module only calls its own store), not credential- or network-level isolation. The approved target - three real databases with separate credentials (e.g. three Supabase projects) - is not built; it needs live infrastructure and separate approval.
+- The three stores are three separate SQLite database files, each opened only by its own agent's accessor module, in one OS process. That is real per-database file separation with retrieval isolation by convention, but NOT credential-, network- or OS-user-level isolation. The approved target - three hosted databases with separate credentials (e.g. three Supabase projects) - is still not built; it needs live infrastructure and separate approval.
+- Newer pieces on this branch:
+  - `POST /api/arch/:uid/agent-query` + `scripts/personal-agent-client.ts`: a SIMULATED external personal agent as a separate local process over real HTTP. The final answer is composed in the client from the CM and Nordea agents' bus replies; the server supplies facts, never the wording. Nordea replies are aggregates and never carry account identifiers.
+  - Numeric grounding: the personal agent's replies are checked against the retrieved facts; numbers that do not appear in the facts are replaced by a plain no-figures answer (deterministic check, not a model).
+  - Staleness: when Nordea-side evidence behind a cabinet entry changes, the Context Memory agent marks the entry stale, tells the personal agent (flag-stale), asks the Nordea agent for a refresh, and the refreshed proposal goes back through merge review.
+  - `scripts/rag-demo.ts`: local retrieval demonstrator. TF-IDF over the customer's own stores only, deterministic answer composition - no embeddings, no LLM, labeled as such.
+  - The developer monitor (`/dev-monitor.html`, DEV_MONITOR=1) shows a live architecture panel: real per-database row counts, agent on/off state and the actual bus message tail - real stored state only, no fabricated activity.
 - The connect button is a mode selector. There is no real Meta (or any external agent) integration; `/api/arch/:uid/sync` is a stand-in HTTP endpoint where an external agent's items can be posted for the demo.
 - The Nordea store is a one-time copy of the customer's loaded bank data; there is no refresh loop (delete it and it re-copies on next access). Staleness detection exists on the main app side (stale goals), not in this module.
 - Retrieval is keyword overlap, not embeddings/RAG.
