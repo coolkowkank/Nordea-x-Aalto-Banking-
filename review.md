@@ -1,4 +1,4 @@
-TURN: Instinct
+TURN: Bill
 
 # review.md: quality control for `instinct-prototype-v2`
 
@@ -116,9 +116,9 @@ Baseline review of `Instict-prototype` @ `489d44e` against the expectation. Seve
 | F9 | M | AC5 | `agent-query` to the Nordea agent returns up to 3 raw transactions (date, amount, description) to the personal agent. | `agents.ts:172` | open |
 | F10 | M | AC11 | The in-app Abel (the LLM) never reads `user.db` or any architecture store; it uses `abel_records` through the access gateway. In the prototype, "Abel" in the architecture is only a label. | `abel.ts:16`, `arch/agents.ts:22` | open |
 | F11 | L | AC12 | No tests yet for any of AC1–AC9 beyond what the current 74 checks cover. | `scripts/test-arch.ts` | open |
-| F12 | M | AC1, AC6 | The app layer still makes agent decisions from direct database reads. `contribute()` checks parking and counts goals by opening `cm.db` and `user.db`; `recheckBeforeReuse()` reads goals and active entries to decide whether a decay round runs. The customer dashboard (`archState`, `listEntries`) reading every store is fine; deciding *for* an agent is not. Ask the agent by control message, or let the round itself decide (a decay round with nothing to check already ends cleanly). | `arch/orchestrator.ts:68`, `:71`, `:77`, `:163–165` | open |
-| F13 | L | AC6 | `runRound` marks a round `stored` after the finalise dispatch without checking that the CM agent actually stored it (e.g. 0 messages delivered). Set `stored` only on the CM agent's finalise reply; otherwise `step-limit` or `failed`. | `arch/rounds.ts:114–115` | open |
-| F14 | L | AC1, AC12 | The AC1 test is a blocklist on three store names. An agent importing `store/common.ts` (generic `openDb` by path), `node:sqlite` or `fs` would still pass. Make it an allowlist: each agent may import only its own store, `busStore`, `dispatcher`, `rounds`, `text` and `types`. Accepted exception: `nordea.ts` importing the app's `db.ts` as Nordea's core bank source. | `scripts/test-arch.ts:318–322` | open |
+| F12 | M | AC1, AC6 | The app layer still makes agent decisions from direct database reads. `contribute()` checks parking and counts goals by opening `cm.db` and `user.db`; `recheckBeforeReuse()` reads goals and active entries to decide whether a decay round runs. The customer dashboard (`archState`, `listEntries`) reading every store is fine; deciding *for* an agent is not. Ask the agent by control message, or let the round itself decide (a decay round with nothing to check already ends cleanly). | `arch/orchestrator.ts:68`, `:71`, `:77`, `:163–165` | fixed @b71586b |
+| F13 | L | AC6 | `runRound` marks a round `stored` after the finalise dispatch without checking that the CM agent actually stored it (e.g. 0 messages delivered). Set `stored` only on the CM agent's finalise reply; otherwise `step-limit` or `failed`. | `arch/rounds.ts:114–115` | fixed @b71586b |
+| F14 | L | AC1, AC12 | The AC1 test is a blocklist on three store names. An agent importing `store/common.ts` (generic `openDb` by path), `node:sqlite` or `fs` would still pass. Make it an allowlist: each agent may import only its own store, `busStore`, `dispatcher`, `rounds`, `text` and `types`. Accepted exception: `nordea.ts` importing the app's `db.ts` as Nordea's core bank source. | `scripts/test-arch.ts:318–322` | fixed @b71586b |
 
 **Suggested order:** F1 (`context.md`) with F12 → F4, F5, F6 → F7 → F8 → F9 → F10 → F11, F13, F14 alongside.
 
@@ -199,4 +199,21 @@ FACT: titles-only to Nordea accepted for now; in F1 the personal agent decides w
 ASK@Instinct #B1: for F1, please state the context.md sections, who writes each, and how CM stores it as structured entries (AC4) before or with the code
 ANS #J1: yes; from now on rules 4+6 (hash check, honour ETA)
 NEXT: Instinct
+```
+
+### [Instinct] 2026-10-31 17:50
+
+```
+DID: F12 the app no longer opens agent DBs to decide: contribute(), decay re-checks and the import hook ask each agent by control message (new status/prepare controls); a personal-off decay re-check is skipped (the round needs its goal titles) @b71586b
+DID: F13 a round is stored only on the CM agent's stored:true finalise reply, else failed @b71586b
+DID: F14 the AC1 test is now an import allowlist per agent module (own store + busStore + dispatcher + rounds + text + types; nordea also ../../db.js) @b71586b
+F12: fixed @b71586b
+F13: fixed @b71586b
+F14: fixed @b71586b
+FACT: test:arch 86/86, lint clean, test + check:feed green; HTTP smoke: the contribute 409 now comes from the Nordea agent's own prepare report @b71586b
+ANS #B1: context.md per customer = header (round id + timestamps, CM-written) + # Customer (personal, from user.db, only what standing permissions allow Nordea to see: goal titles by default, a detail only if the customer allowed sharing it) + # Context memory (CM: deduped relevant entries, conflicts flagged) + # Nordea (nordea: aggregates + evidence, no identifiers or raw transactions)
+ANS #B1: physical home is a new store/contextStore.ts all three may open (AC2's shared document); per-section write functions (writeCustomerSection/writeMemorySection/writeNordeaSection) let the AC1 allowlist pin each agent to its own section
+ANS #B1: at finalise the CM agent parses the finished document into structured entries (sourceAgent, title, detail, evidence, observed|inferred, timestamps) in cm.db (AC4), then confirms stored per F13
+ETA: 19:30 F1 code + tests
+NEXT: Bill
 ```
