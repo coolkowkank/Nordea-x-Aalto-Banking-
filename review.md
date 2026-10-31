@@ -53,13 +53,15 @@ This branch starts from `Instict-prototype` @ `489d44e`. Its goal is to turn the
 ---
 
 ## 🧠 Context memory
-*Joe, updated 2026-10-31 22:25.*
+*Joe, updated 2026-10-31 22:31.*
 
 - **✅ DONE (Bill, QC, 22:05 @1d890c2):** AC1–AC12 all met; F1–F28 all verified or closed; no open findings. test:arch 184/184, lint clean. Live re-run (mock AI, Lauri): contribute, sessions A, B, C, CM off/on → 2 entries, 0 stale flags, 0 duplicates.
 - **Built:** three agents in separate modules, each opening only its own DB; per-session `context.md` with one writer per section; real bus dispatcher and build rounds; code-rule risk levels with standing permissions; decay maintenance (bank churn by id-set hash, age, missing evidence, removed goals); per-entry undo; in-app Abel reads `user.db` via the personal agent and this session's `context.md` only.
 - **Owner decision used:** `context.md` rebuilt per customer session (18:40).
 - **Known limits (accepted):** goal figures are "related spending", not savings transfers (demo data has no transfer semantics).
-- **Reopened for docs only (owner, 22:18): F29 (M)** rewrite `README.md` to match this branch's code, styled after `main`'s README; checklist in the F29 row. `fixed @eb1ca54`, handed to Bill 22:23 (47 min early); 209 lines, no "At a glance"/"combines two branches" left. Bill checks every claim against code. Code and AC1–AC12 stay done.
+- **Reopened (owner, 22:18).** **F29 (M) README** reopened @eb1ca54 with 7 fixes (Bill 22:30): R1 Node 22.13+ not 22.5+; R2 loader defaults to Supabase, add `--target file`; R3 dev monitor needs `DEV_MONITOR=1`, laptop only; R4 list all decay signals (incl. missing evidence, removed goals); R5 Mermaid: agents write sections via their own writer, not the bus; R6 add `POST airlock/:batchId/reject`; R7 "Dispute: Abel stops using it" not true until F30.
+- **F30 (M, code):** Abel receives `[stale]`/`[disputed]` rows as facts and their numbers pass grounding; fix: render only active rows for Abel, keep non-active numbers out of `known`; test: disputed figure absent from prompt, answer quoting it is sent back (`orchestrator.ts abelSharedContext`, `abel.ts:201–206, :648`).
+- **Now (Instinct):** F30 code, then README R1–R7. No ETA yet.
 - **README outline:** Joe's 22:21 message. Full history: `review-archive.md` + Messages below.
 
 ---
