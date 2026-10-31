@@ -58,6 +58,7 @@ export interface ChatBegin {
   parts?: string[];
   factSources?: string[];
   goalCount?: number;
+  sessionId?: string;
 }
 
 /**
@@ -65,7 +66,7 @@ export interface ChatBegin {
  * context - post a real query to the Context Memory agent on the bus. The orchestrator
  * runs the dispatcher so the CM agent itself answers; finishChat composes from the reply.
  */
-export function beginChat(uid: string, text: string): ChatBegin {
+export function beginChat(uid: string, text: string, sessionId?: string): ChatBegin {
   requireOn(uid);
   const trimmed = text.trim();
   const goalMatch = trimmed.match(/^(?:my goal is|goal:|add goal)\s+(.+)/i);
@@ -91,8 +92,8 @@ export function beginChat(uid: string, text: string): ChatBegin {
 
   // 2. Shared context comes from the session's context.md (F15/B1c); the orchestrator opens
   // the session round before calling this. Parked cabinet: answer from the User DB only.
-  if (getCabinetParkedMirror(uid)) return { kind: 'doc', parked: true, question: trimmed, used, parts, factSources, goalCount: u.goals.length };
-  return { kind: 'doc', question: trimmed, used, parts, factSources, goalCount: u.goals.length };
+  if (getCabinetParkedMirror(uid)) return { kind: 'doc', parked: true, question: trimmed, used, parts, factSources, goalCount: u.goals.length, sessionId };
+  return { kind: 'doc', question: trimmed, used, parts, factSources, goalCount: u.goals.length, sessionId };
 }
 
 /** Second half: compose the answer - from the finished context.md (B1c) or the CM agent's reply. */
@@ -107,7 +108,11 @@ export function finishChat(uid: string, begin: ChatBegin): { reply: string; used
   const parked = begin.parked === true;
   let entryHits: { title: string; detail: string; evidence?: Record<string, unknown> | null }[] = [];
   let nordeaHits: { title: string; detail: string; evidence?: Record<string, unknown> | null }[] = [];
-  if (!parked) {
+  // F16: only the document stamped with THIS session's id may answer; anything else is an
+  // earlier session's (or a maintenance round's) document and must not leak in.
+  const doc = loadContext(uid);
+  const docAvailable = !parked && doc !== null && doc.sessionId != null && doc.sessionId === (begin.sessionId ?? null) && doc.finalisedAt !== null;
+  if (docAvailable) {
     const q = words(trimmed);
     entryHits = readSectionRows(uid, 'memory').filter((r) => (r.status ?? 'active') === 'active' && overlaps(q, words(`${r.title} ${r.detail}`))).slice(0, 3);
     nordeaHits = readSectionRows(uid, 'nordea').filter((r) => overlaps(q, words(`${r.title} ${r.detail}`))).slice(0, 2);
@@ -125,12 +130,15 @@ export function finishChat(uid: string, begin: ChatBegin): { reply: string; used
   const bankish = ['balance', 'account', 'spent', 'spend', 'transaction', 'salary', 'money', 'save', 'saving'].some((w) => trimmed.toLowerCase().includes(w));
   if (!parts.length) {
     if (parked) return { reply: `I don't have enough in your User DB to answer that, and the cabinet is parked - reconnect it if you want me to use shared context again.`, used, memoryHits: 0 };
+    if (!docAvailable) return { reply: `I don't have enough in your User DB to answer that, and shared context is unavailable this session.`, used, memoryHits: 0 };
     if (bankish) return { reply: `I don't have your bank data - as your personal agent I only read your User DB and shared context the Context Memory agent hands me. Nordea's agent can propose goal-related insights to the cabinet for your review.`, used, memoryHits: 0 };
     return { reply: `I don't have enough context to answer that yet. All I have is what's in your User DB (${begin.goalCount ?? 0} goal${(begin.goalCount ?? 0) === 1 ? '' : 's'}) and the shared cabinet, which had nothing on this.`, used, memoryHits: 0 };
   }
   if (bankish && !used.includes('context-memory-db') && !used.includes('context-md')) parts.push(`For actual account figures, Nordea's agent works from the Nordea DB - I can't read it directly.`);
   const grounded = groundNumbers(parts.join(' '), factSources);
-  return { reply: grounded.reply, used, memoryHits: entryHits.length };
+  // F16: when the only document belongs to another session, say so plainly (no old rows served).
+  const suffix = !docAvailable ? ` Shared context is unavailable this session.` : '';
+  return { reply: grounded.reply + suffix, used, memoryHits: entryHits.length };
 }
 
 // ---------- Agent-to-agent queries (transport for the external demo client) ----------

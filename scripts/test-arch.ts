@@ -428,5 +428,29 @@ const conflictHits = hits5.filter((h) => h.title === 'Portugal holiday fund');
 check('F5: conflicting totals for one title are both served and flagged', conflictHits.length === 2 && conflictHits.every((h) => h.conflict === true), JSON.stringify(hits5).slice(0, 200));
 check('F5: retrieval ranks the best question match first', hits5.length >= 3 && hits5[0].title === 'Portugal holiday fund' && hits5[hits5.length - 1].title === 'Holiday ideas', JSON.stringify(hits5.map((h) => h.title)));
 
+
+// --- F16: a new session can never be answered from the previous session's document.
+// Seed a session document via a real chat, then turn an agent off and open a new session:
+// no round can run, and the answer must not contain the old session's rows.
+const UID13 = 'sessionleak';
+A.addGoalDirect(UID13, 'Save for a car');
+S.saveNordeaDb({ userId: UID13, accounts: [], transactions: [{ id: 'x1', userId: UID13, date: '2026-10-01', category: 'transport', amount: -100, account: 'current', description: 'Fuel for the car' }] });
+const c13 = A.contribute(UID13);
+A.decideProposal(UID13, c13.proposals[0].messageId, true);
+const s13a = A.chat(UID13, 'what do you know about my car saving?');
+check('F16 setup: the first session answers from its document', s13a.reply.includes('Shared context'), s13a.reply.slice(0, 100));
+A.setAgentOff(UID13, 'cm', true);
+const s13b = A.chat(UID13, 'what do you know about my car saving?', 'fresh-session');
+check('F16: an agent off at session start gives NO rows from the old session', !s13b.reply.includes('Shared context (via') && s13b.reply.toLowerCase().includes('shared context is unavailable this session'), s13b.reply.slice(0, 140));
+check('F16: the new session document is empty and stamped with the new session id', S.loadContext(UID13)!.sessionId === 'fresh-session' && S.loadContext(UID13)!.sections.memory.rows.length === 0);
+A.setAgentOff(UID13, 'cm', false);
+
+// --- F17: "my goal is ..." as a session's first message is saved BEFORE the round opens.
+const UID14 = 'goalfirst';
+const g14 = A.chat(UID14, 'my goal is to visit Japan next summer');
+check('F17: the goal reply still comes back', g14.reply.includes('Saved "to visit Japan next summer"'), g14.reply.slice(0, 80));
+const doc14 = S.loadContext(UID14)!;
+check('F17: the session round already contains the just-typed goal', doc14.sections.customer.rows.some((r) => r.title.toLowerCase().includes('japan')), JSON.stringify(doc14.sections.customer.rows.map((r) => r.title)));
+
 console.log(`\n${passed} passed, ${failed} failed`);
 process.exit(failed ? 1 : 0);

@@ -16,7 +16,7 @@ import './agents/nordea.js'; // side effect: registers the Nordea agent's bus ha
 import { loadUserDb, saveUserDb, deleteUserDb } from './store/userStore.js';
 import { loadCmDb, deleteCmDb } from './store/cmStore.js';
 import { loadNordeaDb, nordeaFileExists, deleteNordeaDb } from './store/nordeaStore.js';
-import { deleteContext, loadContext, renderContextMd } from './store/contextStore.js';
+import { deleteContext, loadContext, renderContextMd, resetContextForSession } from './store/contextStore.js';
 import {
   appendMessage, findMessage, getAgentsOff, setAgentsOff, loadBus, busKvGet, busKvSet, getCabinetParkedMirror,
 } from './store/busStore.js';
@@ -72,18 +72,25 @@ function saveSession(uid: string, session: ChatSession) { busKvSet(uid, 'chatSes
 export function chat(uid: string, text: string, clientSessionId?: string): { reply: string; used: string[]; sessionId: string } {
   const parked = getCabinetParkedMirror(uid); // the personal agent's parked gate, no status ping
   const { session, isNew } = resolveSession(uid, clientSessionId);
-  if (isNew && !parked && !getOff(uid).some((a) => a === 'personal' || a === 'cm' || a === 'nordea')) {
-    const round = runRound(uid, 'session', { question: text, sessionId: session.id });
-    session.roundId = round.id;
+  // F17: direct input (a typed goal) is saved BEFORE any round opens, so the session round's
+  // Customer section already includes it.
+  let begin = beginChat(uid, text, session.id);
+  if (isNew) {
+    // F16: a new session always starts from an empty document stamped with its id - even when
+    // no round can run (agent off, parked), an earlier session's rows must not leak in.
+    resetContextForSession(uid, session.id);
+    if (!parked && !getOff(uid).some((a) => a === 'personal' || a === 'cm' || a === 'nordea')) {
+      const round = runRound(uid, 'session', { question: text, sessionId: session.id });
+      session.roundId = round.id;
+    }
   }
-  let begin = beginChat(uid, text);
   if (begin.kind === 'direct') { saveSession(uid, { ...session, lastActivityAt: now() }); return { ...begin.direct!, sessionId: session.id }; }
   let answer = finishChat(uid, begin);
   if (!parked && !isNew && answer.memoryHits === 0 && loadContext(uid)?.finalisedAt) {
     // The document lacks CM-sourced content for this follow-up: top it up, then answer again.
     const round = runRound(uid, 'topup', { question: text, sessionId: session.id });
     if (!session.roundId) session.roundId = round.id;
-    begin = beginChat(uid, text);
+    begin = beginChat(uid, text, session.id);
     if (begin.kind === 'direct') { saveSession(uid, { ...session, lastActivityAt: now() }); return { ...begin.direct!, sessionId: session.id }; }
     answer = finishChat(uid, begin);
   }

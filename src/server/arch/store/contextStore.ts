@@ -30,6 +30,7 @@ export interface ContextRow {
 
 export interface ContextDoc {
   roundId: string | null;
+  sessionId: string | null; // F16: which chat session this document belongs to (null = not session-built)
   trigger: string | null;
   openedAt: string | null;
   finalisedAt: string | null;
@@ -43,7 +44,7 @@ const jsonPath = (uid: string) => path.join(ARCH_DIR, `${safeUid(uid)}.context.j
 export const contextMdPath = (uid: string) => path.join(ARCH_DIR, `${safeUid(uid)}.context.md`);
 
 const emptyDoc = (): ContextDoc => ({
-  roundId: null, trigger: null, openedAt: null, finalisedAt: null,
+  roundId: null, sessionId: null, trigger: null, openedAt: null, finalisedAt: null,
   sections: { customer: { rows: [] }, memory: { rows: [] }, nordea: { rows: [] } },
 });
 
@@ -111,6 +112,14 @@ export function writeCustomerSection(uid: string, rows: ContextRow[], note?: str
 export function writeMemorySection(uid: string, rows: ContextRow[], meta?: RoundMeta) { writeSection(uid, 'memory', rows, undefined, meta); }
 /** The Nordea agent's section (AC5): aggregates with evidence - no identifiers, no raw transactions. */
 export function writeNordeaSection(uid: string, rows: ContextRow[], meta?: RoundMeta) { writeSection(uid, 'nordea', rows, undefined, meta); }
+
+/** F16: a new chat session starts from an empty document stamped with its session id - even
+ * when no session round can run, so no earlier session's rows can leak into its answers. */
+export function resetContextForSession(uid: string, sessionId: string) {
+  const doc = emptyDoc();
+  doc.sessionId = sessionId;
+  save(uid, doc);
+}
 
 /** Round metadata: the Context Memory agent stamps the document when it finalises a round. */
 export function writeHeader(uid: string, meta: RoundMeta & { finalise?: boolean }) {
