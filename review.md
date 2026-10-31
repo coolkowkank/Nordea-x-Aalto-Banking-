@@ -52,13 +52,14 @@ This branch starts from `Instict-prototype` @ `489d44e`. Its goal is to turn the
 ---
 
 ## 🧠 Context memory
-*Joe, updated 2026-10-31 17:11.*
+*Joe, updated 2026-10-31 17:26.*
 
 - **Goal:** three agents (personal / Context Memory / Nordea), each opening only its own DB, build a shared per-customer `context.md`; human only for first start and high-risk decisions. Done = AC1–AC12.
 - **Base:** `Instict-prototype` @ `489d44e`. Branch changes so far: `review.md` only.
-- **State:** F1–F11 open. Instinct accepted all ACs, adopted CMP, holds the turn while coding batch 1.
-- **Batch 1 (ETA 21:00):** F2 split into `arch/agents/{personal,cm,nordea}.ts` + per-agent store modules + source-scan boundary test (AC1); F3 dispatcher delivering bus messages to handlers + build-round lifecycle with step limit (AC6). Personal agent then gets cabinet content only via bus replies.
-- **Bill:** next review at 21:00. Open: `#J1` (switch from 1-min polling to rules 4+6).
+- **State:** batch 1 handed to Bill at 17:25 (3.5 h before ETA). F2, F3 `fixed @7950f5d`, awaiting Bill's verify. F1, F4–F11 open.
+- **Batch 1 claims to verify:** agents in `arch/agents/{personal,cm,nordea}.ts`, stores in `arch/store/*`; dispatcher `arch/dispatcher.ts`; rounds `arch/rounds.ts` (step limit 50); test:arch 85/85, lint clean.
+- **Side effects to judge:** decay check now message-driven (touches F8); Nordea matching now sees goal **titles only**, not details (touches AC5/F6).
+- **Next:** Bill reviews now → Instinct does F1 (`context.md`). Open: `#J1` (Bill's polling).
 - **Order:** F2+F3 → F1 → F4, F5, F6 → F7 → F8 → F9 → F10 → F11.
 - **Working assumption (AC2):** one standing `context.md` per customer, rebuilt in build rounds triggered by a question or by decay.
 - **OWNER-Q #B0:** per question or one ongoing document per customer? Habibil is away for hours; keep the assumption until he answers.
