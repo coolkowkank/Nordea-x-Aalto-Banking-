@@ -12,7 +12,7 @@ import { assessProposalRisk, deriveObserved } from '../risk.js';
 import { loadCmDb, saveCmDb, storeRoundRecord, storeContextSnapshot } from '../store/cmStore.js';
 import { loadContext, readSectionRows, renderContextMd, writeHeader, writeMemorySection } from '../store/contextStore.js';
 import type { ContextRow } from '../store/contextStore.js';
-import { appendMessage, findMessage, loadBus, setCabinetParkedMirror, updateMessage } from '../store/busStore.js';
+import { appendMessage, findMessage, getAgentsOff, loadBus, setCabinetParkedMirror, updateMessage } from '../store/busStore.js';
 import { registerHandler } from '../dispatcher.js';
 import { loadRound, roundDone, recordStaleFlags } from '../rounds.js';
 
@@ -43,6 +43,14 @@ function decayCandidates(uid: string, goalIds?: string[]): { entry: ArchEntry; r
     // A personal-sourced entry without evidence carries no figure to re-check - never a candidate.
   }
   return out;
+}
+
+/**
+ * F24/AC8: customer-side entries decay too. Active entries proposed by the personal agent are
+ * confirmed against the User DB BY MESSAGE - a goal the customer dropped flags its entry stale.
+ */
+function goalCheckCandidates(uid: string): ArchEntry[] {
+  return loadCmDb(uid).entries.filter((e) => e.status === 'active' && e.proposedBy === 'personal' && e.goalIds.length > 0);
 }
 
 /** Goal titles as written in the Customer section of the shared context.md (AC2). */
@@ -167,6 +175,23 @@ function sendRefreshRequest(uid: string, roundId: string, candidates: { entry: A
  * Step one: it reads the goal titles from the shared context.md, asking the personal agent only for titles the document does not have yet.
  */
 function startDecayCheck(uid: string, roundId: string, goalIds?: string[]) {
+  // F24: first confirm the goals behind customer-side entries still exist (by message; the
+  // personal agent answers from its own DB). Skipped when the personal agent is off.
+  if (!getAgentsOff(uid)?.includes('personal')) {
+    const goalIdsToCheck = [...new Set(goalCheckCandidates(uid).flatMap((e) => e.goalIds))];
+    if (goalIdsToCheck.length) {
+      appendMessage(uid, {
+        from: 'cm', to: 'personal', type: 'query', status: 'pending',
+        summary: `Context Memory agent asks the personal agent to confirm ${goalIdsToCheck.length} goal id${goalIdsToCheck.length === 1 ? '' : 's'} still exist in the User DB.`,
+        payload: { purpose: 'decay-goals', roundId, goalIds: goalIdsToCheck },
+      });
+      return; // the decay-goals reply continues the round
+    }
+  }
+  continueDecayCheck(uid, roundId, goalIds);
+}
+
+function continueDecayCheck(uid: string, roundId: string, goalIds?: string[]) {
   const candidates = decayCandidates(uid, goalIds);
   if (!candidates.length) {
     // Nothing with stored evidence: no decay work. Both participants are done.
@@ -269,6 +294,32 @@ function handleMessage(uid: string, msg: AgentMessage) {
     const titleById = goalTitlesFromDoc(uid);
     for (const g of goals) titleById.set(g.id, g.title);
     sendRefreshRequest(uid, payload.roundId, decayCandidates(uid), titleById);
+    return;
+  }
+
+  // --- The personal agent answered the goal-existence check: missing goals flag their entries stale (F24).
+  if (msg.type === 'reply' && payload.purpose === 'decay-goals' && typeof payload.roundId === 'string') {
+    const found = new Set(((payload.goals ?? []) as { id: string }[]).map((g) => g.id));
+    const gone = goalCheckCandidates(uid).filter((e) => e.goalIds.every((g) => !found.has(g)));
+    if (gone.length) {
+      const cm = loadCmDb(uid);
+      const flags: StaleFlag[] = [];
+      for (const e of gone) {
+        const entry = cm.entries.find((x) => x.id === e.id && x.status === 'active');
+        if (!entry) continue;
+        entry.status = 'stale';
+        flags.push({ entryId: entry.id, title: entry.title, was: null, nowIs: 0, reason: 'goal-removed' });
+        appendMessage(uid, {
+          from: 'cm', to: 'personal', type: 'flag-stale',
+          summary: `Context Memory agent flags "${entry.title}" stale: the goal behind it no longer exists in the User DB.`,
+          payload: { entryId: entry.id, reason: 'goal-removed' },
+        });
+      }
+      saveCmDb(cm);
+      recordStaleFlags(uid, payload.roundId, flags);
+      appendMessage(uid, { from: 'cm', to: 'user', type: 'inform', summary: `Re-check before reuse: ${flags.length} accepted entr${flags.length === 1 ? 'y was' : 'ies were'} flagged stale because the goal behind ${flags.length === 1 ? 'it' : 'them'} was removed; the usual review rules apply.` });
+    }
+    continueDecayCheck(uid, payload.roundId);
     return;
   }
 

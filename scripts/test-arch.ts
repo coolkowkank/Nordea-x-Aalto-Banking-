@@ -597,5 +597,29 @@ check('F23: Abel keeps its narrow guard - a loan goal still saves without the pr
 check('F23: Abel still guards the genuinely private topics', ['cancer treatment fund', 'therapy sessions', 'gambling recovery'].every((t) => SENS.ABEL_PRIVATE_TOPIC.test(t)));
 check('F23: abel.ts uses the narrow ABEL_PRIVATE_TOPIC, not the wide risk list', fs.readFileSync(new URL('../src/server/abel.ts', import.meta.url), 'utf-8').includes('ABEL_PRIVATE_TOPIC') && !fs.readFileSync(new URL('../src/server/abel.ts', import.meta.url), 'utf-8').includes('SENSITIVE_TOPIC as SENSITIVE'));
 
+
+// --- F24: customer-side entries decay too - a goal removed from the User DB flags its entry stale.
+const UID25 = 'goalgoneuser';
+S.saveNordeaDb({ userId: UID25, accounts: [], transactions: [{ id: 'g1', userId: UID25, date: '2026-10-01', category: 'transport', amount: -100, account: 'current', description: 'Fuel for the car' }] });
+A.addGoalDirect(UID25, 'Save for a car');
+A.setStandingPermissions(UID25, 'high');
+A.contribute(UID25);
+const goalEntry = S.loadCmDb(UID25).entries.find((e) => e.proposedBy === 'personal')!;
+check('F24 setup: the goal entry is active in the cabinet', !!goalEntry && goalEntry.status === 'active' && goalEntry.goalIds.length === 1);
+const u25 = S.loadUserDb(UID25);
+u25.goals = []; // the customer drops the goal
+S.saveUserDb(u25);
+const goneRound = A.contribute(UID25);
+check('F24: removing the goal flags the customer-side entry stale in the next decay round', S.loadCmDb(UID25).entries.find((e) => e.id === goalEntry.id)?.status === 'stale' && goneRound.staleFlags.some((f) => f.entryId === goalEntry.id && f.reason === 'goal-removed'), JSON.stringify(goneRound.staleFlags));
+check('F24: the flag and the customer notice name the removed goal', S.loadBus(UID25).messages.some((m) => m.type === 'flag-stale' && m.summary.includes('no longer exists in the User DB')) && S.loadBus(UID25).messages.some((m) => m.type === 'inform' && m.summary.includes('goal behind')));
+
+const UID26 = 'goalkeptuser';
+S.saveNordeaDb({ userId: UID26, accounts: [], transactions: [{ id: 'k1', userId: UID26, date: '2026-10-01', category: 'transport', amount: -100, account: 'current', description: 'Fuel for the car' }] });
+A.addGoalDirect(UID26, 'Save for a car');
+A.setStandingPermissions(UID26, 'high');
+A.contribute(UID26);
+const keptRound = A.contribute(UID26); // goal still exists
+check('F24: an existing goal is confirmed - no false stale flag', !keptRound.staleFlags.some((f) => f.reason === 'goal-removed') && S.loadCmDb(UID26).entries.find((e) => e.proposedBy === 'personal')?.status === 'active', JSON.stringify(keptRound.staleFlags));
+
 console.log(`\n${passed} passed, ${failed} failed`);
 process.exit(failed ? 1 : 0);
