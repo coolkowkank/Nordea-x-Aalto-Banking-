@@ -82,7 +82,7 @@
   <div class="windows">
     <div class="window w-user">
       <div class="wtitle"><div class="dots"><div class="dot" style="background:#ff5f57"></div><div class="dot" style="background:#febc2e"></div><div class="dot" style="background:#28c840"></div></div><h2>User context</h2></div>
-      <div class="agentline"><span>Managing agent: <b>Abel</b> (user agent)<br><span id="abel-activity">observed activity: …</span></span></div>
+      <div class="agentline"><span>Managing agent: <b>Abel</b> (user agent) - configured role; a running agent process is not instrumented<br><span id="abel-activity">observed activity: …</span></span></div>
       <div class="cards" id="user-cards"></div>
       <div class="statusbar" id="user-db"></div>
     </div>
@@ -97,7 +97,7 @@
 
     <div class="window w-nordea">
       <div class="wtitle"><div class="dots"><div class="dot" style="background:#ff5f57"></div><div class="dot" style="background:#febc2e"></div><div class="dot" style="background:#28c840"></div></div><h2>Nordea agent context</h2></div>
-      <div class="agentline"><span>Managing agent: <b>Nordea adviser</b><br><span id="adviser-activity">observed activity: …</span></span></div>
+      <div class="agentline"><span>Managing agent: <b>Nordea adviser</b> - configured role; a running agent process is not instrumented<br><span id="adviser-activity">observed activity: …</span></span></div>
       <div class="cards" id="nordea-cards"></div>
       <div class="statusbar" id="nordea-db"></div>
     </div>
@@ -126,13 +126,11 @@ function cardHtml(e, opts = {}) {
   const isNew = !firstLoad && !knownIds.has(e.id);
   let tags = '';
   if (opts.collab) {
-    tags = e.eligibleNow
-      ? '<span class="elig elig-yes">ELIGIBLE - gateway-approved + active share</span>'
-      : '<span class="elig elig-no">NOT READABLE BY NORDEA SIDE - no active share</span>';
+    tags = '<span class="elig elig-yes">VISIBLE TO BOTH SIDES NOW - gateway-approved + active share</span>';
   } else if (e.pendingConfirmation) {
     tags = '<span class="elig elig-no">NOT SHARED - pending customer confirmation</span>';
   } else if (e.shared) {
-    tags = '<span class="elig elig-yes">IN COLLABORATIVE LIST</span>';
+    tags = '<span class="elig elig-yes">VISIBLE TO NORDEA SIDE NOW</span>';
   }
   return `<div class="card${isNew ? ' new' : ''}">
     <span class="chip chip-${esc(e.type)}">${esc(e.type.replace('_', ' '))}</span>
@@ -163,7 +161,11 @@ async function tick() {
   document.getElementById('subtitle').textContent =
     `Monitoring: ${d.userName} (${d.userId}) · read-only · polls every 3 s` +
     (d.demoPersona ? ' · demo persona from seed/demo - fictional data, not a real customer' : '');
-  const act = (a) => a ? `last observed: read ${a.itemsReadCount} card(s)${a.blockedCount ? `, ${a.blockedCount} blocked` : ''} at ${fmtTime(a.at)}` : 'no gateway reads observed yet';
+  const act = (a) => {
+    if (!a) return 'no gateway reads recorded';
+    const what = `read ${a.itemsReadCount} card(s)${a.blockedCount ? `, ${a.blockedCount} blocked` : ''} at ${fmtTime(a.at)}`;
+    return a.sinceStart ? `${what} (this run)` : `${what} (recorded in the loaded dataset, before this run)`;
+  };
   document.getElementById('abel-activity').textContent = 'Observed activity: ' + act(d.activity && d.activity.abel);
   document.getElementById('adviser-activity').textContent = 'Observed activity: ' + act(d.activity && d.activity.adviser);
 
@@ -171,13 +173,15 @@ async function tick() {
   renderCards(document.getElementById('user-cards'), d.panels.user.entries,
     'No user context cards yet. Add context in the app and it appears here.', { userPanel: true });
 
-  // Collaborative panel
+  // Collaborative panel: effective access, not potential eligibility. No active
+  // share means the Nordea side can read nothing, so the list is empty and says why.
   const share = d.panels.collaborative.shareActive;
+  const pot = d.panels.collaborative.potentialCount || 0;
   document.getElementById('collab-note').textContent = share
     ? 'One-time share ACTIVE. These cards pass the access gateway for both sides right now.'
-    : 'No active one-time share. The cards below pass the gateway rules for both sides, but the Nordea adviser may only actually read them while a share is active.';
+    : `No active one-time share, so the Nordea side can read nothing right now. ${pot} card(s) pass the gateway rules for both sides and would appear here if the customer starts a share.`;
   renderCards(document.getElementById('collab-cards'), d.panels.collaborative.entries,
-    'No cards are currently eligible for both sides.', { collab: true });
+    share ? 'No cards pass the gateway rules for both sides.' : 'Empty - no active share.', { collab: true });
 
   // Nordea panel
   renderCards(document.getElementById('nordea-cards'), d.panels.nordea.entries,
@@ -190,8 +194,9 @@ async function tick() {
     : `Database: <b>local file data/cabinet-db.json</b> - ${st.ok ? 'in use' : 'ERROR'} (Supabase not configured)`;
   document.getElementById('user-db').innerHTML =
     `<div class="dbdot${st.ok ? '' : ' err'}"></div><span>${dbLine}<br><span style="opacity:.65">${esc(st.message || '')}</span></span>`;
+  const storeLabel = st.mode === 'supabase' ? 'Supabase · abel_records' : 'local file data/cabinet-db.json';
   document.getElementById('collab-db').innerHTML =
-    `<div class="dbdot${share ? '' : ' warn'}"></div><span>Shared list only - <b>no own database</b><br><span style="opacity:.7">Cards mirror gateway-eligible records from the shared abel_records store · share ${share ? 'active' : 'inactive'}</span></span>`;
+    `<div class="dbdot${share ? '' : ' warn'}"></div><span>Shared list only - <b>no own database</b><br><span style="opacity:.7">Cards mirror gateway-eligible records from the same store (${storeLabel}) · share ${share ? 'active' : 'inactive'}</span></span>`;
   const f = d.feed || {};
   document.getElementById('nordea-db').innerHTML =
     `<div class="dbdot${st.ok ? '' : ' err'}"></div><span>Database: <b>${st.mode === 'supabase' ? 'Supabase · abel_records' : 'local file data/cabinet-db.json'}</b> - ${st.ok ? (st.mode === 'supabase' ? 'connected' : 'in use') : 'ERROR'} (same store as user window)<br><span style="opacity:.65">Input inbox: Supabase · nordea_feed - ${f.enabled ? (f.ok ? 'watching' : 'ERROR') + (f.lastCheck ? ' · last check ' + fmtTime(f.lastCheck) : '') : 'off (Supabase not configured; file upload still possible)'}${f.lastApplied ? ' · last applied ' + fmtTime(f.lastApplied.at) : ''}</span></span>`;
@@ -221,4 +226,4 @@ tick();
 setInterval(tick, 3000);
 </script>
 </body>
-                                                                                                                                                                                                          </html>
+</html>
