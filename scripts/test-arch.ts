@@ -621,5 +621,49 @@ A.contribute(UID26);
 const keptRound = A.contribute(UID26); // goal still exists
 check('F24: an existing goal is confirmed - no false stale flag', !keptRound.staleFlags.some((f) => f.reason === 'goal-removed') && S.loadCmDb(UID26).entries.find((e) => e.proposedBy === 'personal')?.status === 'active', JSON.stringify(keptRound.staleFlags));
 
+
+// --- F11/AC12: labeled coverage for AC3, AC4, AC5, AC7, AC8, AC9, AC10 (AC1, AC2, AC6 covered above).
+// AC3: the personal agent writes the Customer section from the User DB - goal TITLES only.
+const UID27 = 'ac3user';
+A.addGoalDirect(UID27, 'Save for a laptop', 'from my summer job savings');
+S.saveNordeaDb({ userId: UID27, accounts: [], transactions: [{ id: 'l1', userId: UID27, date: '2026-10-01', category: 'tech', amount: -200, account: 'current', description: 'Laptop store' }] });
+A.contribute(UID27);
+const custRows = S.readSectionRows(UID27, 'customer');
+check('AC3: the Customer section carries every goal by title from the User DB', custRows.some((r) => r.title === 'Save for a laptop'), JSON.stringify(custRows).slice(0, 120));
+const ctxMd27 = S.renderContextMd(UID27, S.loadContext(UID27)!);
+check('AC3: goal details and personal facts stay in the User DB until the customer allows sharing', custRows.every((r) => !r.detail) && !ctxMd27.includes('summer job'), ctxMd27.slice(0, 80));
+const ac3Chat = A.chat(UID27, 'what do you know about my laptop goal?');
+check('AC3: the personal agent answers from its own DB and the session document', ac3Chat.reply.length > 0 && ac3Chat.used.includes('user-db'), ac3Chat.used.join(','));
+
+// AC4: stored cabinet entries are structured: source agent, evidence, observed|inferred, timestamp.
+A.setStandingPermissions(UID27, 'high');
+A.contribute(UID27);
+const ac4Entry = S.loadCmDb(UID27).entries.find((e) => e.proposedBy === 'nordea')!;
+check('AC4: a stored entry records source agent, evidence, observed|inferred and a timestamp', !!ac4Entry && ac4Entry.evidence?.total != null && (ac4Entry.observed === 'observed' || ac4Entry.observed === 'inferred') && !!ac4Entry.createdAt, JSON.stringify(ac4Entry).slice(0, 160));
+
+// AC5: the Nordea section carries aggregates with evidence - no account identifiers, no raw rows.
+const nordeaRows = S.readSectionRows(UID27, 'nordea');
+check('AC5: the Nordea section is aggregates with evidence, no account identifiers', nordeaRows.length >= 1 && nordeaRows.every((r) => r.evidence?.total != null && !JSON.stringify(r).includes('"account"') && !('transactions' in (r.evidence ?? {}))), JSON.stringify(nordeaRows).slice(0, 160));
+
+// AC7: risk levels are decided by code rules - the same proposal scores the same way twice, and high always waits.
+const ac7Msg = fakeMsg('nordea', { transactionIds: ['l1'], total: 200 }, 'Laptop spending');
+check('AC7: the risk rule is deterministic code, not agent judgement', RK.assessProposalRisk(ac7Msg) === RK.assessProposalRisk(ac7Msg) && RK.assessProposalRisk(ac7Msg) === 'medium');
+check('AC7: offers and sharing beyond the three agents are always high risk', RK.assessProposalRisk(fakeMsg('nordea', { transactionIds: ['l1'], total: 200, forOffers: true })) === 'high' && RK.assessProposalRisk(fakeMsg('nordea', { transactionIds: ['l1'], total: 200, shareBeyond: true })) === 'high');
+
+// AC8: decay asks the OWNING agent by message - the CM never opens another agent's DB.
+const ac8Bus = S.loadBus(UID27).messages;
+check('AC8: decay confirmation travels by bus message (cm -> personal goal check, cm -> nordea refresh)', ac8Bus.some((m) => m.from === 'cm' && m.to === 'personal' && (m.payload as { purpose?: string }).purpose === 'decay-goals') && ac8Bus.some((m) => m.from === 'cm' && m.to === 'nordea' && m.type === 'refresh'));
+
+// AC9: every automatic change is logged, explainable, disputable, undoable.
+const ac9Entry = S.loadCmDb(UID27).entries.find((e) => e.autoAccepted)!;
+check('AC9: every automatic store is logged to the customer', S.loadBus(UID27).messages.some((m) => m.type === 'inform' && m.summary.includes('Stored automatically') && m.summary.includes(ac9Entry.title)));
+check('AC9: an automatic store is explainable', (A.explainEntry(UID27, ac9Entry.id).explanation.reviewedBy ?? '').includes('automatically'));
+A.disputeEntry(UID27, ac9Entry.id, 'not mine');
+check('AC9: an automatic store is disputable', S.loadCmDb(UID27).entries.find((e) => e.id === ac9Entry.id)?.status === 'disputed');
+
+// AC10: the architecture runs without an AI key - no arch module imports the LLM layer.
+const archSrcs = ['orchestrator.ts', 'rounds.ts', 'dispatcher.ts', 'agents/personal.ts', 'agents/cm.ts', 'agents/nordea.ts'].map((f) => readSrc(`../src/server/arch/${f}`));
+check('AC10: no architecture module imports the LLM layer - the whole flow is deterministic', archSrcs.every((src) => !/llm\.js|getProvider|openai|anthropic/i.test(src)));
+
 console.log(`\n${passed} passed, ${failed} failed`);
 process.exit(failed ? 1 : 0);
