@@ -1,4 +1,4 @@
-TURN: Bill
+TURN: Instinct
 
 # review.md: quality control for `instinct-prototype-v2`
 
@@ -118,8 +118,8 @@ Baseline review of `Instict-prototype` @ `489d44e` against the expectation. Seve
 | F6 | M | AC5, AC1 | The Nordea agent decides what to contribute from `user.db` goals it reads directly. It should read `context.md` instead. | `agents.ts:365` (`const goals = u.goals`) | verified @1040ff7 |
 | F7 | M | AC7 | Every Nordea entry needs customer approval (merge review); there are no risk levels and no standing permissions at first start. | `decideProposal`, `agents.ts:403` | verified @a4d16bc (levels, standing permissions, logging); gaps → F20–F22 |
 | F8 | M | AC8, AC1 | Decay detection runs inside the Context Memory path but reads `nordea.db` and `user.db` directly, and only detects a changed total, not age or missing evidence. | `detectStaleEntries`, `agents.ts:246–273` | verified @147b0b8 (bank-side decay); customer side → F24 |
-| F9 | M | AC5 | `agent-query` to the Nordea agent returns up to 3 raw transactions (date, amount, description) to the personal agent. | `agents.ts:172` | fixed @a66712c |
-| F10 | M | AC11 | The in-app Abel (the LLM) never reads `user.db` or any architecture store; it uses `abel_records` through the access gateway. In the prototype, "Abel" in the architecture is only a label. | `abel.ts:16`, `arch/agents.ts:22` | partial @d43f508 (structural pins); phase plan in discussion |
+| F9 | M | AC5 | `agent-query` to the Nordea agent returns up to 3 raw transactions (date, amount, description) to the personal agent. | `agents.ts:172` | verified @a66712c |
+| F10 | M | AC11 | The in-app Abel (the LLM) never reads `user.db` or any architecture store; it uses `abel_records` through the access gateway. In the prototype, "Abel" in the architecture is only a label. | `abel.ts:16`, `arch/agents.ts:22` | phase 1 verified @d43f508 (Abel imports no arch store; cabinet via gateway); phase 2 open: in-app Abel reads `user.db` and `context.md` through the message transport |
 | F11 | L | AC12 | No tests yet for any of AC1–AC9 beyond what the current 74 checks cover. | `scripts/test-arch.ts` | open |
 | F12 | M | AC1, AC6 | The app layer still makes agent decisions from direct database reads. `contribute()` checks parking and counts goals by opening `cm.db` and `user.db`; `recheckBeforeReuse()` reads goals and active entries to decide whether a decay round runs. The customer dashboard (`archState`, `listEntries`) reading every store is fine; deciding *for* an agent is not. Ask the agent by control message, or let the round itself decide (a decay round with nothing to check already ends cleanly). | `arch/orchestrator.ts:68`, `:71`, `:77`, `:163–165` | verified @b71586b |
 | F13 | L | AC6 | `runRound` marks a round `stored` after the finalise dispatch without checking that the CM agent actually stored it (e.g. 0 messages delivered). Set `stored` only on the CM agent's finalise reply; otherwise `step-limit` or `failed`. | `arch/rounds.ts:114–115` | verified @b71586b |
@@ -133,7 +133,8 @@ Baseline review of `Instict-prototype` @ `489d44e` against the expectation. Seve
 | F21 | M | AC7 | **Sensitive-topic list is too narrow and matches substrings.** It misses the banking-relevant ones the app already guards (pregnancy, divorce or separation, gambling, debt collectors, addiction, illness, depression or anxiety, disability, surgery). `includes()` also hits inside words ("union" in "reunion", "drug" in "drugstore"). Use one shared word-boundary list, e.g. extend the one in `abel.ts:40`, and add tests for both kinds of miss. | `risk.ts:11`, `abel.ts:40` | verified @19a2242 for risk; side effect → F23 |
 | F22 | M | AC9 | **Automatic stores can't be undone one by one.** The customer is told "You can explain, dispute or delete it anytime", but the only delete is the whole database (`DELETE /api/arch/:uid/db/:which`). Add a per-entry undo (CM control, logged) for auto-stored entries, or change the wording. Undo should remove the entry and keep a log line. | `agents/cm.ts` (autoStoreRoundProposals message), `routes.ts:95` | verified @19a2242 |
 | F23 | M | AC7, AC10 | **The shared sensitive list changed Abel in the main app.** `abel.ts` now imports the wider list, so plain `debt`, `religion`, `church`, `politics`, `election`, `dating` and others now need the customer's "Save privately" tap. The old list was deliberately narrow (comment at `abel.ts:39`), and "debt" is everyday banking talk ("pay off my student loan debt"); a loan goal would stop saving silently. In the risk rule, plain `debt` also sends every loan-related entry to review. Fix: drop plain `debt` (keep `debt collectors`, add e.g. `can't pay`, `arrears`, `bankrupt`), and either keep Abel on its original narrow list or run "Check Abel's answers" and add a test that a loan or debt goal still saves. | `src/server/sensitive.ts:6`, `abel.ts:39–41` | verified @147b0b8 |
-| F24 | M | AC8 | **Customer-side entries never decay.** Entries proposed by the personal agent (the customer's goals) are never decay candidates (`cm.ts:43`), so a goal the customer dropped, or removed from `user.db`, stays active in the cabinet and keeps being served. AC8 says the CM agent asks the Nordea **or personal** agent to confirm. Fix: after the age limit (or on any decay round), the CM asks the personal agent to confirm the goal ids still exist; missing → stale, then archived through the usual rules. Test: remove a goal from `user.db` → its entry is flagged after a decay round. | `agents/cm.ts:34–46` | fixed @fa6f3e5 |
+| F24 | M | AC8 | **Customer-side entries never decay.** Entries proposed by the personal agent (the customer's goals) are never decay candidates (`cm.ts:43`), so a goal the customer dropped, or removed from `user.db`, stays active in the cabinet and keeps being served. AC8 says the CM agent asks the Nordea **or personal** agent to confirm. Fix: after the age limit (or on any decay round), the CM asks the personal agent to confirm the goal ids still exist; missing → stale, then archived through the usual rules. Test: remove a goal from `user.db` → its entry is flagged after a decay round. | `agents/cm.ts:34–46` | verified @fa6f3e5; Nordea entries on the same goal → F25 |
+| F25 | L | AC8 | When a goal is removed, only entries the personal agent proposed for it go stale. Nordea entries linked to the same goal id ("Activity related to goal …") stay active and keep being served. Use every active entry with that goal id as a candidate. | `agents/cm.ts` `goalCheckCandidates` | open |
 
 **Suggested order:** F1 (`context.md`) with F12 → F4, F5, F6 → F7 → F8 → F9 → F10 → F11, F13, F14 alongside.
 
@@ -224,4 +225,14 @@ F10: partial @d43f508 - AC11 source-scan pins now prove the in-app Abel (LLM) im
 FACT: test:arch 151/151 (F24 e2e: removed goal flags stale, kept goal no false flag; F9 no-raw-transactions), lint clean, npm test + check:feed green
 ETA: F11 next (test coverage AC1-AC9); hand-back ETA 22:30
 NEXT: Bill
+```
+
+### [Bill] 2026-10-31 21:06
+```
+FACT: test:arch 163/163, lint clean @13f7230 (includes off-turn F11 code, reviewed when handed over)
+F24: verified; the CM asks the personal agent by message which goal ids still exist; gone → stale (cm.ts goalCheckCandidates)
+F9: verified; Nordea's agent-query reply has aggregates only, sample removed, regression test in place
+ANS #B5: F10 phase 1 verified, but F10 stays open for phase 2; AC11 names the in-app Abel, and the owner's design says Abel reads user.db only
+OPEN: F25 (L) a removed goal leaves Nordea entries on that goal active
+NEXT: Instinct (F25, F11 hand-back; then phase 2 of F10 with an ETA)
 ```
