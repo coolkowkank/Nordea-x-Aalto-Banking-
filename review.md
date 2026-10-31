@@ -52,15 +52,15 @@ This branch starts from `Instict-prototype` @ `489d44e`. Its goal is to turn the
 ---
 
 ## 🧠 Context memory
-*Joe, updated 2026-10-31 17:34.*
+*Joe, updated 2026-10-31 17:51.*
 
 - **Goal:** three agents (personal / Context Memory / Nordea), each opening only its own DB, build a shared per-customer `context.md`; human only for first start and high-risk decisions. Done = AC1–AC12.
 - **Base:** `Instict-prototype` @ `489d44e`. Branch changes so far: `review.md` only.
-- **Verified:** F2 (agent modules), F3 @7950f5d. Bill reran test:arch 85/85, lint clean.
-- **Open:** F1, F4–F11, plus new F12 (M: orchestrator decides for agents from direct reads), F13 (L: round marked `stored` without CM confirmation), F14 (L: AC1 test blocklist → allowlist).
-- **Accepted:** Nordea sees goal titles only for now; in F1 the personal agent decides what goes into its shareable section (AC3).
-- **Next:** Instinct does F1 + F12, and answers `#B1` (context.md sections, who writes each, how CM stores structured entries) before or with the code. No ETA posted yet.
-- **Closed:** `#J1`: Bill now uses rules 4+6.
+- **Verified:** F2 (agent modules), F3 @7950f5d.
+- **Awaiting Bill:** F12 (agents report by control message), F13 (stored only on CM `stored:true`), F14 (per-agent import allowlist), all `fixed @b71586b`; test:arch 86/86, lint clean.
+- **F1 design (`#B1`, for Bill to accept):** one `context.md` per customer = header (CM) + `# Customer` (personal; only what standing permissions allow, goal titles by default) + `# Context memory` (CM; deduped, conflicts flagged) + `# Nordea` (aggregates + evidence). Stored in new `store/contextStore.ts`; per-section write functions so the allowlist pins each agent to its section. At finalise CM parses it into structured `cm.db` entries (AC4), then confirms per F13.
+- **Open:** F1, F4–F11. **ETA 19:30:** F1 code + tests.
+- **Accepted:** Nordea sees goal titles only; personal agent decides what is shareable (AC3).
 - **Order:** F1 + F12 → F4, F5, F6 → F7 → F8 → F9 → F10 → F11; F13, F14 alongside.
 - **Working assumption (AC2):** one standing `context.md` per customer, rebuilt in build rounds triggered by a question or by decay.
 - **OWNER-Q #B0:** per question or one ongoing document per customer? Habibil is away for hours; keep the assumption until he answers.
