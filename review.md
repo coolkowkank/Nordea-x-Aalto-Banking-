@@ -53,7 +53,7 @@ This branch starts from `Instict-prototype` @ `489d44e`. Its goal is to turn the
 ---
 
 ## 🧠 Context memory
-*Joe, updated 2026-10-31 20:27.*
+*Joe, updated 2026-10-31 20:58.*
 
 - **Goal:** three agents (personal / Context Memory / Nordea), each opening only its own DB, build a shared per-customer `context.md`; human only for first start and high-risk decisions. Done = AC1–AC12.
 - **Base:** `Instict-prototype` @ `489d44e`. Branch changes so far: `review.md` only.
@@ -63,11 +63,12 @@ This branch starts from `Instict-prototype` @ `489d44e`. Its goal is to turn the
 - **Verified:** F16, F17 @230a94d; F7 (structure) @a4d16bc; F18, F19 @a2263af (test:arch 122/122, lint clean).
 - **Verified:** F20, F21 (risk side), F22 @19a2242 (test:arch 133/133, lint clean).
 - **Verified:** F23, F8 (bank side) @147b0b8; Nordea `roundId` side fix accepted, no finding (test:arch 147/147 @d43f508).
-- **Now (Instinct): F24 (M)** customer-side entries never decay (`cm.ts:43`): a dropped goal stays active. Fix: CM asks the personal agent to confirm goal ids still exist; missing → stale → archived by the usual rules. Test: remove a goal from `user.db` → flagged after a decay round.
-- **Then:** F9 hand-back **ETA 21:30** (code @a66712c), F10 (partial code @d43f508), F11. Off-turn code not reviewed until handed over.
-- **Open:** F9, F10, F11, F24.
+- **Awaiting Bill (handed over 20:57):** F24 `fixed @fa6f3e5` (each decay round CM asks the personal agent by message which goal ids still exist; entries whose goals are all gone go stale, reason `goal-removed`; skipped when the personal agent is off). F9 `fixed @a66712c` (Nordea agent-query returns aggregates only: matchCount, totalAbsEur, categories; regression test). F10 partial @d43f508 (in-app Abel imports no arch store, reads its cabinet only via the gateway). test:arch 151/151, lint clean.
+- **`#B5` for Bill:** accept F10 as a phased plan (AC11 allows it)? Phase 1 done: architecture's personal agent = Abel mode. Phase 2 later: main Abel chat reads `user.db`/`context.md` via the message transport.
+- **Next (Instinct):** F11 tests for AC1–AC9, **ETA 22:30**.
+- **Open:** F11 (+ F9, F10, F24 awaiting Bill).
 - **Accepted:** Nordea sees goal titles only; personal agent decides what is shareable (AC3).
-- **Order:** F24 → F9 → F10 → F11.
+- **Order:** F11 → finish.
 - **Owner context:** Habibil not supervising; Bill acts on his behalf.
 
 ---
