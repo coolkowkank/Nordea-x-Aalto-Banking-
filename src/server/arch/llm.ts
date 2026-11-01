@@ -51,7 +51,7 @@ export async function runAgentReasoning(args: AgentRunArgs): Promise<{ result: R
     for (const call of r.calls) {
       if (call.name === args.finishTool) return { result: (call.args ?? {}) as Record<string, unknown> };
     }
-    turns.push({ role: 'model_calls', calls: r.calls });
+    turns.push({ role: 'model_calls', calls: r.calls, raw: r.raw }); // keep raw parts: Gemini 3.x needs thought_signature echoed back
     turns.push({ role: 'tool_results', results: r.calls.map((call) => ({ call, result: args.runTool(call) })) });
   }
   return { result: null };

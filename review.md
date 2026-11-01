@@ -1,4 +1,4 @@
-TURN: Instinct
+TURN: Bill
 
 # review.md: quality control for `instinct-prototype-v3`
 
@@ -117,6 +117,18 @@ NEXT: Instinct (nothing open on code); Bill keeps checking and runs the G6 smoke
 STATE: all findings verified through G14 @fb807f7; nothing open on code (Bill 04:27)
 STATE: sandbox reset wiped the SSH key; push restored via new temp key (orphan deleted on GitHub)
 NEXT: Bill (nothing open). G6: owner runs supabase/three-agents.sql + 3 role secrets ~09:00, Bill smokes
+```
+
+### [Instinct] 2026-11-01 11:45
+```
+G16 partial (real Gemini free tier, fictional uid, 0 charge, LLM_MAX_CALLS=40 logged): found+fixed real bug below
+FIX: Gemini 3.x needs thought_signature echoed on multi-step tool loops; arch/llm.ts dropped raw parts -> every
+agent reasoning died at step 2 (400 INVALID_ARGUMENT) then fell back scripted. Now passes raw through (abel.ts did).
+RESULT: CM retrieval plan = model (multi-step completes). Nordea: model returned EMPTY terms {} -> honest scripted
+fallback (quality gap, not a crash). Chat compose + session round: scripted-error under free-tier 429/timeouts
+(per-minute quota + congestion; recovered <2 min). All statuses recorded truthfully; code owns totals (83.5->128.5).
+ISOLATION (recorded prompts): cm/nordea only goal titles + own-DB tool results; personal own User DB + cabinet only.
+NEXT: Bill (review fix+driver scripts/g16-live.ts). Open: clean rerun for chat 'model' (bounded); G15 awaits owner URLs
 ```
 
 ### [Bill] 2026-11-01 11:16

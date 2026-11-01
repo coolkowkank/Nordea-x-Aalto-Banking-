@@ -72,6 +72,21 @@ export function recordTurn(ms: number, calls: number) {
   lastTurn = { at: new Date().toISOString(), ms, calls };
 }
 
+
+/** Paid-call cap (G16): when LLM_MAX_CALLS is set, real provider HTTP calls in this process are
+ * counted and refused past the cap, so a live test session cannot spend past its approved budget.
+ * The error fails the step; callers fall back to the scripted path and record it truthfully. */
+let llmCallsMade = 0;
+export function llmCallCount() { return llmCallsMade; }
+export const isLlmBudgetError = (msg: string) => /LLM_MAX_CALLS budget exhausted/.test(msg);
+export function countLlmCall(what: string) {
+  const cap = Number(process.env.LLM_MAX_CALLS) || 0;
+  if (cap > 0 && llmCallsMade >= cap) throw new Error(`LLM_MAX_CALLS budget exhausted (${llmCallsMade}/${cap}) - refusing paid call: ${what}`);
+  llmCallsMade += 1;
+  if (cap > 0) console.log(`[llm] paid call ${llmCallsMade}/${cap}: ${what}`);
+}
+export function resetLlmCallCountForTests() { llmCallsMade = 0; }
+
 /** Max time for one call to the model. Without this a stuck request leaves the chat "typing…" forever. */
 const STEP_TIMEOUT_MS = Number(process.env.LLM_TIMEOUT_MS) || 30000;
 
@@ -128,6 +143,7 @@ async function callGemini(model: string, args: { system: string; contents: any[]
 
 async function callOnce(model: string, args: { system: string; contents: any[]; tools?: ToolDecl[]; temperature: number; timeoutMs?: number }, thinkingConfig?: object) {
   // The key stays on the server: this file only runs in server.ts, never in the browser.
+  countLlmCall(`gemini ${model}`);
   const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
   const config: any = { systemInstruction: args.system, temperature: args.temperature };
   if (thinkingConfig) config.thinkingConfig = thinkingConfig;
@@ -177,6 +193,7 @@ export async function generateWith(
       } catch (err) {
         last = err;
         const msg = clean(err);
+        if (isLlmBudgetError(msg)) throw err; // paid-call cap: stop, don't burn retries
         lastError = { at: new Date().toISOString(), message: msg, model };
         console.error(`Gemini error (${model}, try ${attempt + 1}):`, msg);
         if (isDailyLimit(msg)) { exhaustedUntil.set(model, Date.now() + retryAfterMs(msg)); useful = { err, msg, model }; break; } // don't waste requests
@@ -284,4 +301,5 @@ export function getProvider(): LlmProvider {
 export function resetModelForTests() {
   activeModel = null;
   exhaustedUntil.clear();
+  llmCallsMade = 0;
 }

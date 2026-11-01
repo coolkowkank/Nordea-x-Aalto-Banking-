@@ -575,6 +575,24 @@ const downChat53 = await A.chat(UID53, 'how much did I spend on my car?', 'llm-s
 check('G4: the chat reply says scripted when the provider failed', downChat53.source === 'scripted-error' && downChat53.plan?.cm === 'error', downChat53.source);
 LL.setProviderForTests(null);
 
+// G16 safety: LLM_MAX_CALLS caps real provider HTTP calls in this process and stops retries at once.
+process.env.LLM_MAX_CALLS = '2';
+LL.resetModelForTests();
+LL.countLlmCall('test one');
+LL.countLlmCall('test two');
+let capThrew = false;
+try { LL.countLlmCall('test three'); } catch { capThrew = true; }
+check('G16: the paid-call cap refuses calls past LLM_MAX_CALLS', capThrew && LL.llmCallCount() === 2, String(LL.llmCallCount()));
+let capCalls = 0;
+let capErr = '';
+try {
+  await LL.generateWith(async () => { capCalls += 1; LL.countLlmCall('generateWith'); throw new Error('boom'); }, { system: 's', contents: [], temperature: 0 }, 1);
+} catch (e) { capErr = String(e); }
+check('G16: a budget stop ends the retry loop immediately (no model-hopping)', capCalls === 1 && /LLM_MAX_CALLS budget exhausted/.test(capErr), capCalls + ' ' + capErr.slice(0, 60));
+delete process.env.LLM_MAX_CALLS;
+LL.resetModelForTests();
+check('G16: the counter resets and the cap lifts when unset', LL.llmCallCount() === 0, String(LL.llmCallCount()));
+
 // G4 (Bill 03:45): the figure guard must match whole numbers - '120' must not pass against '1200'.
 const goal53 = S.loadUserDb(UID53).goals[0];
 A.appWrites.updateGoal(UID53, goal53.id, { detail: 'budget 1200 EUR' });

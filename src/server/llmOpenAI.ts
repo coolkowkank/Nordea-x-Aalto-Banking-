@@ -2,7 +2,7 @@
 // (only on the Aalto VPN). Settings come from LLM_PROVIDER=openai plus LLM_BASE_URL, LLM_API_KEY, LLM_MODEL
 // and optionally LLM_FALLBACK_MODELS (AI Studio → Settings → Secrets, or .env on a laptop; never in code).
 // Each model is its own provider with its own state, so the chain in llmChain.ts can switch between them.
-import { LlmProvider, ToolDecl, Turn, ToolCall, withTimeout } from './llm.js';
+import { LlmProvider, ToolDecl, Turn, ToolCall, withTimeout, countLlmCall } from './llm.js';
 import { callsInText } from './replyParse.js';
 
 export const envBase = () => (process.env.LLM_BASE_URL || 'https://llm-gateway.k8s.aalto.fi/api/v1').replace(/\/+$/, '');
@@ -128,6 +128,7 @@ export function makeOpenAiProvider(o: OpenAiOpts): LlmProvider & { model: string
   const effort = /qwen/i.test(o.model) ? 'none' : 'low';
 
   async function post(body: any, timeoutMs: number) {
+    countLlmCall(`${label} ${o.model}`); // G16 paid-call cap (LLM_MAX_CALLS)
     const res = await withTimeout(
       fetch(`${o.baseUrl.replace(/\/+$/, '')}/chat/completions`, {
         method: 'POST',
