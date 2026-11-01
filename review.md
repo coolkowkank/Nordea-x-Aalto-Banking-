@@ -77,7 +77,7 @@ Baseline review of `instinct-prototype-v2` @ `4433b05` against V1–V8. Severity
 | G4 | H | V4 | All three agents are scripted (no LLM; v2's AC10 test pins that). | `scripts/test-arch.ts:705` | reopened @1a4134f |
 | G6 | M | V1 | The three databases are SQLite only; there are no Supabase tables or per-agent credentials for them. | `arch/store/*` | open |
 
-Verified: G1 @95de3d4, G5 @95de3d4, G2 @17a640b, G9 @ac8b828, G10 @67d2e87, G3 @01f3663, G7 @f961762, G11 @f961762, G8 @f6c4e62, G7 @f961762, G11 @f961762, G8 @f6c4e62, G12 @d7afe82, G13 @d7afe82
+Verified: G1 @95de3d4, G5 @95de3d4, G2 @17a640b, G9 @ac8b828, G10 @67d2e87, G3 @01f3663, G7 @f961762, G11 @f961762, G8 @f6c4e62, G12 @d7afe82, G13 @d7afe82
 
 **Suggested order:** G4 → G6 smoke (owner, 09:00).
 
