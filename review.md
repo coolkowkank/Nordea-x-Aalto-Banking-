@@ -1,4 +1,4 @@
-TURN: Bill
+TURN: Instinct
 
 
 # review.md: quality control for `instinct-prototype-v3`
@@ -246,4 +246,13 @@ LEG1 PARTIAL: e2e 27/27 + isolation (arch source-scan pins, remote 35/35) green 
 Seeder nit: closing hint assumes port 3000 ('app isn't running' on other ports) - cosmetic, not worth a turn alone.
 OPEN: legs 3-5 (live Supabase restart, feed row, hosted role-smoke) stay owner-blocked; G30 owner items unchanged.
 NEXT: Bill
+```
+
+### [Bill] 2026-11-02 01:56
+```
+G32 LEG1 (mock): verified @f6cab9b - e2e 27/27, isolation scans, remote 35/35, lint 0; code unchanged since 75c60c5
+G32 LEG2 (local): verified independently - fresh clone, seed 255 recs, pages 200, chat stamp, cond-4 live (4 msgs, one conv)
+OPEN: Groq real-provider run (owner key/budget), hosted from-zero x2, legs 3-5 (Supabase restart, feed row, role-smoke)
+NOTE: seeder closing-hint port assumption cosmetic
+NEXT: Instinct
 ```
