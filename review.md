@@ -1,4 +1,4 @@
-TURN: Bill
+TURN: Instinct
 
 
 # review.md: quality control for `instinct-prototype-v3`
@@ -82,10 +82,9 @@ Baseline review of `instinct-prototype-v2` @ `4433b05` against V1–V8. Severity
 | G32 | M | V7 | Closing live pass on the final code is missing (owner 16:31): checklist in Bill 16:33. | `review.md` | open |
 | G30 | H | V2 | Two Abels: app /api/chat runs legacy abelTurn (routes.ts:142); arch.html runs the personal agent (arch/routes.ts:43); no shared history. | `src/server/routes.ts:142` | open |
 | G31 | M | V4 | Observability gaps: dev-monitor lacks per-agent data cards + actual model labels; both pages refresh slowly after activity. | `public/dev-monitor.html` | open |
-| G33 | M | V1 | `load_data.py --target file` still writes chat/log/rewards to `cabinet-db.json` (ran it: file created, 3 messages, 1 accessLog, 3 rewards); app ignores it, README:124 says no such file. Docstrings `load_data.py:36-39,445` and `store.ts:3` say the same. Fix: loader writes plumbing into the agent DBs; no JSON from a fresh load. | `scripts/load_data.py:63,445` | open |
-| G34 | H | V1 | `migrate:legacy` on hosted mode can lose data. No hydrate first (`migrate-legacy.ts`); writes only local SQLite; flush is a 250 ms timer (`common.ts:123,155`) that runs after `unlinkSync` (`legacyMigrate.ts:257`); a failed push is only logged, exit 0. Next start hydrates over local rows. Read from code, not run. Fix: hydrate (failed pull stops), write, await push, read back hosted, only then delete; fake-pool test. | `src/server/arch/legacyMigrate.ts:257` | open |
+| G34 | M | V1 | Hosted migrate now hydrates, awaits the push and reads back (`legacyMigrate.ts:277-350`), but the read-back compares `JSON.stringify` (`:336-341`) while the hosted column is `jsonb` (`three-agents.sql:18`), which returns keys in its own order. On real Supabase every row would read as a mismatch, so the file is kept and the migration never completes. Fake pool keeps key order, so the tests cannot see it. Fix: compare with the sorted-key `canon`; add a test whose fake pool returns reordered keys. | `src/server/arch/legacyMigrate.ts:336` | open |
 
-Verified: G1 @95de3d4, G5 @95de3d4, G2 @17a640b, G9 @ac8b828, G10 @67d2e87, G3 @01f3663, G7 @f961762, G11 @f961762, G8 @f6c4e62, G12 @d7afe82, G13 @d7afe82, G4 @6e95e1d, G14 @fb807f7, G6 @64613fb, G15 @58aa3fa, G17 @485786e, G16 @8578295, G18 @6bae205, G19 @9550952, G21 @98ae872, G20 @b0134a3, G22 @b0134a3, G23 @53dec36, G25 @d8c6ba1, G26 @d8c6ba1, G24 @d4ebaf1, G27 @d4ebaf1, G29 @79aeb98, G28 @0778fec
+Verified: G1 @95de3d4, G5 @95de3d4, G2 @17a640b, G9 @ac8b828, G10 @67d2e87, G3 @01f3663, G7 @f961762, G11 @f961762, G8 @f6c4e62, G12 @d7afe82, G13 @d7afe82, G4 @6e95e1d, G14 @fb807f7, G6 @64613fb, G15 @58aa3fa, G17 @485786e, G16 @8578295, G18 @6bae205, G19 @9550952, G21 @98ae872, G20 @b0134a3, G22 @b0134a3, G23 @53dec36, G25 @d8c6ba1, G26 @d8c6ba1, G24 @d4ebaf1, G27 @d4ebaf1, G29 @79aeb98, G28 @0778fec, G33 @e35f62f
 
 **Suggested order:** G30 + migration → G31 → G32 → merge is the owner's call.
 
@@ -135,4 +134,15 @@ Q1 RESOLVED (supersedes my line above): owner answered YES on WhatsApp 17:44:59 
 Slice-3 plan: offer cards/triggers/demo actions + /api/partners + partners/ manifests retire with abel.ts; import flow STAYS.
 Historical earnings/rewards/dataRewards stay migrated and preserved - no data deletion approved or done.
 NEXT: Bill
+```
+
+### [Bill] 2026-11-01 17:47
+```
+FACT: arch 229/229, migrate 41/41, adapter 44/44, e2e 23/23, remote 35/35, npm test pass, lint 0, guard ok @e35f62f
+G33: verified @e35f62f (fresh seed/demo load: 255 records, no cabinet-db.json, app_* rows in the right DBs; docstrings and README fixed)
+G34: nearly (now M) - hydrate, awaited push and hosted read-back are in, local-only mode unchanged, partial URLs and failed pull fail closed
+G34: read-back compares JSON.stringify (legacyMigrate.ts:336) but the column is jsonb (three-agents.sql:18): keys come back reordered
+G34: so real Supabase would flag every row and never finish. Use canon() on both sides; add a fake-pool test that reorders keys
+OK: Q1 answer (cards stay) is right; then G30 slice 3 and G31 follow G34
+NEXT: Instinct
 ```
