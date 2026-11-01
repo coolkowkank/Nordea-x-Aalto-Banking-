@@ -79,6 +79,9 @@ try {
   check('V7: the goal is visible in the arch state (/arch.html data)', st1?.databases?.user?.goals === goalsBefore + 1 && String(st1?.contextMd ?? '').includes('Save for a car'), { goals: st1?.databases?.user?.goals, before: goalsBefore });
   const mon1 = (await api('GET', `/api/dev/monitor?userId=${UID}`)).json;
   check('V7: the same goal is visible in the dev monitor', mon1?.arch?.databases?.user?.goals === goalsBefore + 1 && String(mon1?.arch?.contextMd ?? '').includes('Save for a car'), mon1?.arch?.databases);
+  // G13: situation A over HTTP - a User DB change (the goal add) runs a user-change round.
+  const busAfterGoal = ((await api('GET', `/api/arch/${UID}/state`)).json?.messages ?? []) as { type?: string; payload?: { trigger?: string } }[];
+  check('V7: situation A - the goal add ran a user-change round', busAfterGoal.some((m) => m.type === 'round-start' && m.payload?.trigger === 'user-change'), busAfterGoal.filter((m) => m.type === 'round-start').map((m) => m.payload?.trigger));
 
   // 1b. Goal edit + delete on /arch.html (G7): the routes drive the personal agent
   const tmpGoal = await api('POST', `/api/arch/${UID}/goals`, { title: 'e2e temp goal' });
@@ -112,14 +115,17 @@ try {
   const st2 = (await api('GET', `/api/arch/${UID}/state`)).json;
   const mon2 = (await api('GET', `/api/dev/monitor?userId=${UID}`)).json;
   check('V7: all three views show the new transaction', appView?.transactions === 3 && st2?.databases?.nordea?.transactions === 3 && mon2?.arch?.databases?.nordea?.transactions === 3, { app: appView?.transactions, arch: st2?.databases?.nordea?.transactions, monitor: mon2?.arch?.databases?.nordea?.transactions });
+  // G13: situation B over HTTP - a Nordea DB change (import #2) runs a decay round.
+  const busAfterImport = (st2?.messages ?? []) as { type?: string; payload?: { trigger?: string } }[];
+  check('V7: situation B - the bank import ran a decay round', busAfterImport.some((m) => m.type === 'round-start' && m.payload?.trigger === 'decay'), busAfterImport.filter((m) => m.type === 'round-start').map((m) => m.payload?.trigger));
 
-  // 4. Round A (session) and round B (top-up) run over HTTP
+  // 4. Situation C over HTTP: a session round on a new session, a top-up round on the same one
   await api('POST', `/api/arch/${UID}/chat`, { text: 'what do you know about my car saving?', sessionId: 'e2e-rounds' });
   const ctxA = (await api('GET', `/api/arch/${UID}/state`)).json?.context;
-  check('V7: round A runs as a session round on a new session', ctxA?.trigger === 'session' && typeof ctxA?.roundId === 'string' && ctxA.roundId.length > 0, ctxA);
+  check('V7: situation C1 - a session round on a new session', ctxA?.trigger === 'session' && typeof ctxA?.roundId === 'string' && ctxA.roundId.length > 0, ctxA);
   await api('POST', `/api/arch/${UID}/chat`, { text: 'what about my pension contributions?', sessionId: 'e2e-rounds' });
   const ctxB = (await api('GET', `/api/arch/${UID}/state`)).json?.context;
-  check('V7: round B runs as a top-up round on the same session', ctxB?.trigger === 'topup' && ctxB?.roundId !== ctxA?.roundId, ctxB);
+  check('V7: situation C2 - a top-up round on the same session', ctxB?.trigger === 'topup' && ctxB?.roundId !== ctxA?.roundId, ctxB);
 
   // 5. Source scan: no app/arch code reads customer data from the old store
   const read = (f: string) => fs.readFileSync(f, 'utf-8');

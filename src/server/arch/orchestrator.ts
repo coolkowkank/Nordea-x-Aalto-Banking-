@@ -374,8 +374,12 @@ function refreshNordeaFromCore(uid: string, inform?: string) {
 export const appWrites = {
   putGoal: (uid: string, goal: Goal) =>
     controlRoundTrip(uid, 'personal', `The app writes goal "${goal.title}" to the User DB.`, { control: 'put-goal', goal }),
-  removeGoal: (uid: string, goalId: string) =>
-    controlRoundTrip(uid, 'personal', 'The app removes a goal from the User DB.', { control: 'remove-goal', goalId }),
+  removeGoal: (uid: string, goalId: string) => {
+    const r = controlRoundTrip(uid, 'personal', 'The app removes a goal from the User DB.', { control: 'remove-goal', goalId });
+    // G12: the CM agent owns the review queue - it withdraws pending proposals for the goal.
+    controlRoundTrip(uid, 'cm', 'Withdraw pending proposals for the removed goal.', { control: 'withdraw-goal-proposals', goalId });
+    return r;
+  },
   updateGoal: (uid: string, goalId: string, fields: { title?: string; detail?: string }) =>
     controlRoundTrip(uid, 'personal', 'The app edits a goal in the User DB.', { control: 'update-goal', goalId, ...fields }),
   putProfile: (uid: string, profile: Record<string, unknown>) =>

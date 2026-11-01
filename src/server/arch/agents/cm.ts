@@ -516,6 +516,18 @@ function handleMessage(uid: string, msg: AgentMessage) {
       updateMessage(uid, msg.id, { status: 'answered' });
       return;
     }
+    if (control === 'withdraw-goal-proposals') {
+      // G12: the app deleted a goal; every still-pending proposal carrying that goal id
+      // (the personal agent's "Customer goal" and the Nordea agent's activity alike) is
+      // withdrawn - accepting one would store an entry for a goal that no longer exists.
+      const goalId = payload.goalId as string;
+      const stale = loadBus(uid).messages.filter((m) => m.type === 'propose' && m.status === 'pending'
+        && ((m.payload as { goalIds?: string[] } | undefined)?.goalIds ?? []).includes(goalId));
+      for (const w of stale) updateMessage(uid, w.id, { status: 'rejected' });
+      appendMessage(uid, { from: 'cm', to: 'app', type: 'reply', summary: `Context Memory agent withdrew ${stale.length} pending proposal${stale.length === 1 ? '' : 's'} for the removed goal.`, payload: { inReplyTo: msg.id, withdrawn: stale.length } });
+      updateMessage(uid, msg.id, { status: 'answered' });
+      return;
+    }
     if (control === 'review-decision') {
       const messageId = payload.messageId as string;
       const accept = payload.accept === true;

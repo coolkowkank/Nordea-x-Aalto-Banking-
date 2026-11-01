@@ -536,6 +536,7 @@ A.appWrites.removeGoal(UID51, g51.id);
 check('G7: deleting a goal removes it from the User DB', S.loadUserDb(UID51).goals.length === 0);
 check('G7: the delete is reactive too', R.loadLatestRound(UID51)?.trigger === 'user-change', R.loadLatestRound(UID51)?.trigger);
 check('G7: the deleted goal leaves Abel\'s knowledge', !((await A.abelSharedContext(UID51, 'conv-g51b', 'boat')).userDbFacts ?? '').includes('Save for a boat'));
+check('G12: deleting a goal withdraws its pending proposals (any agent)', !S.loadBus(UID51).messages.some((m) => m.type === 'propose' && m.status === 'pending' && ((m.payload as { goalIds?: string[] } | undefined)?.goalIds ?? []).includes(g51.id)), JSON.stringify(S.loadBus(UID51).messages.filter((m) => m.type === 'propose' && m.status === 'pending').map((m) => [m.from, m.summary, (m.payload as { goalIds?: string[] } | undefined)?.goalIds])) + ' gid=' + g51.id);
 
 // --- G4/V4: LLM-driven planning (mock provider) - the model proposes, code checks and writes
 const LL = await import('../src/server/llm.js');
