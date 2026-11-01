@@ -153,6 +153,10 @@ async function refresh() {
   $('a-nordea').innerHTML = `<b>Nordea agent</b> ${s.agents.nordea.off ? '<span class="pill off">off</span>' : '<span class="pill">on</span>'}<br>Owns the Nordea DB - accounts and transactions. Proposes, never decides.`;
   $('conn-nordea').innerHTML = conn(s.stores.nordea);
   $('user-summary').innerHTML = `Goals: <b>${s.databases.user.goals}</b> · Personal facts: <b>${s.databases.user.personalFacts}</b>`;
+  $('user-goals').innerHTML = (s.goals ?? []).length ? (s.goals ?? []).map((g) =>
+    `<div class="entry"><b>${esc(g.title)}</b>${g.detail ? ` - ${esc(g.detail)}` : ''}
+     <div class="meta">in Abel's knowledge (User DB) · <a href="#" onclick="editGoal('${g.id}','${esc(g.title).replace(/'/g, '')}');return false;">edit</a> · <a href="#" onclick="deleteGoal('${g.id}','${esc(g.title).replace(/'/g, '')}');return false;">delete</a></div></div>`).join('')
+    : '<div class="empty">No goals yet - add one above or tell Abel.</div>';
   $('cm-summary').innerHTML = `Cabinet entries: <b>${s.databases.contextMemory.entries}</b>${s.databases.contextMemory.disputed ? ` · <span style="color:#a4352c">${s.databases.contextMemory.disputed} disputed</span>` : ''}`;
   $('perm').value = s.databases.contextMemory.permissions?.reviewLevel ?? 'all';
   $('nordea-summary').innerHTML = s.databases.nordea ? `Accounts: <b>${s.databases.nordea.accounts}</b> · Transactions: <b>${s.databases.nordea.transactions}</b>` : 'Empty until bank data is loaded (scripts/load_data.py).';
@@ -186,6 +190,8 @@ window.review = async (id, ok) => { await api(`/api/arch/${uid}/review/${id}/${o
 $('btn-chat').onclick = async () => { const t = $('chat-in').value.trim(); if (!t) return; $('chat-in').value = ''; say('me', t); const j = await api(`/api/arch/${uid}/chat`, { body: { text: t, sessionId } }); say('agent', j.reply); refresh(); };
 $('chat-in').addEventListener('keydown', (e) => { if (e.key === 'Enter') $('btn-chat').click(); });
 $('btn-goal').onclick = async () => { const t = $('goal-in').value.trim(); if (!t) return; $('goal-in').value = ''; await api(`/api/arch/${uid}/goals`, { body: { title: t } }); refresh(); };
+window.editGoal = async (id, old) => { const t = prompt('Edit the goal - Abel remembers the new version.', old); if (!t || !t.trim() || t.trim() === old) return; await api(`/api/arch/${uid}/goals/${id}`, { body: { title: t.trim() } }); refresh(); };
+window.deleteGoal = async (id, title) => { if (!confirm(`Delete goal "${title}"? It is removed from Abel's knowledge (the User DB).`)) return; await api(`/api/arch/${uid}/goals/${id}/delete`, {}); refresh(); };
 $('btn-perm').onclick = async () => { await api(`/api/arch/${uid}/permissions`, { body: { reviewLevel: $('perm').value } }); refresh(); };
 $('btn-contribute').onclick = async () => { const j = await api(`/api/arch/${uid}/nordea/contribute`, {}); say('agent', j.proposals.length ? `Nordea agent proposed ${j.proposals.length} insight(s) - see "Waiting for you".` : 'No goal-relevant activity found to propose.'); refresh(); };
 $('btn-upload').onclick = () => $('bank-file').click();

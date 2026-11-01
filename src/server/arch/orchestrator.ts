@@ -306,6 +306,8 @@ export const appWrites = {
     controlRoundTrip(uid, 'personal', `The app writes goal "${goal.title}" to the User DB.`, { control: 'put-goal', goal }),
   removeGoal: (uid: string, goalId: string) =>
     controlRoundTrip(uid, 'personal', 'The app removes a goal from the User DB.', { control: 'remove-goal', goalId }),
+  updateGoal: (uid: string, goalId: string, fields: { title?: string; detail?: string }) =>
+    controlRoundTrip(uid, 'personal', 'The app edits a goal in the User DB.', { control: 'update-goal', goalId, ...fields }),
   putProfile: (uid: string, profile: Record<string, unknown>) =>
     controlRoundTrip(uid, 'personal', 'The app updates the profile in the User DB.', { control: 'put-profile', profile }),
   putDocument: (uid: string, doc: unknown) =>
@@ -425,6 +427,7 @@ export function archState(uid: string) {
       cm: { off: off.includes('cm') },
       nordea: { off: off.includes('nordea') },
     },
+    goals: u.goals.map((g) => ({ id: g.id, title: g.title, detail: g.detail })),
     databases: {
       user: { goals: u.goals.length, personalFacts: u.personalFacts.length, profile: !!u.profileName },
       contextMemory: { entries: cm.entries.length, disputed: cm.entries.filter((e) => e.status === 'disputed').length, parked: !!cm.parked, permissions: cm.permissions ?? null },

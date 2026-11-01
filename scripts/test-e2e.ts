@@ -80,6 +80,17 @@ try {
   const mon1 = (await api('GET', `/api/dev/monitor?userId=${UID}`)).json;
   check('V7: the same goal is visible in the dev monitor', mon1?.arch?.databases?.user?.goals === goalsBefore + 1 && String(mon1?.arch?.contextMd ?? '').includes('Save for a car'), mon1?.arch?.databases);
 
+  // 1b. Goal edit + delete on /arch.html (G7): the routes drive the personal agent
+  const tmpGoal = await api('POST', `/api/arch/${UID}/goals`, { title: 'e2e temp goal' });
+  const tmpId = tmpGoal.json?.id as string;
+  const edit = await api('POST', `/api/arch/${UID}/goals/${tmpId}`, { title: 'e2e temp goal edited' });
+  const stEdit = (await api('GET', `/api/arch/${UID}/state`)).json;
+  const monEdit = (await api('GET', `/api/dev/monitor?userId=${UID}`)).json;
+  check('V7: goal edit lands and shows in both views', edit.status === 200 && JSON.stringify(stEdit?.goals).includes('e2e temp goal edited') && JSON.stringify(monEdit?.arch?.goals).includes('e2e temp goal edited'), { tmp: [tmpGoal.status, tmpGoal.json], edit: [edit.status, edit.json], goals: stEdit?.goals });
+  const del = await api('POST', `/api/arch/${UID}/goals/${tmpId}/delete`);
+  const stDel = (await api('GET', `/api/arch/${UID}/state`)).json;
+  check('V7: goal delete removes it from Abel\'s knowledge (both views)', del.status === 200 && !JSON.stringify(stDel?.goals).includes('e2e temp goal edited') && stDel?.databases?.user?.goals === goalsBefore + 1, stDel?.goals);
+
   // 2. A review decision on /arch.html changes what the agent's chat answers from
   const preChat = await api('POST', `/api/arch/${UID}/chat`, { text: 'how much have I saved for the car?' });
   check('V7: before review the chat cannot answer from the Context Memory DB', !(preChat.json?.used ?? []).includes('context-memory-db'), preChat.json?.used);

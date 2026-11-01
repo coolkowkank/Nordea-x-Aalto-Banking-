@@ -524,6 +524,19 @@ const reactDoc = S.loadContext(UID50)!;
 check('G3: the reactive round wrote the customer + nordea sections with evidence', reactDoc.sections.customer.rows.some((r) => r.title === 'Save for a car') && reactDoc.sections.nordea.rows.some((r) => typeof r.evidence?.total === 'number'));
 check('G3: the reactive round leaves the goal-matching proposal pending review (consent path unchanged)', A.reviewQueue(UID50).some((m) => m.from === 'nordea' && ((m.payload as { transactionIds?: string[] }).transactionIds ?? []).length === 2));
 
+// --- G7/V2: goal edit + delete on /arch.html go through the personal agent and update Abel's knowledge
+const UID51 = 'goaledit';
+S.saveNordeaDb({ userId: UID51, accounts: [], transactions: [{ id: 'g1', userId: UID51, date: '2026-10-01', category: 'transport', amount: -100, account: 'current', description: 'Fuel for the car' }] });
+const g51 = A.addGoalDirect(UID51, 'Save for a car');
+A.appWrites.updateGoal(UID51, g51.id, { title: 'Save for a boat' });
+check('G7: editing a goal on /arch.html updates the User DB through the personal agent', S.loadUserDb(UID51).goals[0]?.title === 'Save for a boat');
+check('G7: the edit is reactive - a user-change round runs', R.loadLatestRound(UID51)?.trigger === 'user-change', R.loadLatestRound(UID51)?.trigger);
+check('G7: Abel\'s shared context carries the edited goal', (A.abelSharedContext(UID51, 'conv-g51', 'boat').userDbFacts ?? '').includes('Save for a boat'), A.abelSharedContext(UID51, 'conv-g51', 'boat').userDbFacts);
+A.appWrites.removeGoal(UID51, g51.id);
+check('G7: deleting a goal removes it from the User DB', S.loadUserDb(UID51).goals.length === 0);
+check('G7: the delete is reactive too', R.loadLatestRound(UID51)?.trigger === 'user-change', R.loadLatestRound(UID51)?.trigger);
+check('G7: the deleted goal leaves Abel\'s knowledge', !(A.abelSharedContext(UID51, 'conv-g51b', 'boat').userDbFacts ?? '').includes('Save for a boat'));
+
 // --- F18: maintenance rounds merge into the open session's document - no row is dropped.
 const UID17 = 'mergeround';
 A.addGoalDirect(UID17, 'Save for a car');

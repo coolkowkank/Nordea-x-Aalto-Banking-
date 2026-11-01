@@ -253,10 +253,23 @@ function handleMessage(uid: string, msg: AgentMessage) {
     startUserChangeRound(uid, goal.title);
     return;
   }
+  if (msg.type === 'control' && payload.control === 'update-goal') {
+    const goalId = payload.goalId as string;
+    const cur = loadUserDb(uid).goals.find((g) => g.id === goalId);
+    if (!cur) { updateMessage(uid, msg.id, { status: 'answered' }); return; }
+    const next = { ...cur, title: typeof payload.title === 'string' && payload.title.trim() ? payload.title.trim() : cur.title, detail: typeof payload.detail === 'string' ? payload.detail.trim() : cur.detail };
+    putGoal(uid, next);
+    appendMessage(uid, { from: 'personal', to: 'app', type: 'reply', summary: `Personal agent updated goal "${next.title}" in the User DB.`, payload: { inReplyTo: msg.id, goal: next } });
+    updateMessage(uid, msg.id, { status: 'answered' });
+    startUserChangeRound(uid, next.title);
+    return;
+  }
   if (msg.type === 'control' && payload.control === 'remove-goal') {
+    const gone = loadUserDb(uid).goals.find((g) => g.id === (payload.goalId as string));
     removeGoal(uid, payload.goalId as string);
     appendMessage(uid, { from: 'personal', to: 'app', type: 'reply', summary: 'Personal agent removed the goal from the User DB.', payload: { inReplyTo: msg.id, removed: true } });
     updateMessage(uid, msg.id, { status: 'answered' });
+    startUserChangeRound(uid, gone?.title ?? 'a removed goal');
     return;
   }
   if (msg.type === 'control' && payload.control === 'put-profile') {

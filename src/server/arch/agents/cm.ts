@@ -463,6 +463,16 @@ function handleMessage(uid: string, msg: AgentMessage) {
         });
         autoStoreRoundProposals(uid); // standing permissions ('high') auto-store low/medium
         const stored = loadCmDb(uid).entries.some((e) => e.id === inEntry.id && e.viaMessageId === proposal.id);
+        // G11: a changed observation queues - hold the previously stored copy
+        // (reviewed=false) until the customer decides, so Abel never reads the stale
+        // figure as reviewed (v2 hid it until re-checked). Accept re-reviews; reject
+        // leaves it held, exactly v2's "hidden until re-checked".
+        if (!stored) {
+          const prior = loadCmDb(uid).entries.find((e) => e.id === inEntry.id);
+          if (prior && (prior.doc as { reviewed?: boolean } | undefined)?.reviewed !== false) {
+            putEntry(uid, { ...prior, doc: { ...prior.doc, reviewed: false } as typeof prior.doc });
+          }
+        }
         appendMessage(uid, { from: 'cm', to: 'app', type: 'reply', summary: stored
           ? `Context Memory agent stored "${inEntry.title}" under the customer's standing permissions (${risk} risk).`
           : `"${inEntry.title}" waits in merge review (${risk} risk${doc.reviewed === false ? ', unreviewed' : ''}) - one consent path.`, payload: { inReplyTo: msg.id, ok: stored, queued: !stored, messageId: proposal.id, risk, observed } });
@@ -529,6 +539,17 @@ function handleMessage(uid: string, msg: AgentMessage) {
       }
       const norm = (t: string) => t.toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim();
       const existing = cm.entries.find((e) => e.status === 'active' && norm(e.title) === norm(proposal.summary));
+      const upd = (proposal.payload ?? {}) as { appWrite?: boolean; entry?: ArchEntry };
+      if (existing && upd.appWrite === true && upd.entry && upd.entry.id === existing.id) {
+        // G11: accepting a queued CHANGE replaces the held copy, explicitly reviewed.
+        updateMessage(uid, messageId, { status: 'accepted' });
+        const updated: ArchEntry = { ...upd.entry, doc: upd.entry.doc ? { ...upd.entry.doc, reviewed: true } : upd.entry.doc, viaMessageId: proposal.id, status: 'active' };
+        putEntry(uid, updated);
+        appendMessage(uid, { from: 'cm', to: 'user', type: 'inform', summary: `"${updated.title}" was updated in your cabinet after your review.`, payload: { inReplyTo: proposal.id, entryId: updated.id } });
+        appendMessage(uid, { from: 'cm', to: 'app', type: 'reply', summary: 'Queued update stored.', payload: { inReplyTo: msg.id, entry: updated } });
+        updateMessage(uid, msg.id, { status: 'answered' });
+        return;
+      }
       if (existing) {
         updateMessage(uid, messageId, { status: 'accepted' });
         appendMessage(uid, { from: 'cm', to: 'user', type: 'inform', summary: `"${existing.title}" is already in your cabinet - I kept the existing entry instead of adding a duplicate.`, payload: { inReplyTo: proposal.id, entryId: existing.id, duplicate: true } });

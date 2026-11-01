@@ -101,6 +101,27 @@ check('app confirm accepts the queued write (decideProposal) and stores it expli
   !!confirmed4 && confirmed4.reviewed === true && confirmed4.confirmedAt === '2026-11-01T01:00:00Z'
   && S.loadCmDb('lauri').entries.find((e) => e.id === 'g2-routed-4')?.autoAccepted !== true);
 
+// Bill 03:21 G11: a changed observation queues, and the stored copy is HELD (reviewed=false)
+// until the customer decides - Abel never reads the stale figure as reviewed (v2 hid it).
+S.putEntry('lauri', { id: 'g11-1', title: 'Car spending', detail: '100 EUR this month', goalIds: [], proposedBy: 'nordea', status: 'active', createdAt: '2026-10-01T00:00:00Z',
+  doc: { id: 'g11-1', userId: 'lauri', type: 'observation', title: 'Car spending', detail: '100 EUR this month', source: 'nordea', status: 'active', private: false, readableBy: { abel: true, offers: false }, provenance: { channel: 'system' }, reviewed: true, createdAt: '2026-10-01T00:00:00Z', updatedAt: '2026-10-01T00:00:00Z' } });
+db.updateCabinetEntry('g11-1', { title: 'Car spending', detail: '150 EUR this month', reviewed: false }, { by: 'nordea', how: 'Fresh bank data' });
+const g11wait = S.loadCmDb('lauri').entries.find((e) => e.id === 'g11-1');
+check('G11: the changed observation queues instead of overwriting', S.loadBus('lauri').messages.some((m) => m.type === 'propose' && m.status === 'pending' && (m.payload as { entry?: { id?: string } })?.entry?.id === 'g11-1'));
+check('G11: the stored copy is held (reviewed=false) while the update waits', g11wait?.doc?.reviewed === false, g11wait?.doc?.reviewed);
+check('G11: the held copy keeps the old figure (no silent overwrite)', g11wait?.detail === '100 EUR this month', g11wait?.detail);
+const g11prop = S.loadBus('lauri').messages.find((m) => m.type === 'propose' && m.status === 'pending' && (m.payload as { entry?: { id?: string } })?.entry?.id === 'g11-1')!;
+A.decideProposal('lauri', g11prop.id, true);
+const g11done = S.loadCmDb('lauri').entries.find((e) => e.id === 'g11-1');
+check('G11: accepting the queued change updates the entry, explicitly reviewed', g11done?.detail === '150 EUR this month' && g11done?.doc?.reviewed === true, `${g11done?.detail} reviewed=${g11done?.doc?.reviewed}`);
+S.putEntry('lauri', { id: 'g11-2', title: 'Fuel spending', detail: '200 EUR this quarter', goalIds: [], proposedBy: 'nordea', status: 'active', createdAt: '2026-10-01T00:00:00Z',
+  doc: { id: 'g11-2', userId: 'lauri', type: 'observation', title: 'Fuel spending', detail: '200 EUR this quarter', source: 'nordea', status: 'active', private: false, readableBy: { abel: true, offers: false }, provenance: { channel: 'system' }, reviewed: true, createdAt: '2026-10-01T00:00:00Z', updatedAt: '2026-10-01T00:00:00Z' } });
+db.updateCabinetEntry('g11-2', { title: 'Fuel spending', detail: '260 EUR this quarter', reviewed: false }, { by: 'nordea', how: 'Fresh bank data' });
+const g11prop2 = S.loadBus('lauri').messages.find((m) => m.type === 'propose' && m.status === 'pending' && (m.payload as { entry?: { id?: string } })?.entry?.id === 'g11-2')!;
+A.decideProposal('lauri', g11prop2.id, false);
+const g11rej = S.loadCmDb('lauri').entries.find((e) => e.id === 'g11-2');
+check('G11: a rejected change leaves the copy held, old figure kept (v2: hidden until re-checked)', g11rej?.doc?.reviewed === false && g11rej?.detail === '200 EUR this quarter', `${g11rej?.detail} reviewed=${g11rej?.doc?.reviewed}`);
+
 A.setStandingPermissions('lauri', 'high');
 db.addCabinetEntry({ id: 'g2-routed-5', userId: 'lauri', type: 'preference', title: 'G2 second unreviewed preference', detail: 'queued then auto-stored', source: 'customer', status: 'active', private: false, readableBy: { abel: true, offers: true }, provenance: { channel: 'app' }, reviewed: false, createdAt: '2026-11-01T00:00:00Z', updatedAt: '2026-11-01T00:00:00Z' });
 const stored5 = S.loadCmDb('lauri').entries.find((e) => e.id === 'g2-routed-5');
