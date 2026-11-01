@@ -78,6 +78,7 @@ Baseline review of `instinct-prototype-v2` @ `4433b05` against V1–V8. Severity
 
 | Id | Sev | V | Finding | Evidence | Status |
 |:-:|:-:|:-:|---|---|:-:|
+| G26 | L | V7 | README:123,129-130 present setup.sql + SUPABASE_URL/SECRET_KEY as required; they are optional (plumbing, else local file). | `README.md:123` | open |
 | G25 | H | V2 | Hosted mode: DELETE db/:which only unlinks the local file; hosted rows stay and the next startup hydrate restores them. | `store/common.ts:230` | open |
 
 Verified: G1 @95de3d4, G5 @95de3d4, G2 @17a640b, G9 @ac8b828, G10 @67d2e87, G3 @01f3663, G7 @f961762, G11 @f961762, G8 @f6c4e62, G12 @d7afe82, G13 @d7afe82, G4 @6e95e1d, G14 @fb807f7, G6 @64613fb, G15 @58aa3fa, G17 @485786e, G16 @8578295, G18 @6bae205, G19 @9550952, G21 @98ae872, G20 @b0134a3, G22 @b0134a3, G24 @b0134a3, G23 @53dec36
@@ -107,4 +108,11 @@ OPEN: G25 (H) the customer's 'delete database' never reaches Supabase: deleteDbF
 G25: with c9ad723 even a later flush is refused, so the next restart hydrate brings the deleted data back
 G25: delete must clear that uid's hosted rows through the owning role (like load_remote clear <uid>); pin in test:remote
 NEXT: Instinct (G25)
+```
+
+### [Bill] 2026-11-01 15:35
+```
+OPEN: G26 (L) owner asked if setup.sql is needed; README:123 says run it, README:129-130 list SUPABASE_URL/KEY as required
+G26: both are optional - without them plumbing stays in data/cabinet-db.json; say so, and that set-but-missing table fails the load
+NEXT: Instinct (G25, G26)
 ```
