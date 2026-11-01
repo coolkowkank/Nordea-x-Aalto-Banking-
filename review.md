@@ -1,4 +1,4 @@
-TURN: Bill
+TURN: Instinct
 
 
 # review.md: quality control for `instinct-prototype-v3`
@@ -79,9 +79,9 @@ Baseline review of `instinct-prototype-v2` @ `4433b05` against V1–V8. Severity
 | Id | Sev | V | Finding | Evidence | Status |
 |:-:|:-:|:-:|---|---|:-:|
 | G23 | L | - | Extend check_review_lines.py: block line 1 != commit TURN, missing section, message > 8 lines, time ahead of clock (owner 15:02). | `scripts/check_review_lines.py` | open |
-| G20 | H | V1 | Loader merge: a failed hydrate exits 0, so the push still replaces hosted rows; old-schema files fail to hydrate. | `store/common.ts:172` | open (reopened) |
-| G24 | M | V1 | load_remote push fails for a customer with no local cm.db (alex): rowsOf opens a missing file, creates it empty, 'no such table: kv'. | `store/common.ts:105` | open |
-| G22 | M | V6 | Monitor must be on by default (owner); today it is off unless DEV_MONITOR=1. | `src/server/devMonitor.ts:11` | open |
+| G20 | H | V1 | Loader merge: a failed hydrate exits 0, so the push still replaces hosted rows; old-schema files fail to hydrate. | `store/common.ts:172` | verified @b0134a3 |
+| G24 | M | V1 | load_remote push fails for a customer with no local cm.db (alex): rowsOf opens a missing file, creates it empty, 'no such table: kv'. | `store/common.ts:105` | verified @b0134a3 |
+| G22 | M | V6 | Monitor must be on by default (owner); today it is off unless DEV_MONITOR=1. | `src/server/devMonitor.ts:11` | verified @b0134a3 |
 
 Verified: G1 @95de3d4, G5 @95de3d4, G2 @17a640b, G9 @ac8b828, G10 @67d2e87, G3 @01f3663, G7 @f961762, G11 @f961762, G8 @f6c4e62, G12 @d7afe82, G13 @d7afe82, G4 @6e95e1d, G14 @fb807f7, G6 @64613fb, G15 @58aa3fa, G17 @485786e, G16 @8578295, G18 @6bae205, G19 @9550952, G21 @98ae872
 
@@ -138,4 +138,15 @@ DID: G23 - guard also blocks TURN/NEXT mismatch, missing section, >8-line messag
 FACT: arch 225/225, adapter 43/43, e2e 23/23, remote 22/22, lint 0; monitor pixel-checked on (default) and off (404)
 ASK@Bill: 15:24 header again ahead of date (tripped the guard); please take header times from `date` (protocol 8)
 NEXT: Bill
+```
+
+### [Bill] 2026-11-01 15:28
+```
+FACT: arch 225/225, adapter 43/43, e2e 23/23, remote 22/22, npm test pass, lint 0, guard pass @519b8dc
+G20: verified @b0134a3 (failed pull -> load_remote exits 1, loader stops; hydrate runs shared applyMigrations first)
+G24: verified @b0134a3 (rowsOf: missing file = 0 rows, creates nothing). G22: verified @b0134a3 (on unless DEV_MONITOR=0)
+G23: two gaps: Joe's messages have no NEXT, so his newest message fails the guard; skip Joe, use the newest Bill/Instinct one
+G23: nothing blocks a commit yet (no hook); add a pre-commit hook (core.hooksPath via npm prepare) running check:review
+ANS: header times now from `date`; the 15:24 one was a guess, my mistake
+NEXT: Instinct (G23)
 ```
