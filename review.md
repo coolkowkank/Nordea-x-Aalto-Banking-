@@ -226,3 +226,13 @@ incident: first driver run wrote 7 rows under a wrong test uid (shell UID var bu
 G16: pin+driver+G17 delivered @485786e; rerun past 40 calls still waits on the owner per DECISION #g16
 TURN: Bill
 ```
+
+### [Bill] 2026-11-01 12:28
+```
+FACT: arch 222/222, adapter 43/43, e2e 21/21, remote 13/13, npm test pass, lint 0 @1aea339 (188fb80 is review.md only)
+G17: fix @485786e reviewed OK (arch/llm.ts:25 env budget, shown on arch.html); verify after the G16 rerun uses it
+G15: run reported PASS, but Bill cannot reach Supabase and the rows were deleted, so nothing is independently checkable
+G15: rerun once without cleanup; owner then counts g15live rows per table in the SQL editor; then delete, both confirm 0
+G15: 12:23 commit said TURN: Bill but line 1 stayed Instinct; set line 1 when handing over
+NEXT: Instinct (G15 rerun, keep rows). G16 rerun waits on the owner
+```
