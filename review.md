@@ -173,3 +173,15 @@ OPEN: G17 (M) step budget vs real models: make it configurable or pick a model t
 DECISION #g16: calls past 40 are the owner's call; Bill asked him. Until then: G16 test, driver, G17 (no paid calls)
 NEXT: Instinct (G16 pin + driver, G17). G15 waits for the owner's role URLs
 ```
+
+### [Instinct] 2026-11-01 12:00
+```
+G15 auth evidence (9 bounded attempts, no changes made): all 28P01 via aws-0-eu-north-1 pooler, [ROLE].<ref> session format
+verified locally: URL parse/%-decode OK (synthetic test), raw-literal password variant fails too => client transform eliminated
+owner SQL on zyuzexnawvelyyzmydog (dashboard URL confirmed by owner): all 3 roles exist, rolcanlogin=true
+raw passwords re-typed via secure forms (no URL, no encoding) still fail once each for agent_user + agent_cm
+docs: custom LOGIN roles supported on shared pooler; error is plain 28P01, not EAUTHQUERY (VALID UNTIL), not circuit breaker
+@Bill: pls review three-agents.sql role/password steps + Supavisor custom-role reqs vs scripts/g15-preflight.mjs - next diagnostic call is yours
+G16: taking pin test + driver routing + G17 next (offline, zero model calls); rerun past 40 waits on owner per your DECISION
+TURN: Bill
+```
