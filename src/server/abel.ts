@@ -6,15 +6,12 @@
 //  3. The cabinet only changes through proposeCabinetChange: validated here, provenance recorded, undo token returned.
 //     Sensitive topics are never saved without the customer tapping "Save privately".
 //  4. Money never moves from chat: offerTransfer only shows a confirm card. The customer confirms, code acts.
-//  5. Partner offers: only from the partner registry, never when offers are off, at most one per partner per chat,
-//     tailored only with entries the customer allowed for offers. The fee is computed in code and always shown.
 //  6. Under each reply, "Abel could see …" counts what Abel was given (approved notes, demo account data).
 //     The model's own "used" list is shown separately as its report and only lists entries the gateway returned.
 //  7. Abel's chat history is rebuilt from current consent: undecided, declined or unticked file suggestions,
 //     kept-file text, and replies based on something since removed never reach the model.
 import { db } from './db.js';
 import { readCabinetThroughGateway, previewCabinetForAgent } from './accessGateway.js';
-import { getAllPartners, getPartner } from './partnerRegistry.js';
 import * as fin from './finance.js';
 import { getProvider, ToolDecl, ToolCall, Turn, lastErrorText, recordTurn, isBusy } from './llm.js';
 import { CabinetEntry, ChatMessage, MessageCard, UndoRecord } from '../types.js';
@@ -77,7 +74,7 @@ const targetOf = (amount: unknown, date: unknown) => {
 };
 
 // ---------- tool definitions (what the model can see) ----------
-const ACTION_TOOLS = new Set(['proposeCabinetChange', 'offerTransfer', 'suggestPartnerOffer', 'startHandoff']);
+const ACTION_TOOLS = new Set(['proposeCabinetChange', 'offerTransfer', 'startHandoff']);
 // Balances, salary, goals and the payday plan are already in FACTS, so those tools aren't offered to the model
 // (fewer tokens per answer). The code still handles them if a model asks.
 const FACT_TOOLS = new Set(['getAccounts', 'getSalary', 'getGoalStatus', 'getPayPlan']);
@@ -128,12 +125,6 @@ const ALL_TOOLS: ToolDecl[] = [
     name: 'offerTransfer',
     description: 'Confirm card for a monthly transfer from current account to savings. Nothing moves unless confirmed.',
     parameters: { type: 'object', properties: { amountPerMonth: { type: 'number' } }, required: ['amountPerMonth'] },
-  },
-  {
-    name: 'suggestPartnerOffer',
-    description:
-      'Show one partner offer card (it shows what Nordea earns). Partners: ' + getAllPartners().map((p) => `${p.id} (${p.kind})`).join(', '),
-    parameters: { type: 'object', properties: { partnerId: { type: 'string', enum: getAllPartners().map((p) => p.id) } }, required: ['partnerId'] },
   },
   {
     name: 'startHandoff',
@@ -218,7 +209,6 @@ RULES
 - Save meaningful context quietly with proposeCabinetChange (goals with amount/date, life events, preferences, facts); never small talk or complaints. Remove by name: action "archive" with its entryId (up to 3). Never "delete everything": point to "Abel knows".
 - Sensitive (health, pregnancy, mental health, relationship problems): sensitive=true; it isn't saved unless the customer taps, so never say you saved or noted it. A wedding or honeymoon is not sensitive.
 - Passed goal dates: ask if still a plan.
-- Partner offer: only when they ask about that thing now, one per reply, one short line; the card (shown below your words) has the fee and an adviser link.
 - Adviser card (startHandoff): only when they ask for a person, or about a loan or mortgage.
 - offerTransfer shows a confirm card, only between their own accounts. You can never pay another person: say so and point to Payments in the app.
 - A flat's price is not the deposit goal; homes are paid mostly with a loan you can't calculate. Don't count months or years to cover a price; offer an adviser.
@@ -382,22 +372,6 @@ function recordUndo(rec: Omit<UndoRecord, 'undoToken' | 'timestamp'>) {
   return undoToken;
 }
 
-export function offerHeadline(userId: string, partnerId: string) {
-  // Tailoring uses only what the customer allowed for offers (a logged gateway read as agent "offers").
-  const read = readCabinetThroughGateway(userId, 'offers', `Partner offer: ${partnerId}`);
-  const home = read.allowed.find((e) => e.type === 'goal' && e.goalType === 'home' && e.target);
-  const p = getPartner(partnerId)!;
-  if (partnerId === 'homes' && home) return { headline: `Flats that fit a ${fmt(home.target!.amount)} deposit`, used: [home.id] };
-  const generic: Record<string, string> = {
-    homes: 'Homes for sale in the Helsinki area',
-    movers: 'Movers for a 2–3 room home',
-    insure: 'Home insurance for a flat',
-    planner: 'A money plan with a certified planner',
-    energy: 'Electricity for a 2–3 room flat',
-  };
-  return { headline: generic[partnerId] || p.kind, used: [] as string[] };
-}
-
 function runTool(call: ToolCall, ctx: TurnCtx): unknown {
   const a = call.args || {};
   const u = db.getUser(ctx.userId)!;
@@ -502,27 +476,6 @@ function runTool(call: ToolCall, ctx: TurnCtx): unknown {
         data: { amount: amt, from: 'Current account', to: goal ? `Savings, for “${goal.title}”` : 'Savings', starts: `${fin.addMonths(fin.CUR_MONTH, 1)}-01`, earns: 'Nordea earns nothing from this. You can stop it any time.' },
       });
       return { shown: true, note: 'A confirm card is shown. Nothing has moved. Say "just confirm below" briefly.' };
-    }
-    case 'suggestPartnerOffer': {
-      const p = getPartner(String(a.partnerId));
-      if (!p) return { shown: false, error: 'unknown partner' };
-      if (u.offersOff) return { shown: false, error: 'The customer turned partner offers off. Do not mention offers.' };
-      const conv = db.getConversation(ctx.conversationId);
-      // Not the same card twice in a row; but when the customer asks again later in the chat, they get it again
-      // (asking isn't being pushed).
-      const recent = db.getMessages(ctx.userId).filter((m) => m.conversationId === ctx.conversationId).slice(-4);
-      if (recent.some((m) => (m.cards || []).some((c) => c.type === 'offer' && c.data?.partnerId === p.id) && !m.resolved))
-        return { shown: false, error: 'This card is already on screen just above. Refer to it in one short sentence.' };
-      if (ctx.offersShown >= 1) return { shown: false, error: 'One offer per reply.' };
-      const h = offerHeadline(ctx.userId, p.id);
-      ctx.cards.push({
-        type: 'offer',
-        data: { partnerId: p.id, name: p.name, initials: p.initials, color: p.color, kind: p.kind, headline: h.headline, feeText: p.feeText, cta: p.cta, alternative: p.alternative },
-      });
-      db.touchConversation(ctx.conversationId, { offered: [...(conv?.offered || []), p.id] });
-      ctx.offersShown++;
-      ctx.extraUsed.push(...h.used);
-      return { shown: true, note: 'The card appears right below your message and shows the partner, the offer, the fee and a link to a free Nordea adviser. Introduce it in one short sentence; don’t offer an adviser yourself.' };
     }
     case 'startHandoff': {
       // The adviser card only when the customer asks for a person, or about a loan or mortgage, or is in the

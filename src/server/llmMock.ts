@@ -64,8 +64,6 @@ export const mockProvider: LlmProvider = {
     const u = lastUserText(turns);
     if (last.role === 'user') {
       if (/make up a number/.test(u)) return { calls: [call('finishReply', { text: 'You have 99 999 € hidden somewhere.', suggestions: [], usedEntryIds: [], topic: 'other', couldHelp: true })] };
-      if (/(look|search|find).*(flat|house|apartment)|for sale/.test(u)) return { calls: [call('suggestPartnerOffer', { partnerId: 'homes' })] };
-      if (/financial advice/.test(u)) return { calls: [call('suggestPartnerOffer', { partnerId: 'planner' })] };
       if (/on track/.test(u)) return { calls: [call('getGoalStatus')] };
       if (/yes, move|move 300/.test(u)) return { calls: [call('offerTransfer', { amountPerMonth: 300 })] };
       if (/yes, show me|payday|plan my/.test(u)) return { calls: [call('getPayPlan')] };
@@ -90,8 +88,6 @@ export const mockProvider: LlmProvider = {
       } else if (r.call.name === 'getPayPlan') {
         text = `Your next salary is ${res.income.toLocaleString('fi-FI')} €. About ${res.spendingAveragePerMonth.toLocaleString('fi-FI')} € goes on spending. I’d suggest moving ${res.suggestedExtraMove} € more each payday.`;
         used = homeId ? [homeId] : [];
-      } else if (r.call.name === 'suggestPartnerOffer') {
-        text = res.shown ? 'Since you’re saving for a home, this might help.' : 'Okay.';
       } else if (r.call.name === 'offerTransfer') {
         text = 'Here you go, just confirm below 👇';
       } else if (r.call.name === 'proposeCabinetChange') {

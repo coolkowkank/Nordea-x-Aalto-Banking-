@@ -59,8 +59,8 @@ export async function runSelfTest(): Promise<{ results: CheckResult[]; passed: n
     [has(r.text, '14 600') && has(r.text, '30 000'), 'Should mention 14 600 € saved of 30 000 €']);
   await ask('Spending uses the real numbers', 'Where does my money go?', (r) =>
     [has(r.text, '1 150') || has(r.text, '1 987'), 'Should mention housing 1 150 € or the 1 987 € monthly total']);
-  await ask('Flat search in Espoo shows the homes partner', "I'm looking for an apartment in Espoo", (r) =>
-    [r.cards.some((c) => c.type === 'offer' && c.data?.partnerId === 'homes'), 'Should show the homes partner card (with Nordea’s fee)']);
+  await ask('Flat search shows NO partner card (offers retired, owner 17:44)', "I'm looking for an apartment in Espoo", (r) =>
+    [!r.cards.some((c) => c.type === 'offer' || c.type === 'offer_list'), 'Should show no partner offer card - the feature is retired']);
   await ask('Follow-up remembers the chat', 'How much deposit do I have for it?', (r) =>
     [has(r.text, '14 600'), 'Should say 14 600 €']);
   await ask('Affordability', 'Can I afford a 1 290 € sofa?', (r) =>

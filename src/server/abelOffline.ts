@@ -49,14 +49,14 @@ export function offlineAnswer(userId: string, text: string, allowed: CabinetEntr
     const lines = [
       `Exciting! Flats in ${place} 🏡`,
       st ? `For “${st.title}” you have ${eur(st.saved)} of ${eur(st.target)} saved. At ${eur(st.monthlyGoingIn)} a month you’d have about ${eur(st.projectedByTargetDate)} by ${month(st.targetDate)}.` : '',
-      !u.offersOff ? 'Here’s a partner that lists homes for sale.' : 'If you’d like, I can connect you with a Nordea home loan adviser.',
+      'If you’d like, I can connect you with a Nordea home loan adviser.',
     ].filter(Boolean);
     return {
       text: lines.join('\n\n'),
       suggestions: ['How much can I borrow?', 'Am I on track?', 'Talk to a person'],
       usedEntryIds: home ? [home.id] : [],
       topic: 'home_buying',
-      actions: u.offersOff ? [] : [{ name: 'suggestPartnerOffer', args: { partnerId: 'homes' } }],
+      actions: [],
     };
   }
 

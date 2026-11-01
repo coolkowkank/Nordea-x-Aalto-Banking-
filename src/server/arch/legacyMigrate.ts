@@ -315,8 +315,9 @@ export async function runLegacyMigrationHostedSafe(): Promise<MigrationResult> {
     for (const kind of configured) {
       let hosted: Map<string, string>;
       try {
+        // canon() on both sides: the hosted column is jsonb, which may return keys in any order.
         const rows = (await R.pullStore(kind, remoteUrl(kind)!)).filter((r) => r.user_id === uid);
-        hosted = new Map(rows.map((r) => [`${r.table_name}:${r.id}`, JSON.stringify(r.data)]));
+        hosted = new Map(rows.map((r) => [`${r.table_name}:${r.id}`, canon(r.data)]));
       } catch (err) {
         return { ok: false, deleted: false, alreadyDone: false, ledger: core.ledger,
           failures: [`hosted read-back failed for ${uid}/${kind}: ${err instanceof Error ? err.message : err} - cabinet-db.json kept`] };
@@ -326,7 +327,7 @@ export async function runLegacyMigrationHostedSafe(): Promise<MigrationResult> {
       for (const r of local) {
         const cur = hosted.get(`${r.table_name}:${r.id}`);
         if (cur === undefined) failures.push(`missing hosted: ${kind}/${r.table_name} "${r.id}"`);
-        else if (cur !== JSON.stringify(r.data)) failures.push(`hosted mismatch: ${kind}/${r.table_name} "${r.id}"`);
+        else if (cur !== canon(r.data)) failures.push(`hosted mismatch: ${kind}/${r.table_name} "${r.id}"`);
       }
       const extra = [...hosted.keys()].filter((k) => !local.some((r) => `${r.table_name}:${r.id}` === k));
       for (const k of extra) failures.push(`unexpected hosted row: ${kind}/${k}`);

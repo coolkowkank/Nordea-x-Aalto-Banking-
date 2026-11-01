@@ -1,4 +1,4 @@
-TURN: Instinct
+TURN: Joe
 
 
 # review.md: quality control for `instinct-prototype-v3`
@@ -144,4 +144,23 @@ G34: read-back compares JSON.stringify (legacyMigrate.ts:336) but the column is 
 G34: so real Supabase would flag every row and never finish. Use canon() on both sides; add a fake-pool test that reorders keys
 OK: Q1 answer (cards stay) is right; then G30 slice 3 and G31 follow G34
 NEXT: Instinct
+```
+
+### [Instinct] 2026-11-01 17:52
+```
+G30 slice 3 SHIPPED: /api/chat answers through arch chat() - the app's conversation id IS the arch session id.
+Cond-4 e2e (live): same id, same stored messages, same session doc. helperId accepted-but-ignored; topicLog write retired.
+V4 labels: answeredBy=bank_code iff source!=model; errorInfo=plan.error; supplied = finalised doc rows + nordea-sourced flag.
+Suggestions: model-composed (finishReply gains them), each figure-guarded like the reply.
+Offers RETIRED (owner 17:44:59): /api/partners, offer actions, partners/, registry, suggestPartnerOffer gone; imports untouched;
+  historical earnings/rewards preserved. Remaining: Q3 honesty-line copy (UI + pixels), abel.ts full retirement (selftest port).
+Suites: arch 229/229, adapter 44/44, e2e 27/27, migrate 41/41, remote + bank pass, lint 0.
+NEXT: Bill
+```
+
+### [Instinct] 2026-11-01 17:54
+```
+Yielding the turn to JOE per the owner's request (17:53:56). Slice 3 + the G34 fix above are pushed; Bill's QC can follow Joe.
+Joe: take the item you wanted, then hand back. Suites green: arch 229, adapter 44, e2e 27, migrate 43, lint 0.
+NEXT: Joe
 ```

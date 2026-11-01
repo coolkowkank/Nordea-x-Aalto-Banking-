@@ -202,7 +202,7 @@ console.log('test-migrate: legacy cabinet-db.json -> three agent databases');
 
 // ---- G34: hosted mode (fake pg pool, no live database) ----
 // hydrate -> write+verify local -> AWAITED push -> hosted read-back -> only then delete.
-function runHostedCase(name: string, setup: object | null, flags: { urls?: string[]; failPushKind?: string; failPull?: boolean } = {}) {
+function runHostedCase(name: string, setup: object | null, flags: { urls?: string[]; failPushKind?: string; failPull?: boolean; reorderKeys?: boolean } = {}) {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), `migrate-${name}-`));
   if (setup) fs.writeFileSync(path.join(dir, 'cabinet-db.json'), JSON.stringify(setup));
   const urls = flags.urls ?? ['user', 'cm', 'nordea'];
@@ -213,12 +213,15 @@ function runHostedCase(name: string, setup: object | null, flags: { urls?: strin
     const hosted = { agent_user_records: [], agent_cm_records: [], agent_nordea_records: [] };
     const FAIL_PUSH = ${JSON.stringify(flags.failPushKind ?? null)};
     const FAIL_PULL = ${JSON.stringify(flags.failPull ?? false)};
+    const REORDER = ${JSON.stringify(flags.reorderKeys ?? false)};
+    const reorder = (v) => Array.isArray(v) ? v.map(reorder) : (v && typeof v === 'object'
+      ? Object.fromEntries(Object.keys(v).sort().reverse().map((k) => [k, reorder(v[k])])) : v);
     const pool = (url) => ({
       query: async (text, params) => {
         const t = TABLES[url];
         if (/^SELECT user_id, table_name, id, data FROM/.test(text)) {
           if (FAIL_PULL) throw new Error('pull boom');
-          return { rows: hosted[t].map((r) => ({ ...r })) };
+          return { rows: hosted[t].map((r) => (REORDER ? { ...r, data: reorder(r.data) } : { ...r })) };
         }
         if (/^SELECT 1 FROM .* WHERE user_id/.test(text)) return { rows: hosted[t].some((r) => r.user_id === params[0]) ? [{ one: 1 }] : [] };
         throw new Error('unexpected query: ' + text);
@@ -265,6 +268,14 @@ function runHostedCase(name: string, setup: object | null, flags: { urls?: strin
   check('hosted full: all three hosted tables written', summary.agent_user_records > 0 && summary.agent_cm_records > 0 && summary.agent_nordea_records > 0, JSON.stringify(summary));
   check('hosted full: app namespaces hosted (messages, access log, earnings, rewards)',
     ['app_messages', 'app_conversations', 'app_topic_log', 'app_access_log', 'app_earnings', 'app_data_rewards', 'app_rewards'].every((t) => tables.includes(t)), tables.join(','));
+  fs.rmSync(dir, { recursive: true, force: true });
+}
+
+// Case 8b: jsonb may return keys in any order - the read-back must still match (canon both sides)
+{
+  const { dir, result } = runHostedCase('hosted-reorder', fixture(), { reorderKeys: true });
+  check('hosted reorder: migration ok despite jsonb key order', result.ok === true, JSON.stringify(result.failures).slice(0, 300));
+  check('hosted reorder: legacy file deleted', result.deleted === true && !fs.existsSync(path.join(dir, 'cabinet-db.json')));
   fs.rmSync(dir, { recursive: true, force: true });
 }
 

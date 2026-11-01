@@ -163,6 +163,20 @@ try {
   const ctxB = (await api('GET', `/api/arch/${UID}/state`)).json?.context;
   check('V7: situation C2 - a top-up round on the same session', ctxB?.trigger === 'topup' && ctxB?.roundId !== ctxA?.roundId, ctxB);
 
+  // 6. G30 slice 3, Bill's cond-4: the app's /api/chat and the arch chat are ONE conversation -
+  // same session id, same stored messages, same session document.
+  {
+    const r = await api('POST', '/api/chat', { userId: UID, text: 'hello, one conversation please' });
+    const convId = r.json?.conversationId as string;
+    check('cond-4: the app chat returns its conversation id', r.status === 201 && typeof convId === 'string' && convId.length > 0, r.json);
+    const msgs = (await api('GET', `/api/conversations/${convId}/messages`)).json?.messages ?? [];
+    check('cond-4: the user + agent messages are stored under that id', msgs.length === 2 && msgs[0].sender === 'user' && msgs[1].sender === 'agent', msgs.map((m: any) => m.sender));
+    const arch = await api('POST', `/api/arch/${UID}/chat`, { text: 'still the same chat?', sessionId: convId });
+    check('cond-4: the arch chat reuses the same session id', arch.json?.sessionId === convId, arch.json?.sessionId);
+    const stOne = JSON.stringify((await api('GET', `/api/arch/${UID}/state`)).json);
+    check('cond-4: the session document belongs to the same session', stOne.includes(convId), convId);
+  }
+
   // 5. Source scan: no app/arch code reads customer data from the old store
   const read = (f: string) => fs.readFileSync(f, 'utf-8');
   const appFiles = ['abel.ts', 'finance.ts', 'routes.ts', 'devMonitor.ts', 'dataRewards.ts', 'documents.ts'].map((f) => `src/server/${f}`);

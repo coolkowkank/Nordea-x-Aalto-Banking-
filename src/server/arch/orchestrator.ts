@@ -74,7 +74,7 @@ function saveSession(uid: string, session: ChatSession) { busKvSet(uid, 'chatSes
  * has nothing from the Context Memory agent for a follow-up, a top-up round adds rows to the
  * same document (never a fresh one).
  */
-export async function chat(uid: string, text: string, clientSessionId?: string): Promise<{ reply: string; used: string[]; sessionId: string; source: 'model' | 'scripted' | 'scripted-error'; provider?: string; plan?: { cm: string; nordea: string; provider?: string; error?: string } }> {
+export async function chat(uid: string, text: string, clientSessionId?: string): Promise<{ reply: string; used: string[]; sessionId: string; source: 'model' | 'scripted' | 'scripted-error'; provider?: string; suggestions?: string[]; plan?: { cm: string; nordea: string; provider?: string; error?: string } }> {
   const parked = getCabinetParkedMirror(uid); // the personal agent's parked gate, no status ping
   const { session, isNew } = resolveSession(uid, clientSessionId);
   // F17: direct input (a typed goal) is saved BEFORE any round opens, so the session round's
@@ -113,6 +113,7 @@ export async function chat(uid: string, text: string, clientSessionId?: string):
   // grounded template stays as fallback. Every figure in the model's reply must already
   // exist in the selected facts, or the scripted reply stands (no invented numbers).
   let source: 'model' | 'scripted' | 'scripted-error' = 'scripted';
+  let suggestions: string[] = [];
   // G29: no User-DB/context hit must NOT bypass the model - it still composes the reply from
   // whatever it has (its own User DB via tools + the session document); the figure guard below
   // is unchanged, so without sourced facts any invented number drops it back to the scripted text.
@@ -122,6 +123,9 @@ export async function chat(uid: string, text: string, clientSessionId?: string):
     if (composed.plan && figuresGrounded(composed.plan, [...answer.factSources, ...(composed.seenFacts ?? [])])) {
       answer = { ...answer, reply: composed.plan };
       source = 'model';
+      // Suggestions face the same guard: any figure the facts do not contain drops that suggestion.
+      const facts = [...answer.factSources, ...(composed.seenFacts ?? [])];
+      suggestions = (composed.suggestions ?? []).filter((sg) => figuresGrounded(sg, facts));
     } else if (composed.status === 'error') source = 'scripted-error';
     if (composed.status !== 'scripted' || source !== 'scripted') {
       appendMessage(uid, { from: 'personal', to: 'app', type: 'inform', summary: `Chat reply: ${source === 'model' ? 'composed by the model' : source === 'scripted-error' ? 'scripted (provider error)' : 'scripted'}.`, payload: { llm: true, kind: 'chat-reply', source } });

@@ -990,7 +990,7 @@ const ABEL = await import('../src/server/abel.js');
 await ABEL.abelTurn('lauri', 'conv-main-test', 'abel', 'hello', { userDbFacts: 'Goals: Save for a laptop', sharedContext: '- Goal: Save for a laptop (goal-1)', provenance: ['user-db via the personal agent'] });
 check('F10p2: the main Abel chat carries the shared context into its real prompt, with provenance', capturedSystem.includes('SHARED CONTEXT') && capturedSystem.includes('Save for a laptop') && capturedSystem.includes('user-db via the personal agent'));
 const routesSrc2 = readSrc('../src/server/routes.ts');
-check('F10p2: the chat route assembles shared context for the SAME customer and session it serves', /abelSharedContext\(userId, conv\.id, u\.text\)/.test(routesSrc2) && /abelTurn\(userId, conv\.id, conv\.helperId, u\.text, shared\)/.test(routesSrc2));
+check('G30 slice 3: /api/chat answers through the arch pipeline, conversation id IS the session id', /archChat\(userId, u\.text, conv\.id\)/.test(routesSrc2) && !/abelTurn|abelSharedContext/.test(routesSrc2));
 
 
 // --- F10 phase 2, Bill's condition: the Abel shared-context path reads context.md only -

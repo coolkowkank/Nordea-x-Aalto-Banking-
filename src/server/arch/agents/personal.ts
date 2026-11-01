@@ -158,9 +158,9 @@ export function finishChat(uid: string, begin: ChatBegin): { reply: string; used
  *  It sees ONLY those parts (its own DB hits + shared-context rows), never a database.
  *  Code validates the reply afterwards: any figure not present in the facts drops the
  *  reply back to the grounded scripted template. */
-export async function llmComposeReply(uid: string, question: string, parts: string[]): Promise<import('../llm.js').PlanOutcome<string> & { seenFacts: string[] }> {
+export async function llmComposeReply(uid: string, question: string, parts: string[]): Promise<import('../llm.js').PlanOutcome<string> & { seenFacts: string[]; suggestions: string[] }> {
   const { archLlmEnabled, runAgentReasoning } = await import('../llm.js');
-  if (!archLlmEnabled()) return { plan: null, status: 'scripted', seenFacts: [] }; // G29: empty parts still compose
+  if (!archLlmEnabled()) return { plan: null, status: 'scripted', seenFacts: [], suggestions: [] }; // G29: empty parts still compose
   // V4: the personal model reads its OWN User DB through tools (goals, personal facts) -
   // never another agent's store. Code still pre-selects rows into the prompt and checks
   // every figure in the answer against what the model could have seen (seenFacts).
@@ -173,12 +173,13 @@ export async function llmComposeReply(uid: string, question: string, parts: stri
       'Keep every amount and figure EXACTLY as written in the facts or tool results. Never invent, convert or recompute a number.',
       'If the available facts do not answer the question, say plainly what is missing.',
       'Answer in one to three short sentences, then finishReply.',
+      'In finishReply, add up to 3 short follow-up questions (suggestions) the customer could ask next, grounded in the same facts - never a figure that is not in them.',
     ].join(' '),
     prompt: `Question: ${question}\nFacts:\n${parts.length ? '- ' + parts.join('\n- ') : '(no rows of your User DB or the shared context matched this message - listMyGoals/listMyFacts may still help; if nothing answers it, say plainly what is missing)'}`,
     tools: [
       { name: 'listMyGoals', description: 'List the goals in your own User DB: title, detail, target amount and date.', parameters: { type: 'object', properties: {} } },
       { name: 'listMyFacts', description: 'List the personal facts in your own User DB.', parameters: { type: 'object', properties: {} } },
-      { name: 'finishReply', description: 'Finish with the reply to the customer.', parameters: { type: 'object', properties: { reply: { type: 'string' } }, required: ['reply'] } },
+      { name: 'finishReply', description: 'Finish with the reply to the customer and optional follow-up suggestions.', parameters: { type: 'object', properties: { reply: { type: 'string' }, suggestions: { type: 'array', items: { type: 'string' } } }, required: ['reply'] } },
     ],
     runTool: (call) => {
       const u = loadUserDb(uid);
@@ -196,9 +197,12 @@ export async function llmComposeReply(uid: string, question: string, parts: stri
     },
     finishTool: 'finishReply',
   });
-  if (error) return { plan: null, status: 'error', error, seenFacts };
+  if (error) return { plan: null, status: 'error', error, seenFacts, suggestions: [] };
   const reply = typeof out?.reply === 'string' ? out.reply.trim() : '';
-  return reply.length >= 8 && reply.length <= 600 ? { plan: reply, status: 'model', seenFacts } : { plan: null, status: 'scripted', seenFacts };
+  const suggestions = Array.isArray(out?.suggestions)
+    ? (out!.suggestions as unknown[]).filter((x): x is string => typeof x === 'string').map((x) => x.trim()).filter((x) => x.length >= 4 && x.length <= 80).slice(0, 3)
+    : [];
+  return reply.length >= 8 && reply.length <= 600 ? { plan: reply, status: 'model', seenFacts, suggestions } : { plan: null, status: 'scripted', seenFacts, suggestions: [] };
 }
 
 // ---------- Agent-to-agent queries (transport for the external demo client) ----------

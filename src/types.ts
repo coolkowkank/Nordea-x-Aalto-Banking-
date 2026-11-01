@@ -299,26 +299,6 @@ export interface PartnerItem {
   per?: string;
 }
 
-export interface PartnerManifest {
-  id: string;
-  name: string;
-  initials: string;
-  color: string;
-  kind: string;
-  /** When Abel may suggest this partner (given to the model as a description). */
-  when: string;
-  cta: string;
-  view: string;
-  buy: string;
-  verb: string;
-  alternative: string;
-  /** How Nordea is paid. Computed in code, never by the model. */
-  fee: { type: 'percent' | 'flat' | 'percentOfYear'; value: number };
-  /** Share of Nordea's fee given back to the customer's savings. */
-  shareBack: number;
-  feeText: string;
-  items: PartnerItem[];
-}
 
 export interface Earning {
   id: string;
