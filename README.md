@@ -59,7 +59,7 @@ flowchart TD
 
 ## 🚀 Quick start
 
-**You need:** [Node.js](https://nodejs.org) 22.13 or newer (the stores use the built-in `node:sqlite`, unflagged from 22.13). An AI key is optional for a first look.
+**Prerequisites:** [Git](https://git-scm.com), [Node.js](https://nodejs.org) **22.13 or newer** (the stores use the built-in `node:sqlite`), and [Python](https://www.python.org) **3** (standard library only - no `pip install` needed). Nothing else. An AI key is optional for a first look.
 
 ```bash
 # 1. Get the code and switch to this branch
@@ -72,13 +72,32 @@ npm install --legacy-peer-deps
 
 # 3. Load the fictional bank data (see seed/README.md)
 python scripts/load_data.py seed/demo --target file   # local files; drop --target file for the hosted Supabase stores
-# (if "python" is not found, the command is "python3" on your machine)
+# "python" not found? The command is "python3" on most Mac/Linux machines - both work.
 
-# 4. Run without an AI key
-LLM_PROVIDER=mock npm run dev        # bash
+# 4. Start it - no AI key needed for a first look
+LLM_PROVIDER=mock npm run dev        # bash (Mac/Linux)
 # PowerShell:   $env:LLM_PROVIDER="mock"; npm run dev
 # Windows cmd:  set LLM_PROVIDER=mock && npm run dev
 ```
+
+**Where to go once it is listening on port 3000:**
+
+| Page | What it is |
+|---|---|
+| **http://localhost:3000/** | The main Abel app (the banking UI from `main`) |
+| **http://localhost:3000/arch.html** | The three-agent demo: pick a demo customer (`alex`, `eeva` or `lauri`) in the Customer picker, add a goal, chat |
+| **http://localhost:3000/dev-monitor.html** | Read-only developer monitor - only when started with `DEV_MONITOR=1` (same per-OS form as `LLM_PROVIDER` above) |
+
+**Optional: real AI answers.** Copy `.env.example` to `.env` and add one free key, then restart without `LLM_PROVIDER=mock`. (`.env.example` is worded for the hosted AI Studio deployment; locally the same variable names go in `.env`, which git ignores.)
+
+- **Gemini**: create a free key at [aistudio.google.com](https://aistudio.google.com) and set `GEMINI_API_KEY=...`.
+- **Groq** (free tier): create a key at [console.groq.com](https://console.groq.com) and set `LLM_PROVIDER="openai"`, `LLM_BASE_URL="https://api.groq.com/openai/v1"`, `LLM_API_KEY=...`, `LLM_MODEL="openai/gpt-oss-120b"`.
+
+**Troubleshooting**
+
+- `npm run dev` exits at once or complains about `node:sqlite`: your Node is older than 22.13 - install the current LTS from [nodejs.org](https://nodejs.org).
+- Port 3000 already in use: stop the other app, or run on another port - `PORT=3001 npm run dev` (bash), `$env:PORT=3001; npm run dev` (PowerShell), `set PORT=3001 && npm run dev` (cmd).
+- `python` is not recognized / command not found: use `python3`; if neither exists, install Python 3 from [python.org](https://www.python.org) (no packages needed). The npm test scripts try both names automatically (via `scripts/run_python.mjs`).
 
 Open **http://localhost:3000/arch.html** for the three-agent demo UI. Its controls: pick a customer in the **Customer** picker; chat (answered from the session's document); **New session** starts a fresh session whose next question rebuilds `context.md`; **Add goal** plus each goal's **edit**/**delete** manage the User DB goals; **Upload bank file** imports a JSON/CSV statement through the airlock; **Check feed** applies new rows of the Nordea feed CSV; the agent **off/on** switches pause one agent's reasoning; **Park** silences the whole cabinet; **Permissions** set the standing review level; **Contribute** runs a Nordea round; and the review and airlock queues take accept/reject decisions. The developer monitor at **http://localhost:3000/dev-monitor.html** is off unless you start with `DEV_MONITOR=1` (it shows private cards, so it is a laptop-only tool). Without `LLM_PROVIDER=mock`, Abel uses Gemini (`GEMINI_API_KEY`) or an OpenAI-compatible provider, as on `main`.
 
