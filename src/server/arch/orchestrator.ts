@@ -8,7 +8,7 @@ import { ArchError, newId, now } from './types.js';
 import type { AgentId, ArchEntry, BuildRound, Goal } from './types.js';
 import { overlaps, words } from './text.js';
 import { dispatchPending } from './dispatcher.js';
-import { runRound } from './rounds.js';
+import { runRound, loadLatestRound } from './rounds.js';
 import {
   beginChat, finishChat, postAgentQuery, readAgentReply, personalLabel,
 } from './agents/personal.js';
@@ -520,11 +520,17 @@ export function archState(uid: string) {
   const sessionRaw = busKvGet(uid, 'chatSession');
   const session = sessionRaw ? (JSON.parse(sessionRaw) as ChatSession) : null;
   const ctxDoc = loadContext(uid);
+  const latestRound = loadLatestRound(uid);
   return {
     userId: uid,
     stores: { user: storeLine(uid, 'user'), cm: storeLine(uid, 'cm'), nordea: storeLine(uid, 'nordea') },
     context: ctxDoc ? { sessionId: ctxDoc.sessionId, roundId: ctxDoc.roundId, trigger: ctxDoc.trigger, openedAt: ctxDoc.openedAt, finalisedAt: ctxDoc.finalisedAt } : null,
     llm: archLlmConfig(),
+    // G31: the latest build round and its truthful per-agent plan path, so the
+    // monitor can show which agent reasoned on the model and which fell back.
+    round: latestRound
+      ? { id: latestRound.id, state: latestRound.state, trigger: latestRound.trigger, closedAt: latestRound.closedAt ?? null, planStatus: latestRound.llm?.status ?? null }
+      : null,
     sessionId: session?.id ?? null,
     agents: {
       personal: { mode: u.personalAgent.mode, name: personalLabel(u), simulated: u.personalAgent.mode === 'external', off: off.includes('personal') },
@@ -534,7 +540,9 @@ export function archState(uid: string) {
     goals: u.goals.map((g) => ({ id: g.id, title: g.title, detail: g.detail })),
     databases: {
       user: { goals: u.goals.length, personalFacts: u.personalFacts.length, profile: !!u.profileName },
-      contextMemory: { entries: cm.entries.length, disputed: cm.entries.filter((e) => e.status === 'disputed').length, parked: !!cm.parked, permissions: cm.permissions ?? null },
+      contextMemory: { entries: cm.entries.length, disputed: cm.entries.filter((e) => e.status === 'disputed').length, parked: !!cm.parked, permissions: cm.permissions ?? null,
+        // G31: newest few titles so the monitor card shows real data, not only counts.
+        recent: cm.entries.slice(-5).reverse().map((e) => ({ title: e.title, status: e.status, proposedBy: e.proposedBy })) },
       nordea: nordea ? { accounts: nordea.accounts.length, transactions: nordea.transactions.length } : null,
     },
     contextMd: ctxDoc ? renderContextMd(uid, ctxDoc) : null,

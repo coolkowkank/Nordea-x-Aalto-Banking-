@@ -24,6 +24,11 @@
   .body { padding:0 16px 12px; font-size:13px; color:#c6cdd6; display:flex; flex-direction:column; gap:8px; }
   .pill { display:inline-block; background:#123b26; color:#4ecb8d; border-radius:99px; padding:2px 10px; font-size:12px; margin:1px 3px 1px 0; }
   .pill.off { background:#402020; color:#e07a6c; }
+  .pill.model { background:#123b26; color:#4ecb8d; }
+  .pill.scripted { background:#2b3038; color:#9aa4b0; }
+  .pill.error { background:#402020; color:#e07a6c; }
+  .mini { font-size:12px; color:#9aa4b0; padding:2px 0; line-height:1.5; }
+  .mini b { color:#d6dbe2; font-weight:600; }
   .counts { font-size:13px; }
   .panel { margin-top:18px; background:#242930; border-radius:14px; padding:14px 18px; }
   .panel h2 { font-size:15px; color:#eef1f5; margin-bottom:8px; }
@@ -51,19 +56,19 @@
     <div class="wtitle"><h2>User DB</h2></div>
     <div class="agentline" id="a-personal"></div>
     <div class="connline" id="conn-user"></div>
-    <div class="body"><div class="counts" id="user-summary"></div></div>
+    <div class="body"><div class="counts" id="user-summary"></div><div id="user-goals"></div></div>
   </div>
   <div class="window w-cm">
     <div class="wtitle"><h2>Context Memory DB (cabinet)</h2></div>
     <div class="agentline" id="a-cm"></div>
     <div class="connline" id="conn-cm"></div>
-    <div class="body"><div class="counts" id="cm-summary"></div></div>
+    <div class="body"><div class="counts" id="cm-summary"></div><div id="cm-recent"></div></div>
   </div>
   <div class="window w-nordea">
     <div class="wtitle"><h2>Nordea DB</h2></div>
     <div class="agentline" id="a-nordea"></div>
     <div class="connline" id="conn-nordea"></div>
-    <div class="body"><div class="counts" id="nordea-summary"></div></div>
+    <div class="body"><div class="counts" id="nordea-summary"></div><div id="nordea-card"></div></div>
   </div>
 </div>
 <div class="panel">
@@ -86,6 +91,12 @@
 <script>
 const $ = (id) => document.getElementById(id);
 const esc = (s) => String(s ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+// G31: truthful per-agent plan path: 'model' = the model's validated proposal was used,
+// 'scripted' = clean fallback, 'error' = the provider failed and code fell back.
+const planPill = (st) => st === 'model' ? '<span class="pill model">model</span>'
+  : st === 'scripted' ? '<span class="pill scripted">scripted</span>'
+  : st === 'error' ? '<span class="pill error">error (fell back)</span>'
+  : '<span class="pill scripted">not recorded</span>';
 const conn = (s) => s.connected
   ? `${s.backend === 'postgres' ? 'Postgres (per-agent role)' : 'SQLite'} · ${esc(s.file)} · <span class="ok">connected</span> · last write ${s.lastWrite ? esc(s.lastWrite.slice(0, 19).replace('T', ' ')) : 'never'}`
   : `${s.backend === 'postgres' ? 'Postgres (per-agent role)' : 'SQLite'} · ${esc(s.file)} · <span class="bad">not created yet</span>`;
@@ -95,20 +106,24 @@ async function refresh() {
   const j = await r.json();
   if (!r.ok) { $('sysline').textContent = j.error || 'Monitor unavailable'; return; }
   const s = j.arch;
-  $('sysline').textContent = `app storage: ${j.storage.mode}${j.storage.ok ? '' : ' (degraded)'} · feed: ${j.feed?.message ?? 'n/a'} · generated ${j.generatedAt.slice(0, 19).replace('T', ' ')}`;
-  $('a-personal').innerHTML = `<b>Personal agent: ${esc(s.agents.personal.name)}</b> ${s.agents.personal.off ? '<span class="pill off">off</span>' : '<span class="pill">on</span>'}`;
+  $('sysline').textContent = `app storage: ${j.storage.mode}${j.storage.ok ? '' : ' (degraded)'} · feed: ${j.feed?.message ?? 'n/a'} · reasoning: ${s.llm?.provider ?? 'scripted (no provider)'} · budget ${s.llm?.maxSteps ?? '-'} steps x ${Math.round((s.llm?.stepTimeoutMs ?? 0) / 1000)}s · generated ${j.generatedAt.slice(0, 19).replace('T', ' ')}`;
+  $('a-personal').innerHTML = `<b>Personal agent: ${esc(s.agents.personal.name)}</b> ${s.agents.personal.off ? '<span class="pill off">off</span>' : '<span class="pill">on</span>'} <span class="pill ${s.agents.personal.simulated ? 'scripted' : 'model'}">${s.agents.personal.simulated ? 'external (simulated)' : 'built-in'}</span>`;
   $('conn-user').innerHTML = conn(s.stores.user);
-  $('user-summary').innerHTML = `Goals: <b>${s.databases.user.goals}</b> · Personal facts: <b>${s.databases.user.personalFacts}</b>`;
-  $('a-cm').innerHTML = `<b>Context Memory agent</b> ${s.agents.cm.off ? '<span class="pill off">off</span>' : '<span class="pill">on</span>'} ${s.databases.contextMemory.parked ? '<span class="pill off">parked</span>' : ''}`;
+  $('user-summary').innerHTML = `Goals: <b>${s.databases.user.goals}</b> · Personal facts: <b>${s.databases.user.personalFacts}</b> · Profile: <b>${s.databases.user.profile ? 'loaded' : 'none'}</b>`;
+  $('user-goals').innerHTML = (s.goals ?? []).length ? (s.goals ?? []).slice(0, 5).map((g) => `<div class="mini">- <b>${esc(g.title)}</b>${g.detail ? ` ${esc(g.detail)}` : ''}</div>`).join('') : '<div class="mini">No goals stored.</div>';
+  $('a-cm').innerHTML = `<b>Context Memory agent</b> ${s.agents.cm.off ? '<span class="pill off">off</span>' : '<span class="pill">on</span>'} ${s.databases.contextMemory.parked ? '<span class="pill off">parked</span>' : ''} plan: ${s.round ? planPill(s.round.planStatus?.cm) : '<span class="pill scripted">no round yet</span>'}`;
   $('conn-cm').innerHTML = conn(s.stores.cm);
   $('cm-summary').innerHTML = `Entries: <b>${s.databases.contextMemory.entries}</b>${s.databases.contextMemory.disputed ? ` · <span style="color:#e07a6c">${s.databases.contextMemory.disputed} disputed</span>` : ''} · permissions: ${esc(s.databases.contextMemory.permissions?.reviewLevel ?? 'not set')}`;
-  $('a-nordea').innerHTML = `<b>Nordea agent</b> ${s.agents.nordea.off ? '<span class="pill off">off</span>' : '<span class="pill">on</span>'}`;
+  $('cm-recent').innerHTML = (s.databases.contextMemory.recent ?? []).length ? s.databases.contextMemory.recent.map((e) => `<div class="mini">- <b>${esc(e.title)}</b> (${esc(e.status)}, by ${esc(e.proposedBy)})</div>`).join('') : '<div class="mini">No entries stored.</div>';
+  $('a-nordea').innerHTML = `<b>Nordea agent</b> ${s.agents.nordea.off ? '<span class="pill off">off</span>' : '<span class="pill">on</span>'} plan: ${s.round ? planPill(s.round.planStatus?.nordea) : '<span class="pill scripted">no round yet</span>'}`;
   $('conn-nordea').innerHTML = conn(s.stores.nordea);
   $('nordea-summary').innerHTML = s.databases.nordea ? `Accounts: <b>${s.databases.nordea.accounts}</b> · Transactions: <b>${s.databases.nordea.transactions}</b>` : 'No Nordea data for this customer.';
+  $('nordea-card').innerHTML = s.round?.planStatus?.error ? `<div class="mini" style="color:#e07a6c">Last provider error: ${esc(s.round.planStatus.error)}</div>` : '';
   const c = s.context;
   $('ctx-meta').innerHTML = c
     ? `Session: <b>${esc(c.sessionId ?? 'none')}</b> · trigger: ${esc(c.trigger ?? '-')} · round: ${esc(c.roundId ?? '-')} · ${c.finalisedAt ? 'finalised ' + esc(c.finalisedAt.slice(0, 19).replace('T', ' ')) : 'open'}<br>Sections and their owners: <b>customer</b> (personal agent) · <b>memory</b> (Context Memory agent) · <b>nordea</b> (Nordea agent) - one writer per section.`
     : 'No session document for this customer yet.';
+  if (s.round) $('ctx-meta').innerHTML += `<br>Latest build round: <b>${esc(s.round.id)}</b> · ${esc(s.round.trigger)} · ${esc(s.round.state)}${s.round.closedAt ? ' ' + esc(s.round.closedAt.slice(0, 19).replace('T', ' ')) : ''} · plan: cm ${planPill(s.round.planStatus?.cm)} nordea ${planPill(s.round.planStatus?.nordea)}${s.round.planStatus?.provider ? ` on ${esc(s.round.planStatus.provider)}` : ''}`;
   $('ctx-md').textContent = s.contextMd ?? '';
   const q = [];
   for (const b of s.queues.airlock) q.push(`<div class="qitem"><b>Airlock:</b> ${b.items.length} item(s) from ${esc(b.source)}<div class="meta">pending since ${esc((b.at ?? '').slice(0, 19).replace('T', ' '))}</div></div>`);
@@ -128,6 +143,14 @@ async function boot() {
   $('uid').addEventListener('change', refresh);
   refresh();
 }
+let busy = false;
+async function tick() {
+  if (busy || document.hidden) return;
+  busy = true;
+  try { await refresh(); } catch { /* keep polling; a failed pass shows in sysline */ } finally { busy = false; }
+}
+// G31: live view - poll every 5s so the cards follow agent activity without a manual reload.
+setInterval(tick, 5000);
 boot().catch((e) => { $('sysline').textContent = String(e); });
 </script>
 </body>

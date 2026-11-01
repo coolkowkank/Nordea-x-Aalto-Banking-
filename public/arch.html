@@ -169,6 +169,8 @@ async function refresh() {
     ? `Session: <b>${esc(c.sessionId ?? 'none')}</b> · trigger: ${esc(c.trigger ?? '-')} · round: ${esc(c.roundId ?? '-')} · ${c.finalisedAt ? 'finalised ' + esc(c.finalisedAt.slice(0, 19).replace('T', ' ')) : 'open'}<br>Sections and their owners: <b>customer</b> (personal agent) · <b>memory</b> (Context Memory agent) · <b>nordea</b> (Nordea agent) - one writer per section.`
     : 'No session document yet - ask the agent something to open one.';
   if (s.llm) $('ctx-meta').innerHTML += `<br>Reasoning: <b>${esc(s.llm.provider ?? 'scripted (no provider)')}</b> · step budget ${s.llm.maxSteps} · step timeout ${Math.round(s.llm.stepTimeoutMs / 1000)}s <span style="opacity:.6">(env LLM_AGENT_MAX_STEPS / LLM_STEP_TIMEOUT_MS)</span>`;
+  // G31: the latest round's truthful per-agent plan path (model / scripted / error).
+  if (s.round?.planStatus) $('ctx-meta').innerHTML += `<br>Latest round plan: cm <b>${esc(s.round.planStatus.cm)}</b>, nordea <b>${esc(s.round.planStatus.nordea)}</b>${s.round.planStatus.provider ? ` on ${esc(s.round.planStatus.provider)}` : ''}${s.round.planStatus.error ? ` - <span style="color:#a4352c">${esc(s.round.planStatus.error)}</span>` : ''}`;
   $('ctx-md').textContent = s.contextMd ?? '';
   const entries = await api(`/api/arch/${uid}/entries`);
   $('cm-entries').innerHTML = entries.entries.length ? entries.entries.map((e) =>
@@ -221,6 +223,14 @@ $('btn-newsession').onclick = async () => { const j = await api(`/api/arch/${uid
 for (const a of ['personal', 'cm', 'nordea']) $(`btn-off-${a}`).onclick = async () => { const off = $(`btn-off-${a}`).textContent === 'Turn off'; await api(`/api/arch/${uid}/agents/${a}/${off ? 'off' : 'on'}`, {}); refresh(); };
 for (const w of ['user', 'cm', 'nordea']) $(`btn-del-${w}`).onclick = async () => { if (confirm(`Really delete the ${w === 'cm' ? 'Context Memory' : w === 'user' ? 'User' : 'Nordea'} DB? Other databases are not touched.`)) { await api(`/api/arch/${uid}/db/${w}`, { method: 'DELETE' }); refresh(); } };
 $('uid').addEventListener('change', refresh);
+let refreshing = false;
+async function tick() {
+  // G31: follow agent activity without a manual reload. Skip overlapping passes.
+  if (refreshing || document.hidden) return;
+  refreshing = true;
+  try { await refresh(); } catch { /* an action handler already surfaces errors in the chat log */ } finally { refreshing = false; }
+}
+setInterval(tick, 5000);
 async function boot() {
   try {
     const j = await api('/api/arch/customers');
