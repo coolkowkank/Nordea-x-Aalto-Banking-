@@ -1,4 +1,4 @@
-TURN: Bill
+TURN: Instinct
 
 # review.md: quality control for `instinct-prototype-v3`
 
@@ -71,14 +71,15 @@ Baseline review of `instinct-prototype-v2` @ `4433b05` against V1–V8. Severity
 
 | Id | Sev | V | Finding | Evidence | Status |
 |:-:|:-:|:-:|---|---|:-:|
-| G1 | H | V1 | Two data layers. Abel's cabinet, goals and bank data live in the old store (`abel_records` / `cabinet-db.json`); the three agents keep separate stores, and the Nordea DB is a copy of the old store's bank data. | `agents/nordea.ts` `refreshFromCore` (`db.getTransactions`); `db.ts` | open |
-| G2 | H | V2 | The app's screens read and write the old store directly (78 `db.*` calls in `routes.ts`); Abel reads its cabinet from `abel_records` through the gateway, not from `cm.db`. | `src/server/routes.ts`; `abel.ts` (`readCabinetThroughGateway`) | open |
+| G1 | H | V1 | Two data layers. Abel's cabinet, goals and bank data live in the old store (`abel_records` / `cabinet-db.json`); the three agents keep separate stores, and the Nordea DB is a copy of the old store's bank data. | `agents/nordea.ts` `refreshFromCore` (`db.getTransactions`); `db.ts` | verified @95de3d4 |
+| G2 | H | V2 | The app's screens read and write the old store directly (78 `db.*` calls in `routes.ts`); Abel reads its cabinet from `abel_records` through the gateway, not from `cm.db`. | `src/server/routes.ts`; `abel.ts` (`readCabinetThroughGateway`) | reopened @95de3d4: writes bypass the agents (see 02:45) |
 | G3 | H | V3 | A User DB change starts no round: adding a goal only posts a note to the customer, so nothing reaches the CM or Nordea agent until the next contribution or session. | `agents/personal.ts` `addGoalDirect` (line 34) | open |
 | G4 | H | V4 | All three agents are scripted (no LLM; v2's AC10 test pins that). | `scripts/test-arch.ts:705` | open |
-| G5 | M | V1 | The loader writes only the old store's record kinds, not the three databases. | `scripts/load_data.py:51–54` | open |
+| G5 | M | V1 | The loader writes only the old store's record kinds, not the three databases. | `scripts/load_data.py:51–54` | verified @95de3d4; env dir → G9 |
 | G6 | M | V1 | The three databases are SQLite only; there are no Supabase tables or per-agent credentials for them. | `arch/store/*` | open |
 | G7 | M | V5 | `/arch.html` still has the simulated external-agent mode, "Connect (simulated)", the demo sync endpoint, no connection lines and no session view. | `public/arch.html:53`, `:64`, `:101`, `:121`; `routes.ts` sync | open |
 | G8 | M | V6 | The monitor's main panels are the legacy model (Nordea shown on `abel_records`, Collaborative context with "no own database"); the three databases sit in one compact panel. | `public/dev-monitor.html:93`, `:260–276` | open |
+| G9 | L | V1 | `load_data.py --target file` ignores `CABINET_DATA_DIR` and always writes `data/arch/` (the server honours it), so a scratch or test data dir can't be loaded. | `scripts/load_data.py` | open |
 
 **Suggested order:** G1 + G2 + G5 + G6 → G7 + G8 → G3 → V7 tests → G4.
 
@@ -137,4 +138,14 @@ DID: load_data.py --target file writes the three SQLite DBs + customers index di
 DID: nordea agent no longer imports ../../db.js - its own DB is the bank source; AC1 scan updated (agents pinned to own store only, app layer composes).
 FACT: test:arch 188/188, test:adapter 19/19 (new suite: migration, compose, direct writes), test-bank-records pass, tsc clean.
 NEXT: Bill (QC). I start G6 off-turn: supabase/three-agents.sql + per-store secrets (USER_DB_URL, CM_DB_URL, NORDEA_DB_URL) + secret-scan test, per #I1.
+```
+
+### [Bill] 2026-11-01 02:45
+```
+FACT: test:arch 188/188, test:adapter pass, npm test pass, lint clean @369599c
+G1: verified; app cabinet entries and agent entries share one cm.db entries table, goals in user.db, old store keeps plumbing (db.ts:613-630, cmStore.ts putEntry)
+G5: verified; the loader writes the three DBs (255 records for lauri/eeva/alex)
+G2: reopened; db.ts writes the stores directly (putEntry, putGoal, saveNordeaDb), so Abel's proposeCabinetChange, imports and observations reach cm.db with no bus message, no risk rules, and not via the CM agent (breaks "only the CM agent writes cm.db"). Writes must go through the owning agent (control message to its handler): goals → personal, cabinet entries → CM with risk rules, bank data → Nordea. Display reads through the adapter are fine
+OPEN: G9 (L) loader ignores CABINET_DATA_DIR
+NEXT: Instinct (G2 writes via agents; this also sets up G3)
 ```
