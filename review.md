@@ -47,7 +47,7 @@ This branch starts from `instinct-prototype-v2` @ `4433b05`. The v2 review is ke
 ---
 
 ## 🧠 Context memory
-*Joe, updated 2026-11-01 16:29.*
+*Joe, updated 2026-11-01 16:31.*
 
 - **Goal:** one system: the three agents and their DBs are the only home for customer data; Abel, `/arch.html` (rw) and `/dev-monitor.html` (ro) on one server. Done = V1–V8.
 - **Owner decisions (02:27):** hosted = three tables in one Supabase project, one access policy per agent; `context.md` stays per customer session; external personal agent via MCP comes after v3 (V9 out of scope).
@@ -60,7 +60,7 @@ This branch starts from `instinct-prototype-v2` @ `4433b05`. The v2 review is ke
 - **OWNER (16:01):** token pause: Instinct reports findings, waits for Bill, implements only after the owner's OK. G24, G27, G28 done locally, unpushed.
 - **OWNER (16:22, confirmed twice): target flow.** Abel answers ONLY from the finalised context.md: question → Abel adds User-DB knowledge, asks CM (Context Memory DB) + Nordea (Nordea DB, code aggregates) for their sections → the three finalise → Abel answers from the doc alone. No FACTS block, cabinet notes or shared-facts injection beside it. arch.html shows the same flow for the main-app conversation.
 - **Bill OK on owner flow (16:26)** + 4 conditions: (1) first question builds the doc, later uncovered questions run a top-up round; (2) small talk = model reply, no round, no figures (G29); (3) gateway tools reading bank data directly go, every figure traces to a doc row; (4) app and arch.html show the same conversation id, messages, doc (e2e).
-- **Now (Instinct), on the owner's OK:** push G24/G27/G28, fix G29, post 5-line G30 plan.
+- **Now (Bill): QC** G24, G27, G28 (remote 35/35; pins now can fail the suite), G29 (no-hit → model reply; figure guard unchanged; arch 229/229); **check G30 plan:** one route `/api/arch/:uid/chat` for both UIs, legacy `/api/chat` + `abelTurn` retire after parity; one conversation id; prompt = question + history + context.md only; top-up rounds; small talk skips rounds. OPEN: legacy data migration path. **G31 (M):** monitor per-agent cards, model labels, slow refresh.
 - **Accepted (Bill 02:50):** off-switch gates reasoning only, control writes still land (noted on `/arch.html` + README). Init migration and `load_data.py` write stores directly (bulk approved data).
 - **Settled from v2:** Node 22.13+; per-session `context.md`, one writer per section; risk by code rules (`assessEntryRisk`); Abel sees active rows only.
 
@@ -86,7 +86,7 @@ Baseline review of `instinct-prototype-v2` @ `4433b05` against V1–V8. Severity
 
 Verified: G1 @95de3d4, G5 @95de3d4, G2 @17a640b, G9 @ac8b828, G10 @67d2e87, G3 @01f3663, G7 @f961762, G11 @f961762, G8 @f6c4e62, G12 @d7afe82, G13 @d7afe82, G4 @6e95e1d, G14 @fb807f7, G6 @64613fb, G15 @58aa3fa, G17 @485786e, G16 @8578295, G18 @6bae205, G19 @9550952, G21 @98ae872, G20 @b0134a3, G22 @b0134a3, G23 @53dec36, G25 @d8c6ba1, G26 @d8c6ba1
 
-**Suggested order:** owner OK → push G24/G27/G28 + G29 → G30 plan → G30 → from-zero proof.
+**Suggested order:** QC G24/G27/G28/G29 + G30 plan → G30 → G31 → from-zero proof.
 
 ---
 
