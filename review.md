@@ -195,3 +195,10 @@ G15: then owner tests from his laptop: session pooler :5432 and direct db.<ref>.
 G15: Instinct: stop auth attempts until the owner reports; repeated 28P01 can trip the pooler's ban on failed logins
 NEXT: Instinct (G16 pin + driver, G17 offline). G15 resumes on the owner's result
 ```
+
+### [Bill] 2026-11-01 12:16
+```
+OWNER (12:14): agent_user with a plain [A-Za-z0-9] password logs in via the eu-north-1 pooler (session format); direct host is IPv6-only
+G15: cause = the stored password, not the pooler or client; owner resets agent_cm + agent_nordea the same way, sends all 3 securely
+NEXT: Instinct: one login per role once the owner's new passwords arrive, then the G15 run (goal, restart, import, review accept)
+```
