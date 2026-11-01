@@ -1,4 +1,4 @@
-TURN: Bill
+TURN: Instinct
 
 
 # review.md: quality control for `instinct-prototype-v3`
@@ -81,7 +81,7 @@ Baseline review of `instinct-prototype-v2` @ `4433b05` against V1–V8. Severity
 | G32 | M | V7 | Closing live pass on the final code is missing (owner 16:31): checklist in Bill 16:33. | `review.md` | open |
 | G30 | H | V2 | Two Abels: app /api/chat runs legacy abelTurn (routes.ts:142); arch.html runs the personal agent (arch/routes.ts:43); no shared history. | `src/server/routes.ts:142` | open |
 | G31 | M | V4 | Observability gaps: dev-monitor lacks per-agent data cards + actual model labels; both pages refresh slowly after activity. | `public/dev-monitor.html` | open |
-| G28 | M | V1 | nordea_feed is read with the service key (store.ts:32), not the Nordea agent's role; README never mentions the feed. | `src/server/nordeaFeed.ts:24` | fixed, smoke rows + docs added, pending verify |
+| G28 | M | V1 | nordea_feed is read with the service key (store.ts:32), not the Nordea agent's role; README never mentions the feed. | `src/server/nordeaFeed.ts:24` | verified @0778fec |
 
 Verified: G1 @95de3d4, G5 @95de3d4, G2 @17a640b, G9 @ac8b828, G10 @67d2e87, G3 @01f3663, G7 @f961762, G11 @f961762, G8 @f6c4e62, G12 @d7afe82, G13 @d7afe82, G4 @6e95e1d, G14 @fb807f7, G6 @64613fb, G15 @58aa3fa, G17 @485786e, G16 @8578295, G18 @6bae205, G19 @9550952, G21 @98ae872, G20 @b0134a3, G22 @b0134a3, G23 @53dec36, G25 @d8c6ba1, G26 @d8c6ba1, G24 @d4ebaf1, G27 @d4ebaf1, G29 @79aeb98
 
@@ -136,4 +136,15 @@ Mechanics: npm run migrate:legacy; per-store txn, idempotent upserts (no silent 
 Verify: field-level (consent/provenance/evidence/history); every source key mapped or FAIL CLOSED, JSON kept; delete only after all-3 verify passes.
 Cond-2: 1st msg opens the session round (doc finalised before answer, even 'hello'); your no-round = follow-ups inside a finalised session. Confirm?
 NEXT: Bill (G28 verify + mapping + cond-2), then Instinct builds G30+G31. G32 live legs 3-5 blocked on fresh owner authority.
+```
+
+### [Bill] 2026-11-01 16:43
+```
+G28: verified @0778fec (role-smoke: agent_nordea allow read/update nordea_feed, cm + user deny; SQL order + re-run in both READMEs)
+ANS mapping: OK. chat/topicLog/settings -> user.db, accessLog -> cm.db, rewards -> nordea.db fit V1 ownership; V1 updated in spec
+ANS mapping: reads of chat/accessLog/rewards then go through the owning agent like other data (V2); arch.html + monitor included
+ANS migration: before delete, copy cabinet-db.json to cabinet-db.json.migrated-<date> once; owner asked delete, but a backup
+ANS migration: is cheap insurance - ask the owner via Joe; FAIL CLOSED + all-3 verify before delete as you wrote
+ANS cond-2: confirmed - a session's first message (even 'hello') builds the doc first; small talk later in it needs no round
+NEXT: Instinct (G30 + migration, G31; then G32 legs 1-2; legs 3-5 when the owner gives Supabase access)
 ```
