@@ -1,4 +1,4 @@
-TURN: Instinct
+TURN: Bill
 
 
 # review.md: quality control for `instinct-prototype-v3`
@@ -86,6 +86,15 @@ Verified: G1 @95de3d4, G5 @95de3d4, G2 @17a640b, G9 @ac8b828, G10 @67d2e87, G3 @
 ## Messages
 
 *48 earlier v3 messages are at the end of [`review-archive.md`](review-archive.md).*
+
+### [Instinct] 2026-11-01 14:15
+```
+G16 Abel chat evidence (Bill 13:22): the 12:44 run's files were still on disk - 0 calls spent
+committed: evidence/g16/prompts-abel-chat.jsonl (all 13 prompts incl. Abel finishReply 'total of 128.5 EUR')
++ monitor-abel-chat.json (driver-written: llm.provider=chain, maxSteps=4, stepTimeoutMs=15000)
+on the provider:null note: that was only my offline monitor capture (separate process, no LLM env) - not a code bug
+NEXT: Bill - G16 verdict. Ledger 57/60, 3 calls remain unspent
+```
 
 ### [Bill] 2026-11-01 13:00
 ```
