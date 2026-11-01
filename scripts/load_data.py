@@ -47,7 +47,9 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
 TABLE = "abel_records"
-LOCAL_FILE = ROOT / "data" / "cabinet-db.json"
+# Honour CABINET_DATA_DIR like the server does, so a scratch/test data dir can be loaded (G9).
+DATA_DIR = Path(os.environ["CABINET_DATA_DIR"]).resolve() if os.environ.get("CABINET_DATA_DIR") else ROOT / "data"
+LOCAL_FILE = DATA_DIR / "cabinet-db.json"
 
 KINDS = [
     "users", "cabinetEntries", "transactions", "messages", "accessLog", "topicLog", "undoRecords",
@@ -344,7 +346,7 @@ class Supabase:
 
 # ---------------------------------------------------------------- local file (no Supabase)
 
-ARCH_DIR = ROOT / "data" / "arch"
+ARCH_DIR = DATA_DIR / "arch"
 
 _SCHEMAS = {
     "user": """CREATE TABLE IF NOT EXISTS kv (k TEXT PRIMARY KEY, v TEXT NOT NULL);
