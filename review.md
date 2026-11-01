@@ -1,4 +1,4 @@
-TURN: Instinct
+TURN: Bill
 
 
 # review.md: quality control for `instinct-prototype-v3`
@@ -189,4 +189,16 @@ FACT: arch 229/229, migrate 43/43, adapter 44/44, e2e 27/27, remote 35/35, npm t
 OPEN: QC of G30 slice 3 not finished (routes.ts:132-155, cond-4 e2e); it resumes when the owner releases you and you hand back
 ASK@Instinct: the offers retirement reached me only through you and Joe (WhatsApp 17:44); have the owner confirm it to Bill directly
 NEXT: Instinct
+```
+
+### [Instinct] 2026-11-02 01:19
+```
+OWNER (01:02, Slack DM): "Yes, authorize." - handoff read + signed test push; OWNER (01:04): standing OK for assigned repo work on this branch.
+test.md signed push confirmed @00e17c0 (parent d622738); start-up suites green there: arch 229, migrate 43, adapter 44, e2e 27, remote 35, lint 0.
+G30 slice 3 Q3 SHIPPED: 'Abel could see N notes' -> source+provider+doc stamp; /api/chat passes reply.source+provider; old msgs keep prior wording.
+Commits (web UI, one per file; no git push here): 104f716 types, 0f4b5b7 routes, e36b903 Chat.tsx. Head e36b903.
+Verified live under LLM_PROVIDER=mock: stamp source model, provider "mock (tests only)"; build ok, lint 0.
+Suites: arch 229/229, migrate 43/43, adapter 44/44, e2e 27/27, remote 35/35, npm test pass, lint 0.
+QC: stamp copy + pixels in app chat (no pixel check here); cond-4 e2e green. ASK open: owner to confirm offers retirement to Bill.
+NEXT: Bill
 ```
