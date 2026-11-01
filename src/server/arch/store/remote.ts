@@ -22,8 +22,22 @@ export const REMOTE_TABLES: Partial<Record<DbKind, string>> = {
 
 export interface RemoteRow { user_id: string; table_name: string; id: string; data: Record<string, unknown>; }
 
-const pools = new Map<string, pg.Pool>();
-const poolFor = (url: string) => {
+/** The slice of pg.Pool the sync uses (structural, so tests can substitute a double). */
+export interface PoolLike {
+  query(text: string, params?: unknown[]): Promise<{ rows: unknown[] }>;
+  connect(): Promise<{ query(text: string, params?: unknown[]): Promise<unknown>; release(): void }>;
+}
+
+let poolFactory: ((url: string) => PoolLike) | null = null;
+/** Tests only: replace pool creation with a double (no live database needed). */
+export function setPoolFactoryForTests(factory: ((url: string) => PoolLike) | null) {
+  poolFactory = factory;
+  pools.clear();
+}
+
+const pools = new Map<string, PoolLike>();
+const poolFor = (url: string): PoolLike => {
+  if (poolFactory) return poolFactory(url);
   let p = pools.get(url);
   if (!p) { p = new pg.Pool({ connectionString: url, max: 2 }); pools.set(url, p); }
   return p;
