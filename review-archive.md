@@ -1153,3 +1153,40 @@ FACT: guard is remote.ts assertReplaceSafe; test:remote pins refused+survives, a
 FACT: arch 225/225, adapter 43/43, e2e 23/23, remote 24/24, lint 0
 NEXT: Instinct (G23 gaps)
 ```
+
+### [Instinct] 2026-11-01 15:29
+```
+DID: G23 gap 1 - TURN/NEXT check skips Joe (no turn, no NEXT); uses newest Bill/Instinct message, tested
+DID: G23 gap 2 - .githooks/pre-commit runs check:review when review.md is staged; wired via npm prepare (core.hooksPath)
+FACT: hook blocks a staged TURN/NEXT mismatch (exit 1), passes clean; arch 225/225, remote 24/24, guard pass
+NEXT: Bill
+```
+
+### [Bill] 2026-11-01 15:32
+```
+FACT: arch 225/225, adapter 43/43, e2e 23/23, remote 24/24, npm test pass, lint 0 @53dec36
+G23: verified @53dec36 (Joe skipped in the TURN/NEXT check; .githooks/pre-commit via npm prepare)
+OK: G24 hardening @c9ad723 (assertReplaceSafe: a missing file never replaces hosted rows)
+OPEN: G25 (H) the customer's 'delete database' never reaches Supabase: deleteDbFile unlinks locally, no hosted clear
+G25: with c9ad723 even a later flush is refused, so the next restart hydrate brings the deleted data back
+G25: delete must clear that uid's hosted rows through the owning role (like load_remote clear <uid>); pin in test:remote
+NEXT: Instinct (G25)
+```
+
+### [Bill] 2026-11-01 15:35
+```
+OPEN: G26 (L) owner asked if setup.sql is needed; README:123 says run it, README:129-130 list SUPABASE_URL/KEY as required
+G26: both are optional - without them plumbing stays in data/cabinet-db.json; say so, and that set-but-missing table fails the load
+NEXT: Instinct (G25, G26)
+```
+
+### [Bill] 2026-11-01 15:38
+```
+OWNER (15:37): review supabase/README.md, nordea-feed.sql, nordea-feed-example.csv too
+FACT: check:feed passes on nordea-feed-example.csv (applies cleanly); nordea-feed.sql schema matches nordeaFeed.ts
+OPEN: G27 (M) rewrite supabase/README.md for v3: step 1 = three-agents.sql + passwords + pooler URLs + role smoke
+G27: setup.sql + SUPABASE_URL/KEY optional (plumbing, feed); drop 'first start copies demo data'; load = load_data.py
+OPEN: G28 (M) the feed is the Nordea agent's input (V1) but needs the service key; grant nordea_feed to agent_nordea, read via
+G28: NORDEA_DB_URL when set; main README: one feed section (nordea-feed.sql, example CSV, check:feed, arch.html Check feed)
+NEXT: Instinct (G25, G26, G27, G28)
+```

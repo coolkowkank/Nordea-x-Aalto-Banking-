@@ -47,7 +47,7 @@ This branch starts from `instinct-prototype-v2` @ `4433b05`. The v2 review is ke
 ---
 
 ## 🧠 Context memory
-*Joe, updated 2026-11-01 15:44.*
+*Joe, updated 2026-11-01 15:46.*
 
 - **Goal:** one system: the three agents and their DBs are the only home for customer data; Abel, `/arch.html` (rw) and `/dev-monitor.html` (ro) on one server. Done = V1–V8.
 - **Base:** `instinct-prototype-v2` @4433b05 (F1–F30 verified, `test:arch` 188/188).
@@ -62,7 +62,7 @@ This branch starts from `instinct-prototype-v2` @ `4433b05`. The v2 review is ke
 - **OWNER (14:43–14:45):** README must let a newcomer set up from scratch (Bill 14:47 list); mock = no-key test stand-in only, normal run uses Groq or Gemini.
 - **OWNER (15:02, 15:08):** guard extension verified as G23 @53dec36 (`.githooks/pre-commit`, enabled by `npm prepare`; Joe's messages skipped for TURN/NEXT). Monitor on by default (`DEV_MONITOR=0` hides).
 - **OWNER (15:37):** also review supabase/README.md, nordea-feed.sql, nordea-feed-example.csv (feed example applies cleanly).
-- **Now (Bill): QC G25** (delete also clears the uid's hosted rows via the owning role; remote 26/26), **G26** (setup.sql + SUPABASE_URL/KEY optional), **G27** (supabase/README.md v3). **Then Instinct: G28 (M)** `nordea_feed` read via `agent_nordea` role (`NORDEA_DB_URL`), not the service key; main README feed section.
+- **Now (Instinct): G24 reopened:** an existing EMPTY agent file (left by the pre-fix run) → 'no such table: kv'; read absent tables as 0 rows, pin with a 0-byte file; loader error must name the failed store/uid, not blame role URLs. **G27:** add `supabase/role-smoke.sql` (PASS/FAIL per role, as owner ran 11:14); README smoke is bash-only, prints nothing on empty tables. **G28** next. G25, G26 verified @d8c6ba1.
 - **Accepted (Bill 02:50):** off-switch gates reasoning only, control writes still land (noted on `/arch.html` + README). Init migration and `load_data.py` write stores directly (bulk approved data).
 - **Settled from v2:** Node 22.13+; per-session `context.md`, one writer per section; risk by code rules (`assessEntryRisk`); Abel sees active rows only.
 
@@ -82,55 +82,16 @@ Baseline review of `instinct-prototype-v2` @ `4433b05` against V1–V8. Severity
 | G24 | M | V1 | load_remote push fails on an existing EMPTY agent file (left by the pre-fix run): 'no such table: kv'. | `store/common.ts:105` | open (reopened) |
 | G27 | M | V7 | supabase/README.md is v2: says abel_records holds customers; no three-agents.sql steps; first-start copy claim is gone (db.ts:389). | `supabase/README.md:8-62` | open |
 | G28 | M | V1 | nordea_feed is read with the service key (store.ts:32), not the Nordea agent's role; README never mentions the feed. | `src/server/nordeaFeed.ts:24` | open |
-| G26 | L | V7 | README:123,129-130 present setup.sql + SUPABASE_URL/SECRET_KEY as required; they are optional (plumbing, else local file). | `README.md:123` | verified @d8c6ba1 |
-| G25 | H | V2 | Hosted mode: DELETE db/:which only unlinks the local file; hosted rows stay and the next startup hydrate restores them. | `store/common.ts:230` | verified @d8c6ba1 |
 
-Verified: G1 @95de3d4, G5 @95de3d4, G2 @17a640b, G9 @ac8b828, G10 @67d2e87, G3 @01f3663, G7 @f961762, G11 @f961762, G8 @f6c4e62, G12 @d7afe82, G13 @d7afe82, G4 @6e95e1d, G14 @fb807f7, G6 @64613fb, G15 @58aa3fa, G17 @485786e, G16 @8578295, G18 @6bae205, G19 @9550952, G21 @98ae872, G20 @b0134a3, G22 @b0134a3, G23 @53dec36
+Verified: G1 @95de3d4, G5 @95de3d4, G2 @17a640b, G9 @ac8b828, G10 @67d2e87, G3 @01f3663, G7 @f961762, G11 @f961762, G8 @f6c4e62, G12 @d7afe82, G13 @d7afe82, G4 @6e95e1d, G14 @fb807f7, G6 @64613fb, G15 @58aa3fa, G17 @485786e, G16 @8578295, G18 @6bae205, G19 @9550952, G21 @98ae872, G20 @b0134a3, G22 @b0134a3, G23 @53dec36, G25 @d8c6ba1, G26 @d8c6ba1
 
-**Suggested order:** QC G25-G27 → G28 → merge is the owner's call.
+**Suggested order:** G24 → G27 → G28 → merge is the owner's call.
 
 ---
 
 ## Messages
 
-*78 earlier v3 messages are at the end of [`review-archive.md`](review-archive.md).*
-
-### [Instinct] 2026-11-01 15:29
-```
-DID: G23 gap 1 - TURN/NEXT check skips Joe (no turn, no NEXT); uses newest Bill/Instinct message, tested
-DID: G23 gap 2 - .githooks/pre-commit runs check:review when review.md is staged; wired via npm prepare (core.hooksPath)
-FACT: hook blocks a staged TURN/NEXT mismatch (exit 1), passes clean; arch 225/225, remote 24/24, guard pass
-NEXT: Bill
-```
-
-### [Bill] 2026-11-01 15:32
-```
-FACT: arch 225/225, adapter 43/43, e2e 23/23, remote 24/24, npm test pass, lint 0 @53dec36
-G23: verified @53dec36 (Joe skipped in the TURN/NEXT check; .githooks/pre-commit via npm prepare)
-OK: G24 hardening @c9ad723 (assertReplaceSafe: a missing file never replaces hosted rows)
-OPEN: G25 (H) the customer's 'delete database' never reaches Supabase: deleteDbFile unlinks locally, no hosted clear
-G25: with c9ad723 even a later flush is refused, so the next restart hydrate brings the deleted data back
-G25: delete must clear that uid's hosted rows through the owning role (like load_remote clear <uid>); pin in test:remote
-NEXT: Instinct (G25)
-```
-
-### [Bill] 2026-11-01 15:35
-```
-OPEN: G26 (L) owner asked if setup.sql is needed; README:123 says run it, README:129-130 list SUPABASE_URL/KEY as required
-G26: both are optional - without them plumbing stays in data/cabinet-db.json; say so, and that set-but-missing table fails the load
-NEXT: Instinct (G25, G26)
-```
-
-### [Bill] 2026-11-01 15:38
-```
-OWNER (15:37): review supabase/README.md, nordea-feed.sql, nordea-feed-example.csv too
-FACT: check:feed passes on nordea-feed-example.csv (applies cleanly); nordea-feed.sql schema matches nordeaFeed.ts
-OPEN: G27 (M) rewrite supabase/README.md for v3: step 1 = three-agents.sql + passwords + pooler URLs + role smoke
-G27: setup.sql + SUPABASE_URL/KEY optional (plumbing, feed); drop 'first start copies demo data'; load = load_data.py
-OPEN: G28 (M) the feed is the Nordea agent's input (V1) but needs the service key; grant nordea_feed to agent_nordea, read via
-G28: NORDEA_DB_URL when set; main README: one feed section (nordea-feed.sql, example CSV, check:feed, arch.html Check feed)
-NEXT: Instinct (G25, G26, G27, G28)
-```
+*82 earlier v3 messages are at the end of [`review-archive.md`](review-archive.md).*
 
 ### [Instinct] 2026-11-01 15:42
 ```
