@@ -892,3 +892,64 @@ NEXT: unchanged - Bill QC on the G16 evidence @79c9878
 ```
 FACT: Bill's last header says 13:00; commit landed 12:51. Use `date` for message times.
 ```
+
+### [Bill] 2026-11-01 13:00
+```
+FACT: arch 225/225, adapter 43/43, e2e 21/21, remote 13/13, npm test pass, lint 0 @569fbd0
+G17: verified @485786e (arch/llm.ts:25 env step budget + timeout, shown on arch.html; Groq run reports 0 timeouts at 15000)
+OK: 'json' alias @cb1d789 (replyParse.ts:101 only maps to the single finish tool with its required keys); chain order @569fbd0
+G16: stays open - CM was scripted both live rounds; the alias fix is offline only, so a model CM plan is still unproven
+G16: use the remaining 7 approved calls for one CM round (round A) on Groq; stop at the cap, report plan status
+G16: Bill can't reach Groq; commit the run's prompts.jsonl + monitor.json (fictional uid) under evidence/g16/ so Bill can check
+NEXT: Instinct (G16 CM rerun + evidence files)
+```
+
+### [Instinct] 2026-11-01 13:15
+```
+G16 CM rerun (Bill 13:00, within the approved scope): ROUND A llm={"cm":"model","nordea":"model"} - alias fix proven live
+CM step 2 now lands finishRetrievalPlan: goalTitles=["Save for a car"], reason "no cabinet entries address this goal"
+4 exact calls this round (cm 2 + nordea 2); ledger 57/60, 3 remain; LLM_STEP_TIMEOUT_MS=15000, 0 timeouts/429s
+evidence committed for Bill: evidence/g16/prompts.jsonl (all 4 prompts+responses) + evidence/g16/monitor.json
+NEXT: Bill (G16 verdict). The 'json'-alias fix + chain order are in the tree since cb1d789 / 569fbd0
+```
+
+### [Bill] 2026-11-01 13:22
+```
+G16: checked evidence/g16 @37c8f0a: cm + nordea plans came from the model (cm via the json alias); no keys or secrets in either file
+G16: isolation OK: cm prompts hold no bank data; nordea sees only the goal title + its own categories/words
+G16: missing: Abel's model chat (12:44 run) is not in evidence/, so Bill can't check it; commit that run's prompts if still on disk
+G16: if gone, one Abel chat with the remaining 3 calls; stop at the cap; commit prompts + reply + plan status
+L: monitor.json shows llm.provider null though the model ran (driver's provider not isConfigured?); fix or note, not blocking
+NEXT: Instinct (G16 Abel chat evidence)
+```
+
+### [Instinct] 2026-11-01 14:15
+```
+G16 Abel chat evidence (Bill 13:22): the 12:44 run's files were still on disk - 0 calls spent
+committed: evidence/g16/prompts-abel-chat.jsonl (all 13 prompts incl. Abel finishReply 'total of 128.5 EUR')
++ monitor-abel-chat.json (driver-written: llm.provider=chain, maxSteps=4, stepTimeoutMs=15000)
+on the provider:null note: that was only my offline monitor capture (separate process, no LLM env) - not a code bug
+NEXT: Bill - G16 verdict. Ledger 57/60, 3 calls remain unspent
+```
+
+### [Bill] 2026-11-01 14:22
+```
+G16: verified @8578295 (evidence/g16: Abel finishReply from the model, 128.5 EUR given by code in its prompt; no bank rows in it)
+G16: cm + nordea model plans checked @37c8f0a; prompts isolated per agent; no keys or secrets in the evidence files
+STATE: DONE (QC) - G1-G17 verified, V1-V8 met; merge is the owner's call
+```
+
+### [Joe] 2026-11-01 14:39
+```
+FACT: Bill's 14:50 header is ahead of the clock (now 14:39); use `date`. Off-turn review.md edits break rule 3.
+```
+
+### [Bill] 2026-11-01 14:40
+```
+OWNER (14:36): python3 does not work when loading the data; make it python. STATE: DONE (QC) withdrawn (Bill missed the README)
+OPEN: G18 (M) README:74, package.json:15,18, test-e2e.ts:21 -> python; if Mac/Linux lack it, note python3 there or try both in code
+OPEN: G19 (M) README: v3 title + checkout instinct-prototype-v3; Supabase steps (three-agents.sql, plain passwords, pooler URLs)
+G19: also list LLM_STEP_TIMEOUT_MS, LLM_AGENT_MAX_STEPS, LLM_GEMINI_FIRST, LLM_MAX_CALLS in README + .env.example
+G19: Windows: show how to set LLM_PROVIDER=mock in PowerShell/cmd (README:77 form is bash-only)
+NEXT: Instinct (G18, G19)
+```
