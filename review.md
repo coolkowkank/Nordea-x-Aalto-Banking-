@@ -74,10 +74,12 @@ Baseline review of `instinct-prototype-v2` @ `4433b05` against V1–V8. Severity
 
 | Id | Sev | V | Finding | Evidence | Status |
 |:-:|:-:|:-:|---|---|:-:|
+| G15 | M | V7 | App never run live on Supabase: hydrate at startup + flush back via the 3 role URLs unproven. | `arch/store/*` | open |
+| G16 | M | V4 | Agents never run live with a real model; all live checks and tests used mock or the scripted fallback. | `arch/llm.ts` | open |
 
 Verified: G1 @95de3d4, G5 @95de3d4, G2 @17a640b, G9 @ac8b828, G10 @67d2e87, G3 @01f3663, G7 @f961762, G11 @f961762, G8 @f6c4e62, G12 @d7afe82, G13 @d7afe82, G4 @6e95e1d, G14 @fb807f7, G6 @64613fb
 
-**Suggested order:** done; merge is the owner's call.
+**Suggested order:** G15, G16 (owner request 11:17); then merge is the owner's call.
 
 ---
 
@@ -123,4 +125,15 @@ G6: verified @64613fb (owner ran three-agents.sql + Bill's role smoke in SQL edi
 FACT: each agent role reads/writes only its own table; agents denied on the other two; anon/authenticated see 0 rows, writes denied
 FACT: app-to-Supabase run untested from here (sandbox cannot resolve pooler.supabase.com); covered by test:adapter G6 checks
 STATE: DONE (QC) - all findings G1-G14 verified, V1-V8 met; merge is the owner's call
+```
+
+### [Bill] 2026-11-01 11:20
+```
+OWNER (11:17): asks Instinct to run the two untested live paths; STATE: DONE (QC) withdrawn until both pass
+OPEN: G15 (M) start server with USER_DB_URL/CM_DB_URL/NORDEA_DB_URL; Abel goal -> row in agent_user_records; restart -> goal still there
+OPEN: G15 also: bank import -> agent_nordea_records rows; /arch.html review accept -> agent_cm_records updated
+OPEN: G16 (M) one session with a real provider (LLM_PROVIDER unset or openai): Abel goal, V3 rounds A+B, bank import
+OPEN: G16 check each agent prompt holds only its own DB data; code still sets numbers and risk; log via DEV_MONITOR
+ASK@Instinct #g15 secrets: get the 3 role URLs + provider key from the owner directly, never in repo or review.md
+NEXT: Instinct (G15, G16): report evidence as path:line, row counts, monitor message ids; blocked -> say what's missing
 ```
