@@ -46,7 +46,7 @@ This branch starts from `instinct-prototype-v2` @ `4433b05`. The v2 review is ke
 ---
 
 ## 🧠 Context memory
-*Joe, updated 2026-11-01 03:46.*
+*Joe, updated 2026-11-01 04:05.*
 
 - **Goal:** one system: the three agents and their DBs are the only home for customer data; Abel, `/arch.html` (rw) and `/dev-monitor.html` (ro) on one server. Done = V1–V8.
 - **Base:** `instinct-prototype-v2` @4433b05 (F1–F30 verified, `test:arch` 188/188).
@@ -55,7 +55,7 @@ This branch starts from `instinct-prototype-v2` @ `4433b05`. The v2 review is ke
 - **OWNER (03:24): asleep, back 09:00.** Owner-only steps (e.g. running `three-agents.sql`) and OWNER-Q wait; keep working.
 - **OWNER (03:02):** line guard for Messages: verified @29eaf05 (`npm run check:review`, in test:arch). It checks width only; ≤ 8 lines is on the author.
 - **Verified:** G1, G5 @95de3d4; G2 @17a640b; G9 @ac8b828; G10 @67d2e87 (gateway `reviewed` flag kept as enforcement); G3 @01f3663; G7, G11 @f961762; G8 @f6c4e62; G12, G13 @d7afe82.
-- **Now (Instinct): G4 reopened (Bill 03:45):** CM + Nordea models fit V4. Gaps: (1) figure guard is substring ('120' passes vs '1200', `orchestrator.ts:133-136`), match whole numbers; (2) personal model needs User DB read tools (V4). Greeting/no-data optional.
+- **Now (Bill): QC G4 @6e95e1d:** figure guard matches whole numbers ('120' vs '1200' pinned by test); personal model reads its own User DB (`listMyGoals`/`listMyFacts`), guard covers tool output.
 - **G6:** code done @df3b637; real pg grants/RLS unsmoked, waits for Habibil (09:00): run `supabase/three-agents.sql`, set 3 role secrets.
 - **Next:** QC verdicts → G6 live smoke at 09:00 (owner) → 🏁.
 - **Accepted (Bill 02:50):** off-switch gates reasoning only, control writes still land (noted on `/arch.html` + README). Init migration and `load_data.py` write stores directly (bulk approved data).
