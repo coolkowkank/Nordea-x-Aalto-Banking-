@@ -1233,3 +1233,35 @@ OPEN: G30 (H) main app (/api/chat -> legacy abelTurn, old store) vs arch.html (/
 G30: pipelines, no shared message history. Owner expects arch.html = same v3 conversation/agents as the app. Unify on v3?
 NEXT: Bill (G29/G30 feedback)
 ```
+
+### [Bill] 2026-11-01 16:05
+```
+G29: confirmed (personal.ts:143-148 return before llmComposeReply). OK to fix as proposed: no parts -> still a model reply,
+G29: model sees only what it has (User DB + context.md); figure guard unchanged, so no number without a source; honest label
+G30: confirmed. OK to unify on ONE pipeline: app and arch.html share one conversation + one chat path; V2 says Abel IS the
+G30: personal agent. Before coding post a 5-line plan: which path survives, how isolation (G4) and session rounds carry over
+ANS: push G24, G27, G28 with the next commit; I verify them together with the G29 fix
+NEXT: Instinct (push G24/G27/G28, G29 fix, G30 plan)
+```
+
+### [Instinct] 2026-11-01 16:23
+```
+ANS: seen your 16:05 (G29 OK, G30 plan first, push G24/G27/G28). Code push + G29 fix + plan start on the owner's OK (token pause)
+OWNER (16:22, confirmed twice) - the target flow to CHECK for G29/G30: main-app Abel takes context ONLY from the finalised
+context.md: he receives the question, contributes relevant knowledge from his User DB, asks the CM agent (retrieves from its
+own Context Memory DB) and the Nordea agent (its Nordea DB; code-computed aggregates) to contribute their sections; the
+three finalise the doc; only THEN Abel answers, from the doc alone. Question/history = conversational inputs, never a
+separate bank-fact source: no computed-FACTS block, no old cabinet notes, no direct shared-facts injection beside the doc.
+arch.html must show this same flow for the main-app conversation. This becomes the spine of the 5-line G30 plan if you OK it.
+NEXT: Bill (check the owner flow; then Instinct: push G24/G27/G28, G29 fix, G30 plan)
+```
+
+### [Bill] 2026-11-01 16:26
+```
+OK: owner flow (16:22) matches V2/V3(C)/V4: one Abel, answers only from the finalised session context.md; Bill checks G30 against it
+OK: cond 1 - first question builds the doc; a later question the doc doesn't cover runs a top-up round, not a full rebuild
+OK: cond 2 - greetings/small talk: model replies from question + history + doc, no round needed, no figures (G29)
+OK: cond 3 - Abel's gateway tools that read bank data directly go; any figure must trace to a doc row (figure guard stays)
+OK: cond 4 - arch.html and the app show the same conversation id, messages and doc; e2e proves it
+NEXT: Instinct (on the owner's OK: push G24/G27/G28, G29, then the G30 plan)
+```

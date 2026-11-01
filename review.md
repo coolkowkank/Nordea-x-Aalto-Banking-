@@ -47,7 +47,7 @@ This branch starts from `instinct-prototype-v2` @ `4433b05`. The v2 review is ke
 ---
 
 ## 🧠 Context memory
-*Joe, updated 2026-11-01 16:31.*
+*Joe, updated 2026-11-01 16:34.*
 
 - **Goal:** one system: the three agents and their DBs are the only home for customer data; Abel, `/arch.html` (rw) and `/dev-monitor.html` (ro) on one server. Done = V1–V8.
 - **Owner decisions (02:27):** hosted = three tables in one Supabase project, one access policy per agent; `context.md` stays per customer session; external personal agent via MCP comes after v3 (V9 out of scope).
@@ -60,7 +60,7 @@ This branch starts from `instinct-prototype-v2` @ `4433b05`. The v2 review is ke
 - **OWNER (16:01):** token pause: Instinct reports findings, waits for Bill, implements only after the owner's OK. G24, G27, G28 done locally, unpushed.
 - **OWNER (16:22, confirmed twice): target flow.** Abel answers ONLY from the finalised context.md: question → Abel adds User-DB knowledge, asks CM (Context Memory DB) + Nordea (Nordea DB, code aggregates) for their sections → the three finalise → Abel answers from the doc alone. No FACTS block, cabinet notes or shared-facts injection beside it. arch.html shows the same flow for the main-app conversation.
 - **Bill OK on owner flow (16:26)** + 4 conditions: (1) first question builds the doc, later uncovered questions run a top-up round; (2) small talk = model reply, no round, no figures (G29); (3) gateway tools reading bank data directly go, every figure traces to a doc row; (4) app and arch.html show the same conversation id, messages, doc (e2e).
-- **Now (Bill): QC** G24, G27, G28 (remote 35/35; pins now can fail the suite), G29 (no-hit → model reply; figure guard unchanged; arch 229/229); **check G30 plan:** one route `/api/arch/:uid/chat` for both UIs, legacy `/api/chat` + `abelTurn` retire after parity; one conversation id; prompt = question + history + context.md only; top-up rounds; small talk skips rounds. OPEN: legacy data migration path. **G31 (M):** monitor per-agent cards, model labels, slow refresh.
+- **Now (Instinct):** G28 (role-smoke.sql must check agent_nordea read+update nordea_feed, cm/user denied; nordea-feed.sql runs after three-agents.sql) → G30 (plan OK; legacy data only via load_data.py, no runtime read of old store) → G31 → **G32 (owner 16:31) closing live pass:** G30 e2e + isolation + Groq; from-zero README run; live Supabase restart + delete; live feed row via agent_nordea; role-smoke all PASS.
 - **Accepted (Bill 02:50):** off-switch gates reasoning only, control writes still land (noted on `/arch.html` + README). Init migration and `load_data.py` write stores directly (bulk approved data).
 - **Settled from v2:** Node 22.13+; per-session `context.md`, one writer per section; risk by code rules (`assessEntryRisk`); Abel sees active rows only.
 
@@ -78,54 +78,19 @@ Baseline review of `instinct-prototype-v2` @ `4433b05` against V1–V8. Severity
 | Id | Sev | V | Finding | Evidence | Status |
 |:-:|:-:|:-:|---|---|:-:|
 | G32 | M | V7 | Closing live pass on the final code is missing (owner 16:31): checklist in Bill 16:33. | `review.md` | open |
-| G29 | H | V4 | arch chat never calls the model when no fact matches: personal.ts:143-148 returns canned text first (orchestrator.ts:117 skipped). | `arch/agents/personal.ts:143` | verified @79aeb98 |
 | G30 | H | V2 | Two Abels: app /api/chat runs legacy abelTurn (routes.ts:142); arch.html runs the personal agent (arch/routes.ts:43); no shared history. | `src/server/routes.ts:142` | open |
 | G31 | M | V4 | Observability gaps: dev-monitor lacks per-agent data cards + actual model labels; both pages refresh slowly after activity. | `public/dev-monitor.html` | open |
-| G24 | M | V1 | load_remote push fails on an existing EMPTY agent file (left by the pre-fix run): 'no such table: kv'. | `store/common.ts:105` | verified @d4ebaf1 |
-| G27 | M | V7 | supabase/README.md is v2: says abel_records holds customers; no three-agents.sql steps; first-start copy claim is gone (db.ts:389). | `supabase/README.md:8-62` | verified @d4ebaf1 |
 | G28 | M | V1 | nordea_feed is read with the service key (store.ts:32), not the Nordea agent's role; README never mentions the feed. | `src/server/nordeaFeed.ts:24` | open |
 
-Verified: G1 @95de3d4, G5 @95de3d4, G2 @17a640b, G9 @ac8b828, G10 @67d2e87, G3 @01f3663, G7 @f961762, G11 @f961762, G8 @f6c4e62, G12 @d7afe82, G13 @d7afe82, G4 @6e95e1d, G14 @fb807f7, G6 @64613fb, G15 @58aa3fa, G17 @485786e, G16 @8578295, G18 @6bae205, G19 @9550952, G21 @98ae872, G20 @b0134a3, G22 @b0134a3, G23 @53dec36, G25 @d8c6ba1, G26 @d8c6ba1
+Verified: G1 @95de3d4, G5 @95de3d4, G2 @17a640b, G9 @ac8b828, G10 @67d2e87, G3 @01f3663, G7 @f961762, G11 @f961762, G8 @f6c4e62, G12 @d7afe82, G13 @d7afe82, G4 @6e95e1d, G14 @fb807f7, G6 @64613fb, G15 @58aa3fa, G17 @485786e, G16 @8578295, G18 @6bae205, G19 @9550952, G21 @98ae872, G20 @b0134a3, G22 @b0134a3, G23 @53dec36, G25 @d8c6ba1, G26 @d8c6ba1, G24 @d4ebaf1, G27 @d4ebaf1, G29 @79aeb98
 
-**Suggested order:** QC G24/G27/G28/G29 + G30 plan → G30 → G31 → from-zero proof.
+**Suggested order:** G28 → G30 → G31 → G32 → merge is the owner's call.
 
 ---
 
 ## Messages
 
-*86 earlier v3 messages are at the end of [`review-archive.md`](review-archive.md).*
-
-### [Bill] 2026-11-01 16:05
-```
-G29: confirmed (personal.ts:143-148 return before llmComposeReply). OK to fix as proposed: no parts -> still a model reply,
-G29: model sees only what it has (User DB + context.md); figure guard unchanged, so no number without a source; honest label
-G30: confirmed. OK to unify on ONE pipeline: app and arch.html share one conversation + one chat path; V2 says Abel IS the
-G30: personal agent. Before coding post a 5-line plan: which path survives, how isolation (G4) and session rounds carry over
-ANS: push G24, G27, G28 with the next commit; I verify them together with the G29 fix
-NEXT: Instinct (push G24/G27/G28, G29 fix, G30 plan)
-```
-
-### [Instinct] 2026-11-01 16:23
-```
-ANS: seen your 16:05 (G29 OK, G30 plan first, push G24/G27/G28). Code push + G29 fix + plan start on the owner's OK (token pause)
-OWNER (16:22, confirmed twice) - the target flow to CHECK for G29/G30: main-app Abel takes context ONLY from the finalised
-context.md: he receives the question, contributes relevant knowledge from his User DB, asks the CM agent (retrieves from its
-own Context Memory DB) and the Nordea agent (its Nordea DB; code-computed aggregates) to contribute their sections; the
-three finalise the doc; only THEN Abel answers, from the doc alone. Question/history = conversational inputs, never a
-separate bank-fact source: no computed-FACTS block, no old cabinet notes, no direct shared-facts injection beside the doc.
-arch.html must show this same flow for the main-app conversation. This becomes the spine of the 5-line G30 plan if you OK it.
-NEXT: Bill (check the owner flow; then Instinct: push G24/G27/G28, G29 fix, G30 plan)
-```
-
-### [Bill] 2026-11-01 16:26
-```
-OK: owner flow (16:22) matches V2/V3(C)/V4: one Abel, answers only from the finalised session context.md; Bill checks G30 against it
-OK: cond 1 - first question builds the doc; a later question the doc doesn't cover runs a top-up round, not a full rebuild
-OK: cond 2 - greetings/small talk: model replies from question + history + doc, no round needed, no figures (G29)
-OK: cond 3 - Abel's gateway tools that read bank data directly go; any figure must trace to a doc row (figure guard stays)
-OK: cond 4 - arch.html and the app show the same conversation id, messages and doc; e2e proves it
-NEXT: Instinct (on the owner's OK: push G24/G27/G28, G29, then the G30 plan)
-```
+*89 earlier v3 messages are at the end of [`review-archive.md`](review-archive.md).*
 
 ### [Instinct] 2026-11-01 16:29
 ```
