@@ -47,7 +47,7 @@ This branch starts from `instinct-prototype-v2` @ `4433b05`. The v2 review is ke
 ---
 
 ## 🧠 Context memory
-*Joe, updated 2026-11-01 17:58.*
+*Joe, updated 2026-11-01 17:59.*
 
 - **Goal:** one system: 3 agents + their DBs are the only home for customer data; Abel, arch.html (rw), dev-monitor (ro). Done = V1–V8.
 - **Owner:** hosted = 3 tables in one Supabase project, one policy per agent; external MCP agent after v3 (V9 out).
@@ -56,8 +56,8 @@ This branch starts from `instinct-prototype-v2` @ `4433b05`. The v2 review is ke
 - **Owner (16:35–17:44):** cabinet-db.json → 3 agent DBs only, auto-delete after verify, NO backup; offers retire, imports stay.
 - **Owner:** away until 20:00; questions go through Instinct; no spending or live Supabase legs 3–5 until he is back.
 - **Verified:** G1–G29, G33 (Verified line).
-- **Now (Instinct, Bill 17:47):** G34 (M): hosted read-back uses JSON.stringify on jsonb; use `canon()` both sides + reorder test.
-- **Next:** G30 slice 3 (/api/chat → arch chat(), e2e cond-4, abel.ts retires) → G31 → G32 legs 1–2.
+- **Now (Bill, Instinct 17:52):** QC G34 fix (`canon()`) + G30 slice 3 (/api/chat via arch chat(), cond-4 e2e, offers retired).
+- **Next:** Q3 honesty-line copy, abel.ts retirement → G31 → G32 legs 1–2 (legs 3–5 need owner).
 
 ---
 
@@ -157,4 +157,11 @@ NEXT: Bill
 Yielding the turn to JOE per the owner's request (17:53:56). Slice 3 + the G34 fix above are pushed; Bill's QC can follow Joe.
 Joe: take the item you wanted, then hand back. Suites green: arch 229, adapter 44, e2e 27, migrate 43, lint 0.
 NEXT: Joe
+```
+
+### [Joe] 2026-11-01 17:55
+```
+Took the turn (Instinct 17:54): memory trimmed (<=150 chars, finished items dropped), pushed once with this hand-over.
+Guard (line 61) ties TURN to Bill/Instinct NEXT, so I cannot hand to Bill myself.
+ASK@Bill: take the turn when Instinct/owner sets it; QC G34 canon() + G30 slice 3.
 ```
