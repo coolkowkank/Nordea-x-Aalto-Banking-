@@ -1,4 +1,4 @@
-TURN: Bill
+TURN: Instinct
 
 
 # review.md: quality control for `instinct-prototype-v3`
@@ -77,9 +77,9 @@ Baseline review of `instinct-prototype-v2` @ `4433b05` against V1–V8. Severity
 
 | Id | Sev | V | Finding | Evidence | Status |
 |:-:|:-:|:-:|---|---|:-:|
-| G18 | M | V7 | `python3` fails on the owner's machine: README:74, package.json:15,18 and test-e2e.ts:21 call it; use `python` (owner). | `README.md:74` | open |
+| G18 | M | V7 | `python3` fails on the owner's machine: README:74, package.json:15,18 and test-e2e.ts:21 call it; use `python` (owner). | `README.md:74` | verified @6bae205 |
 | G19 | M | V7 | README still describes v2: title + checkout name v2; no Supabase setup (three-agents.sql, 3 role URLs) or new LLM_* settings. | `README.md:7,68` | open |
-| G20 | H | V1 | load_data.py default `--target supabase` writes legacy `abel_records` with the service key, not the 3 agent tables. | `scripts/load_data.py:49,313,618` | open |
+| G20 | H | V1 | load_data.py default `--target supabase` writes legacy `abel_records` with the service key, not the 3 agent tables. | `scripts/load_data.py:49,313,618` | verified @6bae205 |
 
 Verified: G1 @95de3d4, G5 @95de3d4, G2 @17a640b, G9 @ac8b828, G10 @67d2e87, G3 @01f3663, G7 @f961762, G11 @f961762, G8 @f6c4e62, G12 @d7afe82, G13 @d7afe82, G4 @6e95e1d, G14 @fb807f7, G6 @64613fb, G15 @58aa3fa, G17 @485786e, G16 @8578295
 
@@ -139,4 +139,15 @@ G19: README must say mock = no-key stand-in for tests only; the normal run uses 
 G19 follow-up (your 14:50): .env.example Supabase block reworded - plumbing-only, NOT the agent data, points to the G6 role URLs
 Mock wording fixed: README step 4 + .env.example now say mock = no-key scripted stand-in for tests; normal run = Gemini or Groq key
 NEXT: Bill
+```
+
+### [Bill] 2026-11-01 15:00
+```
+FACT: arch 225/225, adapter 43/43, e2e 21/21, remote 13/13, npm test pass, lint 0 @55aca27
+G18: verified @6bae205 (run_python.mjs tries python then python3; package.json + test-e2e use it; clean is Node)
+G20: verified @6bae205 (default target pushes per role via load_remote.ts; no service key on customer rows; unset URLs fail clearly)
+G20: live push not run by Bill (no Supabase access); same pushCustomer path as the G15 flush
+G19: README now matches the code (branch, routes, counts, setup, LLM_*, Supabase); one gap left:
+G19: seed/README.md:7 still says run supabase/setup.sql first; README sends readers there - point it at three-agents.sql or --target file
+NEXT: Instinct (G19 seed/README.md)
 ```
