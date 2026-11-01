@@ -1310,3 +1310,57 @@ Verify: field-level (consent/provenance/evidence/history); every source key mapp
 Cond-2: 1st msg opens the session round (doc finalised before answer, even 'hello'); your no-round = follow-ups inside a finalised session. Confirm?
 NEXT: Bill (G28 verify + mapping + cond-2), then Instinct builds G30+G31. G32 live legs 3-5 blocked on fresh owner authority.
 ```
+
+### [Bill] 2026-11-01 16:43
+```
+G28: verified @0778fec (role-smoke: agent_nordea allow read/update nordea_feed, cm + user deny; SQL order + re-run in both READMEs)
+ANS mapping: OK. chat/topicLog/settings -> user.db, accessLog -> cm.db, rewards -> nordea.db fit V1 ownership; V1 updated in spec
+ANS mapping: reads of chat/accessLog/rewards then go through the owning agent like other data (V2); arch.html + monitor included
+ANS migration: before delete, copy cabinet-db.json to cabinet-db.json.migrated-<date> once; owner asked delete, but a backup
+ANS migration: is cheap insurance - ask the owner via Joe; FAIL CLOSED + all-3 verify before delete as you wrote
+ANS cond-2: confirmed - a session's first message (even 'hello') builds the doc first; small talk later in it needs no round
+NEXT: Instinct (G30 + migration, G31; then G32 legs 1-2; legs 3-5 when the owner gives Supabase access)
+```
+
+### [Joe] 2026-11-01 16:52
+```
+OWNER (16:52): "No need backup" -> no cabinet-db.json.migrated-<date> copy; delete after all-3 verify passes.
+Bill's 16:43 backup suggestion is closed by this answer.
+```
+
+### [Joe] 2026-11-01 16:53
+```
+OWNER (16:53): "I will be away until 8 PM." Back at 20:00 Helsinki.
+OWNER (16:53): anything to confirm with him goes through Instinct (not Joe); keep it to one batched question.
+Until then: no spending, no live Supabase legs 3-5; do the work that needs no owner input.
+```
+
+### [Instinct] 2026-11-01 16:53
+```
+G30 slices 1+2: migrate:legacy = fail-closed pre-scan (every top/User field), conflict scan, idempotent upserts, cm.db ledger per kind.
+Verify: field-level read-back via store loaders in all 3 DBs (consent/provenance/evidence/history); delete ONLY on full pass; no backup (owner 16:52).
+Runtime: plumbing in the settled namespaces (chat/topics user.db, accessLog cm.db, rewards nordea.db); startup never migrates, prints the hint.
+abel_records/setup.sql retired (docs marked; document bucket keeps the secret key). Access-log 200 cap now per customer.
+Suites: arch 229/229, adapter 44/44, e2e 23/23, remote 35/35, bank pass, lint 0; test-migrate 24/24 (fail-closed + conflict + rerun).
+Remaining G30: arch chat serves main UI + abelTurn retires; then G31.
+NEXT: Bill (QC migration + runtime switch).
+```
+
+### [Instinct] 2026-11-01 16:57
+```
+G30 edge fixes: 200-cap out of migration into runtime (db.addAccessLogEntry, per customer); migrate keeps ALL history verbatim.
+Source-consistency: sha256 of cabinet-db.json at read, re-hash before unlink; changed file = fail closed, kept.
+Unknown NESTED fields ride verbatim (new tests: 230-entry log kept, nested fields kept). migrate 29/29, lint 0.
+NEXT: Bill
+```
+
+### [Instinct] 2026-11-01 17:00
+```
+G30 slice-3 chat-unification proposal (code after your OK; UI Chat.tsx renders suggestions/cards/notes today):
+- /api/chat delegates to arch chat(); UI contract kept: {conversationId: sessionId, messages:[u,a], error}; agent msg text=reply, usedEntryIds=used.
+- V4 labels: answeredBy/source from chat()'s ACTUAL source+provider (model/scripted/scripted-error); no configured-chain claim.
+- Persistence in migrated namespaces: user+agent msgs -> app_conversations/app_messages in user.db (runtime switch already points there).
+- topicLog retires with abelTurn: no arch agent reads it (checked cm/personal/nordea); round ledger + app_messages carry the same info.
+- abel.ts retires only after your cond-4 UI smoke: app + arch.html same session id, messages, doc.
+NEXT: Bill
+```
