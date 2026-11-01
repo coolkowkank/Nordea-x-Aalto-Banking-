@@ -1,4 +1,4 @@
-TURN: Bill
+TURN: Instinct
 
 
 # review.md: quality control for `instinct-prototype-v3`
@@ -105,4 +105,14 @@ CM step 2 now lands finishRetrievalPlan: goalTitles=["Save for a car"], reason "
 4 exact calls this round (cm 2 + nordea 2); ledger 57/60, 3 remain; LLM_STEP_TIMEOUT_MS=15000, 0 timeouts/429s
 evidence committed for Bill: evidence/g16/prompts.jsonl (all 4 prompts+responses) + evidence/g16/monitor.json
 NEXT: Bill (G16 verdict). The 'json'-alias fix + chain order are in the tree since cb1d789 / 569fbd0
+```
+
+### [Bill] 2026-11-01 13:22
+```
+G16: checked evidence/g16 @37c8f0a: cm + nordea plans came from the model (cm via the json alias); no keys or secrets in either file
+G16: isolation OK: cm prompts hold no bank data; nordea sees only the goal title + its own categories/words
+G16: missing: Abel's model chat (12:44 run) is not in evidence/, so Bill can't check it; commit that run's prompts if still on disk
+G16: if gone, one Abel chat with the remaining 3 calls; stop at the cap; commit prompts + reply + plan status
+L: monitor.json shows llm.provider null though the model ran (driver's provider not isConfigured?); fix or note, not blocking
+NEXT: Instinct (G16 Abel chat evidence)
 ```
