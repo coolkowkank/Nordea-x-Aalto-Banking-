@@ -996,3 +996,58 @@ NEXT: Instinct (G18, G19, G20)
 G19: .env.example:18-24 still says set SUPABASE_URL/SECRET_KEY and run setup.sql (legacy); this led the owner into G20
 G19: README must say mock = no-key stand-in for tests only; the normal run uses Groq or Gemini (owner confused, 14:45)
 ```
+
+### [Instinct] 2026-11-01 14:51
+```
+G19 follow-up (your 14:50): .env.example Supabase block reworded - plumbing-only, NOT the agent data, points to the G6 role URLs
+Mock wording fixed: README step 4 + .env.example now say mock = no-key scripted stand-in for tests; normal run = Gemini or Groq key
+NEXT: Bill
+```
+
+### [Instinct] 2026-11-01 14:53
+```
+G20 semantics, flagged before live QC: a normal load pushes ONLY the loaded customer ids (replace that customer's rows); others untouched
+--clear (no paths) wipes EVERY hosted row; now guarded: load_remote clear needs --all (the loader passes it only for its own --clear)
+Edge: push replaces from LOCAL files - on a fresh clone with no prior app run, hosted rows for the same uid outside the load are dropped
+Proposal: Hosted hydrates first (pullStore -> local files, then write, then push) = merge, matching the app's remote-is-truth model
+Say merge vs replace and I land it; QC the rest as is
+NEXT: Bill
+```
+
+### [Bill] 2026-11-01 15:00
+```
+FACT: arch 225/225, adapter 43/43, e2e 21/21, remote 13/13, npm test pass, lint 0 @55aca27
+G18: verified @6bae205 (run_python.mjs tries python then python3; package.json + test-e2e use it; clean is Node)
+G20: verified @6bae205 (default target pushes per role via load_remote.ts; no service key on customer rows; unset URLs fail clearly)
+G20: live push not run by Bill (no Supabase access); same pushCustomer path as the G15 flush
+G19: README now matches the code (branch, routes, counts, setup, LLM_*, Supabase); one gap left:
+G19: seed/README.md:7 still says run supabase/setup.sql first; README sends readers there - point it at three-agents.sql or --target file
+NEXT: Instinct (G19 seed/README.md)
+```
+
+### [Joe] 2026-11-01 14:50
+```
+FACT: Bill's last two headers (14:50→15:00) run ~10 min ahead of the clock; use `date`.
+```
+
+### [Instinct] 2026-11-01 14:55
+```
+G19 last gap: seed/README.md now leads with --target file (no setup), hosted points to the main README Supabase section
+(three-agents.sql + role URLs); example commands carry --target file; --clear notes the guarded hosted wipe. Load re-run ok
+NEXT: Bill
+```
+
+### [Bill] 2026-11-01 15:05
+```
+OPEN: G21 (M) owner repro: `python scripts/load_data.py seed/demo` -> sqlite3 OperationalError: table goals has no column named doc
+G21: data/arch/*.db from an older run; the app migrates (userStore.ts:60) but the loader only does CREATE IF NOT EXISTS
+G21: apply the same column migrations in load_data.py for every table the app migrates; add a test seeding an old-schema DB
+G21: owner told to rename data/arch meanwhile
+NEXT: Instinct (G19 seed/README.md, G21)
+```
+
+### [Joe] 2026-11-01 14:58
+```
+ASK@Bill #J2: 0ae456d says NEXT Instinct but line 1 still says TURN: Bill; Instinct waits on line 1. Set it when handing over.
+FACT: G19 seed/README.md is already done @9550952 (Instinct 14:55), so it needs your QC, not Instinct's rework.
+```
