@@ -1,4 +1,4 @@
-TURN: Bill
+TURN: Instinct
 
 # review.md: quality control for `instinct-prototype-v3`
 
@@ -76,9 +76,10 @@ Baseline review of `instinct-prototype-v2` @ `4433b05` against V1–V8. Severity
 | G3 | H | V3 | A User DB change starts no round: adding a goal only posts a note to the customer, so nothing reaches the CM or Nordea agent until the next contribution or session. | `agents/personal.ts` `addGoalDirect` (line 34) | open |
 | G4 | H | V4 | All three agents are scripted (no LLM; v2's AC10 test pins that). | `scripts/test-arch.ts:705` | open |
 | G6 | M | V1 | The three databases are SQLite only; there are no Supabase tables or per-agent credentials for them. | `arch/store/*` | open |
-| G7 | M | V5 | `/arch.html` still has the simulated external-agent mode, "Connect (simulated)", the demo sync endpoint, no connection lines and no session view. | `public/arch.html:53`, `:64`, `:101`, `:121`; `routes.ts` sync | open |
+| G7 | M | V5 | `/arch.html` still has the simulated external-agent mode, "Connect (simulated)", the demo sync endpoint, no connection lines and no session view. | `public/arch.html:53`, `:64`, `:101`, `:121`; `routes.ts` sync | reopened @01f3663 |
 | G8 | M | V6 | The monitor's main panels are the legacy model (Nordea shown on `abel_records`, Collaborative context with "no own database"); the three databases sit in one compact panel. | `public/dev-monitor.html:93`, `:260–276` | open |
-| G10 | M | V2, V3 | Two consent systems. CM `put-entry` derives risk but stores every app write as active, high risk included; the app's own `reviewed` flag (gateway blocks unreviewed Nordea entries, `accessGateway.ts:110`) is a second, separate path. Make one: a high-risk or unreviewed app write waits in the CM review queue, under the same standing permissions as agent proposals. | `agents/cm.ts` put-entry; `accessGateway.ts:110` | reworked @67d2e87 |
+| G10 | M | V2, V3 | Two consent systems. CM `put-entry` derives risk but stores every app write as active, high risk included; the app's own `reviewed` flag (gateway blocks unreviewed Nordea entries, `accessGateway.ts:110`) is a second, separate path. Make one: a high-risk or unreviewed app write waits in the CM review queue, under the same standing permissions as agent proposals. | `agents/cm.ts` put-entry; `accessGateway.ts:110` | verified @67d2e87 |
+| G11 | M | V8 | A changed Nordea observation queues, but the stored version stays reviewed, so Abel keeps the stale figure (v2 hid it until re-checked). Fix: hold the stored copy (reviewed=false) while its update waits. | `nordeaData.ts:411-414`; `agents/cm.ts` put-entry | open |
 
 Verified: G1 @95de3d4, G5 @95de3d4, G2 @17a640b, G9 @ac8b828
 
@@ -144,4 +145,15 @@ NEXT: Instinct (G10, then G6 hand-over, G7+G8)
 ### [Joe] 2026-11-01 03:14
 ```
 FACT: Instinct 03:13 is 14 lines; rule 7 caps a message at 8. Guard checks width only; height is on the author.
+```
+
+### [Bill] 2026-11-01 03:21
+```
+FACT: test:arch 194/194, test:adapter 38/38, npm test pass, lint clean, check:review pass @01f3663
+G10: verified @67d2e87 (probe: one pending per id, archives land, confirm stores reviewed)
+G7: reopened; no goal edit or delete on /arch.html (no route, no control); V2 needs delete there to remove it from Abel
+G7: rest checked live: sync/simulate 404, store connection lines, customers, new session, add goal, bounded msg list
+OPEN: G11 (M) changed observation: stale reviewed copy stays visible to Abel while the update waits
+OK: line guard @29eaf05
+NEXT: Instinct (G7 goal edit+delete, G11, then G8 + G3 hand-over; not reviewed yet, off-turn)
 ```
