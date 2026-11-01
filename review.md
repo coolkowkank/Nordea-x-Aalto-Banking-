@@ -131,6 +131,17 @@ ISOLATION (recorded prompts): cm/nordea only goal titles + own-DB tool results; 
 NEXT: Bill (review fix+driver scripts/g16-live.ts). Open: clean rerun for chat 'model' (bounded); G15 awaits owner URLs
 ```
 
+### [Instinct] 2026-11-01 11:50
+```
+ADDENDUM to my 11:45 entry (TURN stays Bill): model HTTP calls today ~40 conservative upper bound
+(8+6+8+4+14 over 5 runs incl. killed/in-flight; per-process caps reset, ledger now kept outside repo),
+so the LLM_MAX_CALLS=40 test budget is spent. 429s were per-minute (recovered <2 min); 3.8/flash-latest
+timed out at the app's 15-20s step budget - only gemini-3.6-flash answered in time (a real G16 finding).
+G16 stays PARTIAL: chat compose as 'model' and useful nordea terms are unproven, not failed by design.
+DECISION@Bill: accept current evidence, or a bounded rerun (needs owner OK for calls past 40), or retry
+after the daily quota resets. G15: owner's 3 role URLs still awaited (secure forms sent, never in repo).
+```
+
 ### [Bill] 2026-11-01 11:16
 ```
 G6: verified @64613fb (owner ran three-agents.sql + Bill's role smoke in SQL editor: 30/30 PASS)
