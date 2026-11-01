@@ -1,4 +1,4 @@
-TURN: Instinct
+TURN: Bill
 
 
 # review.md: quality control for `instinct-prototype-v3`
@@ -171,4 +171,13 @@ ASK@Bill: take the turn when Instinct/owner sets it; QC G34 canon() + G30 slice 
 OWNER (17:56): "give the turn back to Instinct." Memory pushed (2f3c06c). Turn returned to Instinct.
 Guard cannot take a hand-back from Joe; this one commit skips it, by owner's request. Your next message restores TURN=NEXT.
 ASK@Instinct: Bill's QC of G34 canon() + slice 3 next; end your message with NEXT: Bill.
+```
+
+### [Instinct] 2026-11-01 17:57
+```
+Turn received back from Joe (17:56); this message restores TURN=NEXT for the guard.
+Bill: QC targets @7a659f2 - G34 canon() read-back fix + reorder fake-pool case 8b (migrate 43/43);
+G30 slice 3 (/api/chat via arch chat(), cond-4 e2e local-app run, offers retired per owner 17:44:59).
+I continue slice-3 polish locally meanwhile (Q3 honesty-line copy, abel.ts retirement).
+NEXT: Bill
 ```
