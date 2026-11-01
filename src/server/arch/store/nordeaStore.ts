@@ -124,3 +124,59 @@ export function putImportBatch(uid: string, batch: ImportBatch) {
       .run(batch.id, batch.at, JSON.stringify(batch));
   } finally { db.close(); }
 }
+
+// ---------- App metadata namespace: partner earnings, data rewards and points (bank-side) ----------
+
+export function putAppBankRows(uid: string, table: 'app_earnings' | 'app_data_rewards', rows: { id: string; at: string; json: string }[]) {
+  if (!rows.length) return;
+  registerCustomer(uid);
+  const db = openDb(fileFor(uid, 'nordea'), 'nordea');
+  try {
+    const stmt = db.prepare(`INSERT INTO ${table} (id, at, json) VALUES (?, ?, ?) ON CONFLICT(id) DO UPDATE SET json = excluded.json`);
+    db.exec('BEGIN');
+    for (const r of rows) stmt.run(r.id, r.at, r.json);
+    db.exec('COMMIT');
+  } finally { db.close(); }
+}
+
+export function loadAppBankRows<T>(uid: string, table: 'app_earnings' | 'app_data_rewards'): T[] {
+  if (!fs.existsSync(fileFor(uid, 'nordea'))) return [];
+  const db = openDb(fileFor(uid, 'nordea'), 'nordea');
+  try {
+    return (db.prepare(`SELECT json FROM ${table} ORDER BY at`).all() as { json: string }[]).map((r) => JSON.parse(r.json) as T);
+  } finally { db.close(); }
+}
+
+export function putAppRewards(uid: string, json: string) {
+  registerCustomer(uid);
+  const db = openDb(fileFor(uid, 'nordea'), 'nordea');
+  try {
+    db.prepare('INSERT INTO app_rewards (user_id, json) VALUES (?, ?) ON CONFLICT(user_id) DO UPDATE SET json = excluded.json').run(uid, json);
+  } finally { db.close(); }
+}
+
+export function loadAppRewards(uid: string): string | null {
+  if (!fs.existsSync(fileFor(uid, 'nordea'))) return null;
+  const db = openDb(fileFor(uid, 'nordea'), 'nordea');
+  try {
+    const r = db.prepare('SELECT json FROM app_rewards WHERE user_id = ?').get(uid) as { json: string } | undefined;
+    return r ? r.json : null;
+  } finally { db.close(); }
+}
+
+export function deleteAppBankRows(uid: string, table: 'app_earnings' | 'app_data_rewards', ids: string[]) {
+  if (!ids.length || !fs.existsSync(fileFor(uid, 'nordea'))) return;
+  const db = openDb(fileFor(uid, 'nordea'), 'nordea');
+  try {
+    const stmt = db.prepare(`DELETE FROM ${table} WHERE id = ?`);
+    db.exec('BEGIN');
+    for (const id of ids) stmt.run(id);
+    db.exec('COMMIT');
+  } finally { db.close(); }
+}
+
+export function removeAppRewards(uid: string) {
+  if (!fs.existsSync(fileFor(uid, 'nordea'))) return;
+  const db = openDb(fileFor(uid, 'nordea'), 'nordea');
+  try { db.prepare('DELETE FROM app_rewards WHERE user_id = ?').run(uid); } finally { db.close(); }
+}

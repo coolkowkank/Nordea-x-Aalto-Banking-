@@ -130,3 +130,38 @@ export function removeGoal(uid: string, id: string) {
   const db = openDb(fileFor(uid, 'user'), 'user');
   try { db.prepare('DELETE FROM goals WHERE id = ?').run(id); } finally { db.close(); }
 }
+
+// ---------- App metadata namespace: chat history and topic log (not agent memory) ----------
+
+export function putAppRows(uid: string, table: 'app_conversations' | 'app_messages' | 'app_topic_log', rows: { id: string; ts: string; json: string }[]) {
+  if (!rows.length) return;
+  registerCustomer(uid);
+  const db = openDb(fileFor(uid, 'user'), 'user');
+  try {
+    const tsCol = table === 'app_topic_log' ? 'at' : 'created_at';
+    const stmt = db.prepare(`INSERT INTO ${table} (id, ${tsCol}, json) VALUES (?, ?, ?) ON CONFLICT(id) DO UPDATE SET json = excluded.json`);
+    db.exec('BEGIN');
+    for (const r of rows) stmt.run(r.id, r.ts, r.json);
+    db.exec('COMMIT');
+  } finally { db.close(); }
+}
+
+export function loadAppRows<T>(uid: string, table: 'app_conversations' | 'app_messages' | 'app_topic_log'): T[] {
+  if (!fs.existsSync(fileFor(uid, 'user'))) return [];
+  const db = openDb(fileFor(uid, 'user'), 'user');
+  try {
+    const tsCol = table === 'app_topic_log' ? 'at' : 'created_at';
+    return (db.prepare(`SELECT json FROM ${table} ORDER BY ${tsCol}`).all() as { json: string }[]).map((r) => JSON.parse(r.json) as T);
+  } finally { db.close(); }
+}
+
+export function deleteAppRows(uid: string, table: 'app_conversations' | 'app_messages' | 'app_topic_log', ids: string[]) {
+  if (!ids.length || !fs.existsSync(fileFor(uid, 'user'))) return;
+  const db = openDb(fileFor(uid, 'user'), 'user');
+  try {
+    const stmt = db.prepare(`DELETE FROM ${table} WHERE id = ?`);
+    db.exec('BEGIN');
+    for (const id of ids) stmt.run(id);
+    db.exec('COMMIT');
+  } finally { db.close(); }
+}

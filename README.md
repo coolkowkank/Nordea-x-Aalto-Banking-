@@ -113,17 +113,19 @@ Open **http://localhost:3000/arch.html** for the three-agent demo UI. Its contro
 | `LLM_AGENT_MAX_STEPS` | Tool-call steps an agent's model may take per run (default 4) |
 | `LLM_STEP_TIMEOUT_MS` | Timeout per model step in milliseconds (default 15000) |
 | `USER_DB_URL` · `CM_DB_URL` · `NORDEA_DB_URL` | The hosted agent stores (below); unset = local SQLite |
-| `SUPABASE_URL` + `SUPABASE_SECRET_KEY` | The `abel_records` plumbing table (below); unset = local file |
+| `SUPABASE_URL` + `SUPABASE_SECRET_KEY` | Only the kept-documents bucket still uses these (below); unset = local files |
 
 ### Optional: hosted storage on Supabase
 
 Local files are the default and need nothing. To host the data on [Supabase](https://supabase.com) instead:
 
 1. Create a project and run three SQL files in the *SQL Editor*, in order: **supabase/three-agents.sql** (the three agent tables and one Postgres role per agent - give each role a letters-and-digits password: `alter role agent_user password '...';`, same for `agent_cm`, `agent_nordea`), then **supabase/nordea-feed.sql** (the new-data feed; run it again if you ran an older copy), then **supabase/role-smoke.sql** (prints one PASS/FAIL table - every line should say PASS).
-2. (Optional) Run **supabase/setup.sql** once too - only needed if you also want the app plumbing
-   (chat transcripts, logs, rewards) hosted. Without `SUPABASE_URL` + `SUPABASE_SECRET_KEY` that
-   plumbing stays in `data/cabinet-db.json` locally. If you DO set those two variables but skip this
-   step, the load fails with a missing-`abel_records`-table error.
+2. Everything the app stores lives in the three agent databases - there is no plumbing file or
+   fourth store. If you have an old `data/cabinet-db.json`, run `npm run migrate:legacy` once: it
+   moves every record into the right agent database, verifies the move field-by-field, and only
+   then deletes the file. (`git pull` downloads code; it never migrates your data by itself.)
+   `supabase/setup.sql` (the old `abel_records` plumbing table) is retired - the app no longer
+   reads or writes it. Kept documents still use `SUPABASE_URL` + `SUPABASE_SECRET_KEY` when set.
 3. Put the connection strings in `.env` (see `.env.example`). Use the session pooler host from Supabase -> *Connect*; the direct `db.<project>` host is unreachable on networks without IPv6:
    ```
    USER_DB_URL="postgresql://agent_user.<project-ref>:<password>@aws-0-<region>.pooler.supabase.com:5432/postgres"
@@ -289,7 +291,7 @@ src/server/arch/
   text.ts          keyword and category matching
   routes.ts        /api/arch/:uid/* HTTP surface
 supabase/
-  setup.sql        the abel_records table (app plumbing)
+  setup.sql        RETIRED (G30): the old abel_records plumbing table - unused, kept for reference
   three-agents.sql the three hosted agent tables + one Postgres role per agent
 public/
   arch.html        three-agent demo UI

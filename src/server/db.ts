@@ -20,26 +20,28 @@ import {
   PersonaId,
   ViewMode,
 } from '../types.js';
-import { Remote, Row, supabaseConfigured, supabaseRemote, cleanErr } from './store.js';
 // G1: customer data lives in the three agent databases (User / Context Memory / Nordea).
 // The app layer may import the store modules (see the store file headers); agents never
 // import this module, and no agent module imports another agent's store.
-import { listCustomers, unregisterCustomer, deleteDbFile, ARCH_DIR, hydrateAgentStores } from './arch/store/common.js';
+import { listCustomers, unregisterCustomer, deleteDbFile, ARCH_DIR, hydrateAgentStores, remoteConfigured } from './arch/store/common.js';
 import { loadBus } from './arch/store/busStore.js';
 import { appWrites, decideProposal } from './arch/orchestrator.js';
 import {
   loadUserDb, loadProfile, saveProfile, putGoal, removeGoal,
   loadDocuments, putDocument, removeStoredDocument, deleteUserDb,
+  loadAppRows, putAppRows, deleteAppRows,
 } from './arch/store/userStore.js';
 import type { UserProfile } from './arch/store/userStore.js';
 import {
   loadCmDb, putEntry, removeEntry, addHistoryEvent, loadHistory, deleteHistoryFor, listUndoRecords,
   loadShares, putShare, putUndoRecord, getUndoRecord as cmGetUndo, removeUndoRecord as cmRemoveUndo, deleteCmDb,
+  loadAppAccessLog, putAppAccessLog,
 } from './arch/store/cmStore.js';
 import {
   loadNordeaDb, nordeaFileExists, saveNordeaDb, loadBalances, saveBalances,
   putTransactions, putBankAccount, loadBalanceSnapshots, putBalanceSnapshot,
   loadImportBatches, putImportBatch, deleteNordeaDb,
+  loadAppBankRows, putAppBankRows, deleteAppBankRows, loadAppRewards, putAppRewards, removeAppRewards,
 } from './arch/store/nordeaStore.js';
 import { deleteContext } from './arch/store/contextStore.js';
 import type { ArchEntry, Goal } from './arch/types.js';
@@ -65,39 +67,6 @@ export interface DatabaseState {
   importBatches: ImportBatch[];
   bankAccounts: BankAccount[];
 }
-
-/** Points and reward redemptions: app plumbing, kept in the old store (V1: rewards stay). */
-interface RewardState {
-  points: number;
-  pointsSpent?: number;
-  redeemed?: { rewardId: string; title: string; pts: number; at: string }[];
-}
-
-/** What the old store still holds: chat transcripts, access log, rewards. Nothing about the customer. */
-interface PlumbState {
-  messages: ChatMessage[];
-  accessLog: AccessLogEntry[];
-  topicLog: TopicLogEntry[];
-  conversations: Conversation[];
-  earnings: Earning[];
-  dataRewards: DataReward[];
-  rewards: Record<string, RewardState>;
-}
-
-/** Record kinds that moved into the three agent databases (used to detect legacy data). */
-const CUSTOMER_KINDS = ['cabinetEntries', 'transactions', 'undoRecords', 'shares', 'documents', 'entryHistory', 'balanceSnapshots', 'importBatches', 'bankAccounts'] as const;
-
-/** Plumbing lists synced to the old store, and how to restore their order from unordered rows. */
-const PLUMBING_LISTS = ['messages', 'accessLog', 'topicLog', 'conversations', 'earnings', 'dataRewards'] as const;
-type PlumbingList = (typeof PLUMBING_LISTS)[number];
-const ORDER: Record<PlumbingList, { field: string; desc?: boolean }> = {
-  messages: { field: 'createdAt' },
-  accessLog: { field: 'timestamp', desc: true },
-  topicLog: { field: 'timestamp', desc: true },
-  conversations: { field: 'createdAt' },
-  earnings: { field: 'createdAt' },
-  dataRewards: { field: 'at' },
-};
 
 /** Who changed something in What Abel knows, and where. Recorded in the entry's history. */
 export interface ChangeMeta {
@@ -143,7 +112,7 @@ const LEGACY_ORDER: Record<LegacyList, { field: string; desc?: boolean }> = {
   bankAccounts: { field: 'id' },
 };
 
-function getEmptyLegacyState(): DatabaseState {
+export function getEmptyLegacyState(): DatabaseState {
   return {
     users: {}, cabinetEntries: [], transactions: [], messages: [], accessLog: [], topicLog: [],
     undoRecords: [], conversations: [], earnings: [], shares: [], documents: [], entryHistory: [],
@@ -151,24 +120,12 @@ function getEmptyLegacyState(): DatabaseState {
   };
 }
 
-function legacyFromRows(rows: Row[]): DatabaseState {
-  const st: any = getEmptyLegacyState();
-  for (const r of rows) {
-    if (r.kind === 'users') st.users[r.id] = r.data;
-    else if ((LEGACY_LISTS as readonly string[]).includes(r.kind)) st[r.kind].push(r.data);
-  }
-  for (const k of LEGACY_LISTS) {
-    const { field, desc } = LEGACY_ORDER[k];
-    st[k].sort((a: any, b: any) => String(a[field] || '').localeCompare(String(b[field] || '')) * (desc ? -1 : 1));
-  }
-  return st as DatabaseState;
-}
 
 /**
  * Fills in what loaded legacy data may leave out (migration only): history for entries that
  * predate history, and explicit account records derived from the customer record.
  */
-function migrateLegacyState(state: DatabaseState): DatabaseState {
+export function migrateLegacyState(state: DatabaseState): DatabaseState {
   const empty = getEmptyLegacyState();
   for (const k of Object.keys(empty) as (keyof DatabaseState)[]) (state as any)[k] = state[k] || empty[k];
   const known = new Set(state.entryHistory.map((h) => h.entryId));
@@ -201,7 +158,7 @@ const goalToEntry = (userId: string, g: Goal): CabinetEntry =>
         reviewed: true, createdAt: g.createdAt, updatedAt: g.createdAt,
       };
 
-const entryToGoal = (e: CabinetEntry): Goal => ({ id: e.id, title: e.title, detail: e.detail, createdAt: e.createdAt, doc: e });
+export const entryToGoal = (e: CabinetEntry): Goal => ({ id: e.id, title: e.title, detail: e.detail, createdAt: e.createdAt, doc: e });
 
 const cmToEntry = (userId: string, e: ArchEntry): CabinetEntry => {
   const doc = e.doc;
@@ -229,7 +186,7 @@ const cmToEntry = (userId: string, e: ArchEntry): CabinetEntry => {
   };
 };
 
-const entryToCm = (e: CabinetEntry, existing?: ArchEntry): ArchEntry => ({
+export const entryToCm = (e: CabinetEntry, existing?: ArchEntry): ArchEntry => ({
   id: e.id,
   title: e.title,
   detail: e.detail,
@@ -260,249 +217,68 @@ export interface DbStatus {
   waiting: number;
 }
 
-function getEmptyPlumb(): PlumbState {
-  return { messages: [], accessLog: [], topicLog: [], conversations: [], earnings: [], dataRewards: [], rewards: {} };
+/** Points and reward redemptions: bank-side loyalty plumbing, kept in the customer's Nordea DB. */
+interface RewardState {
+  points: number;
+  pointsSpent?: number;
+  redeemed?: { rewardId: string; title: string; pts: number; at: string }[];
 }
 
+/** Rewards points live in the customer's Nordea DB (bank-side loyalty plumbing). */
+const loadRewards = (uid: string): RewardState | undefined => {
+  const raw = loadAppRewards(uid);
+  return raw ? (JSON.parse(raw) as RewardState) : undefined;
+};
+const saveRewards = (uid: string, r: RewardState) => putAppRewards(uid, JSON.stringify(r));
+
 class Database {
-  private state: PlumbState;
-  private remote: Remote | null = null;
-  /** What Supabase has, as JSON per record, so only changed records are sent. */
-  private synced = new Map<string, string>();
-  private chain: Promise<void> = Promise.resolve();
-  private timer: NodeJS.Timeout | null = null;
   private st: DbStatus = { mode: 'file', ok: true, message: 'Saved on this server only. It resets when the app restarts.', waiting: 0 };
-  /** Supabase is set up but couldn't be reached: keep changes in memory only, so no stale local copy appears. */
-  private memoryOnly = false;
 
-  // Nothing is preloaded: the app starts with no data until init() reads what was loaded on purpose.
-  constructor() {
-    this.state = getEmptyPlumb();
-  }
-
-  /**
-   * G1: move legacy customer data (the old store's users / cabinet / bank records) into the
-   * three agent databases. Idempotent enough for the demo: store writes are upserts, and the
-   * legacy rows are removed from the old store afterwards, so this runs once per dataset.
-   */
-  // Bulk migration writes the stores directly - same class as scripts/load_data.py (G5):
-  // loading existing approved data, not app behavior. Runtime writes go through the agents (G2).
-  private splitLegacyIntoStores(legacy: DatabaseState) {
-    const st = migrateLegacyState(legacy);
-    const uids = new Set<string>([
-      ...Object.keys(st.users),
-      ...st.cabinetEntries.map((e) => e.userId),
-      ...st.transactions.map((t) => t.userId),
-      ...st.documents.map((d) => d.userId),
-      ...st.shares.map((s) => s.userId),
-      ...st.undoRecords.map((u) => u.userId),
-      ...st.entryHistory.map((h) => h.userId),
-      ...st.balanceSnapshots.map((b) => b.userId),
-      ...st.importBatches.map((b) => b.userId),
-      ...st.bankAccounts.map((b) => b.userId),
-    ]);
-    for (const uid of uids) {
-      const u = st.users[uid];
-      if (u) {
-        const { points, pointsSpent, redeemed, accounts, id: _id, ...profile } = u;
-        saveProfile(uid, profile as UserProfile);
-        if (accounts) saveBalances(uid, accounts);
-        this.state.rewards[uid] = { points: points ?? 0, ...(pointsSpent !== undefined ? { pointsSpent } : {}), ...(redeemed ? { redeemed } : {}) };
-      }
-      for (const e of st.cabinetEntries.filter((x) => x.userId === uid)) {
-        if (e.type === 'goal') putGoal(uid, entryToGoal(e));
-        else putEntry(uid, entryToCm(e));
-      }
-      for (const h of st.entryHistory.filter((x) => x.userId === uid)) addHistoryEvent(uid, h);
-      for (const s of st.shares.filter((x) => x.userId === uid)) putShare(uid, s);
-      for (const r of st.undoRecords.filter((x) => x.userId === uid)) putUndoRecord(uid, r);
-      for (const d of st.documents.filter((x) => x.userId === uid)) putDocument(d);
-      const txs = st.transactions.filter((x) => x.userId === uid);
-      if (txs.length) putTransactions(uid, txs);
-      for (const a of st.bankAccounts.filter((x) => x.userId === uid)) putBankAccount(uid, a);
-      for (const b of st.balanceSnapshots.filter((x) => x.userId === uid)) putBalanceSnapshot(uid, b);
-      for (const b of st.importBatches.filter((x) => x.userId === uid)) putImportBatch(uid, b);
-    }
-  }
-
-  /** Take in a loaded old-style state (file or Supabase rows): migrate customer data, keep plumbing. */
-  private adoptLoaded(loaded: Partial<DatabaseState> & { rewards?: Record<string, RewardState> }) {
-    const hasLegacy =
-      Object.keys(loaded.users ?? {}).length > 0 ||
-      CUSTOMER_KINDS.some((k) => ((loaded as DatabaseState)[k] ?? []).length > 0);
-    if (hasLegacy) this.splitLegacyIntoStores({ ...getEmptyLegacyState(), ...loaded } as DatabaseState);
-    this.state = {
-      messages: loaded.messages ?? [],
-      accessLog: loaded.accessLog ?? [],
-      topicLog: loaded.topicLog ?? [],
-      conversations: loaded.conversations ?? [],
-      earnings: loaded.earnings ?? [],
-      dataRewards: loaded.dataRewards ?? [],
-      rewards: { ...(loaded.rewards ?? {}), ...this.state.rewards },
-    };
-    // The local file must not keep a second copy of the customer's data: strip it now.
-    if (hasLegacy && !this.remote) this.writeFile();
-  }
+  // Nothing is preloaded: the app starts with no data until init() runs.
+  constructor() {}
 
   /**
    * Read the data. Called once before the server starts (and by reload()).
-   * With Supabase set up, only Supabase counts (for the plumbing it still holds).
-   * Customer data comes from the three agent databases, or is migrated there once from
-   * legacy rows. Load data with scripts/load_data.py.
+   * Everything lives in the three agent databases (owner, 2026-11-01): the app never reads or
+   * writes cabinet-db.json - a leftover file only triggers the migration hint below.
    */
   public async init() {
-    this.synced.clear();
-    this.state = getEmptyPlumb();
     // G6: when the three agent stores have hosted secrets, their tables are the source of
     // truth - pull them into the local SQLite files before anything reads them.
     const hydrated = await hydrateAgentStores();
     if (hydrated.length) console.log(`Database: agent stores hydrated from hosted tables: ${hydrated.join(', ')}`);
-    if (!supabaseConfigured()) {
-      this.adoptLoaded(this.loadFile());
-      console.log(`Database: local file (${listCustomers().length} customers in the three databases)`);
-      return;
+    if (fs.existsSync(DB_FILE)) {
+      console.log('Database: found legacy cabinet-db.json - run `npm run migrate:legacy` to move it into the three agent databases (verified, then the file is deleted).');
     }
-    const remote = supabaseRemote();
-    try {
-      const rows = await remote.loadAll();
-      this.remote = remote;
-      this.memoryOnly = false;
-      const customerRows = rows.filter((r) => r.kind === 'users' || (CUSTOMER_KINDS as readonly string[]).includes(r.kind));
-      const plumbingRows = rows.filter((r) => !customerRows.includes(r));
-      const loaded: Partial<DatabaseState> & { rewards: Record<string, RewardState> } = { ...getEmptyLegacyState(), rewards: {} };
-      for (const r of plumbingRows) {
-        if (r.kind === 'rewards') loaded.rewards![r.id] = r.data as RewardState;
-        else if ((PLUMBING_LISTS as readonly string[]).includes(r.kind)) (loaded as any)[r.kind].push(r.data);
-      }
-      for (const k of PLUMBING_LISTS) {
-        const { field, desc } = ORDER[k];
-        (loaded as any)[k].sort((a: any, b: any) => String(a[field] || '').localeCompare(String(b[field] || '')) * (desc ? -1 : 1));
-      }
-      if (customerRows.length) this.splitLegacyIntoStores(migrateLegacyState(legacyFromRows(customerRows)));
-      this.state = { ...this.state, ...{
-        messages: loaded.messages!, accessLog: loaded.accessLog!, topicLog: loaded.topicLog!,
-        conversations: loaded.conversations!, earnings: loaded.earnings!, dataRewards: loaded.dataRewards!,
-        rewards: { ...loaded.rewards, ...this.state.rewards },
-      } };
-      rows.forEach((r) => this.synced.set(`${r.kind}:${r.id}`, JSON.stringify(r.data)));
-      await this.flush();
-      this.st = { ...this.st, mode: 'supabase', ok: !this.st.lastError, message: rows.length ? 'Saved in Supabase' : 'Supabase is empty. Load data with scripts/load_data.py.', rows: this.synced.size };
-      console.log(`Database: Supabase (${this.synced.size} records)`);
-    } catch (err) {
-      this.remote = null;
-      this.memoryOnly = true;
-      this.state = getEmptyPlumb();
-      const message = cleanErr(err);
-      this.st = { mode: 'memory', ok: false, message: `Supabase isn’t working, so the app has no data and changes are kept in memory only. ${message}`, lastError: { at: new Date().toISOString(), message }, waiting: 0 };
-      console.error('Database: Supabase failed, starting with no data.', message);
-    }
+    const hosted = remoteConfigured('user') || remoteConfigured('cm') || remoteConfigured('nordea');
+    this.st = hosted
+      ? { mode: 'supabase', ok: true, message: 'Saved in Supabase', waiting: 0 }
+      : { mode: 'file', ok: true, message: 'Saved on this server only. It resets when the app restarts.', waiting: 0 };
+    console.log(`Database: ${hosted ? 'Supabase' : 'local file'} (${listCustomers().length} customers in the three databases)`);
   }
 
   /** Read the data again, e.g. after scripts/load_data.py added rows while the app was running. */
   public async reload(): Promise<DatabaseState> {
-    await this.chain;
-    if (this.timer) { clearTimeout(this.timer); this.timer = null; }
     await this.init();
     return this.getState();
   }
 
   public hasData() {
-    return listCustomers().length > 0 || Object.keys(this.state.rewards).length > 0;
+    return listCustomers().length > 0;
   }
 
   public status(): DbStatus {
-    return { ...this.st, waiting: this.remote ? this.pendingCount() : 0 };
+    return { ...this.st, waiting: 0 };
   }
 
-  private toRows(): Row[] {
-    const rows: Row[] = Object.entries(this.state.rewards).map(([uid, r]) => ({ kind: 'rewards', id: uid, user_id: uid, data: r }));
-    for (const kind of PLUMBING_LISTS) for (const x of this.state[kind] as any[]) rows.push({ kind, id: x.id, user_id: x.userId ?? null, data: x });
-    return rows;
-  }
-
-  private pendingCount() {
-    let n = 0;
-    const now = new Map(this.toRows().map((r) => [`${r.kind}:${r.id}`, JSON.stringify(r.data)]));
-    for (const [k, v] of now) if (this.synced.get(k) !== v) n++;
-    for (const k of this.synced.keys()) if (!now.has(k)) n++;
-    return n;
-  }
-
-  /** Send every changed record to Supabase. Requests that change data wait for this before answering. */
+  /** Kept for callers that awaited the old Supabase plumbing sync: store writes are synchronous now. */
   public flush(): Promise<void> {
-    if (!this.remote) return Promise.resolve();
-    if (this.timer) { clearTimeout(this.timer); this.timer = null; }
-    this.chain = this.chain.then(() => this.push()).catch(() => {});
-    return this.chain;
-  }
-
-  private async push() {
-    const remote = this.remote;
-    if (!remote) return;
-    const now = new Map<string, Row>();
-    this.toRows().forEach((r) => now.set(`${r.kind}:${r.id}`, r));
-    const changed: Row[] = [];
-    const json = new Map<string, string>();
-    for (const [k, r] of now) {
-      const j = JSON.stringify(r.data);
-      json.set(k, j);
-      if (this.synced.get(k) !== j) changed.push(r);
-    }
-    const gone = [...this.synced.keys()].filter((k) => !now.has(k)).map((k) => ({ kind: k.slice(0, k.indexOf(':')), id: k.slice(k.indexOf(':') + 1) }));
-    if (!changed.length && !gone.length) return;
-    try {
-      if (changed.length) await remote.upsert(changed.map((r) => ({ ...r, data: JSON.parse(json.get(`${r.kind}:${r.id}`)!) })));
-      if (gone.length) await remote.remove(gone);
-      changed.forEach((r) => this.synced.set(`${r.kind}:${r.id}`, json.get(`${r.kind}:${r.id}`)!));
-      gone.forEach((g) => this.synced.delete(`${g.kind}:${g.id}`));
-      this.st = { ...this.st, ok: true, message: 'Saved in Supabase', lastSavedAt: new Date().toISOString(), rows: this.synced.size };
-    } catch (err) {
-      const message = cleanErr(err);
-      this.st = { ...this.st, ok: false, message: `Last save to Supabase failed. Trying again. ${message}`, lastError: { at: new Date().toISOString(), message } };
-      console.error('Database: save to Supabase failed:', message);
-      this.later(5000); // try again shortly; nothing is lost while the server runs
-    }
-  }
-
-  private later(ms = 300) {
-    if (!this.remote || this.timer) return;
-    this.timer = setTimeout(() => { this.timer = null; this.flush(); }, ms);
-  }
-
-  private ensureDataDir() {
-    if (!fs.existsSync(DATA_DIR)) {
-      fs.mkdirSync(DATA_DIR, { recursive: true });
-    }
-  }
-
-  private loadFile(): Partial<DatabaseState> & { rewards?: Record<string, RewardState> } {
-    if (!fs.existsSync(DB_FILE)) return {};
-    try {
-      return JSON.parse(fs.readFileSync(DB_FILE, 'utf-8'));
-    } catch (err) {
-      console.warn('Could not read the local data file. Starting with no data.', err);
-      return {};
-    }
-  }
-
-  private writeFile() {
-    try {
-      this.ensureDataDir();
-      fs.writeFileSync(DB_FILE, JSON.stringify(this.state, null, 2), 'utf-8');
-    } catch (err) {
-      console.error('Failed to write db state to disk:', err);
-    }
-  }
-
-  /** Every plumbing change ends here: queue the Supabase save, or write the local file when there's no Supabase. */
-  private saveState() {
-    if (this.remote) this.later();
-    else if (!this.memoryOnly) this.writeFile();
+    return Promise.resolve();
   }
 
   /** The full composed view: customer data read back from the three agent databases. */
   public getState(): DatabaseState {
-    const uids = [...new Set([...listCustomers(), ...Object.keys(this.state.rewards)])];
+    const uids = listCustomers();
     const users: Record<string, User> = {};
     for (const uid of uids) {
       const u = this.getUser(uid);
@@ -512,16 +288,16 @@ class Database {
       users,
       cabinetEntries: uids.flatMap((uid) => this.getCabinetEntries(uid)),
       transactions: uids.flatMap((uid) => this.getTransactions(uid)),
-      messages: this.state.messages,
-      accessLog: this.state.accessLog,
-      topicLog: this.state.topicLog,
+      messages: uids.flatMap((uid) => this.getMessages(uid)),
+      accessLog: uids.flatMap((uid) => this.getAccessLog(uid)),
+      topicLog: uids.flatMap((uid) => this.getTopicLog(uid)),
       undoRecords: uids.flatMap((uid) => listUndoRecords(uid)),
-      conversations: this.state.conversations,
-      earnings: this.state.earnings,
+      conversations: uids.flatMap((uid) => this.getConversations(uid)),
+      earnings: uids.flatMap((uid) => this.getEarnings(uid)),
       shares: uids.flatMap((uid) => loadShares(uid)),
       documents: uids.flatMap((uid) => loadDocuments(uid)),
       entryHistory: uids.flatMap((uid) => loadHistory(uid)),
-      dataRewards: this.state.dataRewards,
+      dataRewards: uids.flatMap((uid) => this.getDataRewards(uid)),
       balanceSnapshots: uids.flatMap((uid) => loadBalanceSnapshots(uid)),
       importBatches: uids.flatMap((uid) => loadImportBatches(uid)),
       bankAccounts: uids.flatMap((uid) => this.getBankAccounts(uid)),
@@ -530,15 +306,8 @@ class Database {
 
   /** Delete all data, including rows loaded into Supabase that this app never read. */
   public async clearAll(): Promise<DatabaseState> {
-    await this.chain;
-    if (this.timer) { clearTimeout(this.timer); this.timer = null; }
-    this.state = getEmptyPlumb();
     fs.rmSync(ARCH_DIR, { recursive: true, force: true });
-    if (this.remote) {
-      await this.remote.removeAll();
-      this.synced.clear();
-      this.st = { ...this.st, ok: true, message: 'Supabase is empty. Load data with scripts/load_data.py.', rows: 0 };
-    } else this.saveState();
+    this.st = { ...this.st, ok: true, message: this.st.mode === 'supabase' ? 'Supabase is empty. Load data with scripts/load_data.py.' : this.st.message, rows: 0 };
     return this.getState();
   }
 
@@ -547,8 +316,8 @@ class Database {
   public getUser(userId: string): User | undefined {
     const profile = loadProfile(userId);
     const balances = loadBalances(userId);
-    const rewards = this.state.rewards[userId];
-    if (!profile && !balances && !rewards) return undefined;
+    const rewards = loadRewards(userId);
+    if (!profile && !balances && !rewards && !listCustomers().includes(userId)) return undefined;
     return {
       id: userId,
       persona: (profile?.persona ?? 'lauri') as PersonaId,
@@ -572,15 +341,14 @@ class Database {
     if (!user) return undefined;
     const { points, pointsSpent, redeemed, accounts, ...profileUpdates } = updates;
     if (points !== undefined || pointsSpent !== undefined || redeemed !== undefined) {
-      const r = this.state.rewards[userId] ?? { points: 0 };
+      const r = loadRewards(userId) ?? { points: 0 };
       if (points !== undefined) r.points = points;
       if (pointsSpent !== undefined) r.pointsSpent = pointsSpent;
       if (redeemed !== undefined) r.redeemed = redeemed;
-      this.state.rewards[userId] = r;
+      saveRewards(userId, r);
     }
     if (accounts !== undefined) appWrites.putBalances(userId, accounts);
     if (Object.keys(profileUpdates).length) appWrites.putProfile(userId, { ...(loadProfile(userId) ?? {}), ...profileUpdates });
-    this.saveState();
     return this.getUser(userId);
   }
 
@@ -723,8 +491,9 @@ class Database {
     if (!d) return undefined;
     appWrites.removeDocument(d.userId, id);
     // The chat bubble keeps the file name but loses its preview.
-    for (const m of this.state.messages) if (m.attachment?.documentId === id) m.attachment = { ...m.attachment, thumb: undefined, deleted: true };
-    this.saveState();
+    for (const m of this.getMessages(d.userId)) {
+      if (m.attachment?.documentId === id) this.updateMessage(m.id, { attachment: { ...m.attachment, thumb: undefined, deleted: true } });
+    }
     return d;
   }
 
@@ -737,7 +506,7 @@ class Database {
     const { points, pointsSpent, redeemed, accounts, id: _id, ...profile } = clone;
     saveProfile(toId, profile as UserProfile);
     if (accounts) saveBalances(toId, accounts);
-    this.state.rewards[toId] = { points: points ?? 0, ...(pointsSpent !== undefined ? { pointsSpent } : {}), ...(redeemed ? { redeemed } : {}) };
+    saveRewards(toId, { points: points ?? 0, ...(pointsSpent !== undefined ? { pointsSpent } : {}), ...(redeemed ? { redeemed } : {}) });
     for (const e of this.getCabinetEntries(fromId)) {
       const copy = JSON.parse(JSON.stringify(e)) as CabinetEntry;
       copy.id = `${toId}-${e.id}`;
@@ -747,7 +516,6 @@ class Database {
     }
     const txs = this.getTransactions(fromId).map((t) => ({ ...t, id: `${toId}-${t.id}`, userId: toId }));
     if (txs.length) putTransactions(toId, txs);
-    this.saveState();
     return true;
   }
 
@@ -759,35 +527,26 @@ class Database {
     deleteDbFile(id, 'bus');
     deleteContext(id);
     unregisterCustomer(id);
-    delete this.state.rewards[id];
-    const keep = (x: { userId?: string }) => x.userId !== id;
-    this.state.messages = this.state.messages.filter(keep);
-    this.state.conversations = this.state.conversations.filter(keep);
-    this.state.accessLog = this.state.accessLog.filter(keep);
-    this.state.topicLog = this.state.topicLog.filter(keep);
-    this.state.earnings = this.state.earnings.filter(keep);
-    this.state.dataRewards = this.state.dataRewards.filter(keep);
-    this.saveState();
+    // The per-customer database files are gone, so their app rows (chats, access log, rewards)
+    // went with them; a leftover legacy file is the migration's business, not deleted here.
   }
 
   /** Delete one chat: its messages and the conversation. Kept documents and what Abel knows stay. */
   public deleteConversation(userId: string, id: string) {
     const c = this.getConversation(id);
     if (!c || c.userId !== userId) return 0;
-    const n = this.state.messages.filter((m) => m.conversationId === id).length;
-    this.state.messages = this.state.messages.filter((m) => m.conversationId !== id);
-    this.state.conversations = this.state.conversations.filter((x) => x.id !== id);
-    this.saveState();
-    return n;
+    const msgs = this.getMessages(userId).filter((m) => m.conversationId === id);
+    deleteAppRows(userId, 'app_messages', msgs.map((m) => m.id));
+    deleteAppRows(userId, 'app_conversations', [id]);
+    return msgs.length;
   }
 
   /** "Delete my chats": every conversation and message of this customer. What Abel knows stays. */
   public deleteChats(userId: string) {
-    const n = this.state.messages.filter((m) => m.userId === userId).length;
-    this.state.messages = this.state.messages.filter((m) => m.userId !== userId);
-    this.state.conversations = this.state.conversations.filter((c) => c.userId !== userId);
-    this.state.topicLog = this.state.topicLog.filter((t) => t.userId !== userId);
-    this.saveState();
+    const n = this.getMessages(userId).length;
+    deleteAppRows(userId, 'app_messages', this.getMessages(userId).map((m) => m.id));
+    deleteAppRows(userId, 'app_conversations', this.getConversations(userId).map((c) => c.id));
+    deleteAppRows(userId, 'app_topic_log', this.getTopicLog(userId).map((t) => t.id));
     return n;
   }
 
@@ -853,47 +612,40 @@ class Database {
 
   // ---- Data rewards: points for what the customer shares and for how often it's read ----
   public getDataRewards(userId: string): DataReward[] {
-    return this.state.dataRewards.filter((r) => r.userId === userId);
+    return loadAppBankRows<DataReward>(userId, 'app_data_rewards');
   }
 
   public addDataReward(r: DataReward) {
-    this.state.dataRewards.push(r);
-    this.saveState();
+    putAppBankRows(r.userId, 'app_data_rewards', [{ id: r.id, at: r.at, json: JSON.stringify(r) }]);
     return r;
   }
 
   public getMessages(userId: string): ChatMessage[] {
-    return this.state.messages.filter((m) => m.userId === userId);
+    return loadAppRows<ChatMessage>(userId, 'app_messages');
   }
 
   public addMessage(msg: ChatMessage): ChatMessage {
-    this.state.messages.push(msg);
-    this.saveState();
+    putAppRows(msg.userId, 'app_messages', [{ id: msg.id, ts: msg.createdAt, json: JSON.stringify(msg) }]);
     return msg;
   }
 
   public getAccessLog(userId?: string): AccessLogEntry[] {
-    if (!userId) return this.state.accessLog;
-    return this.state.accessLog.filter((log) => log.userId === userId);
+    if (userId) return loadAppAccessLog<AccessLogEntry>(userId);
+    return listCustomers().flatMap((uid) => loadAppAccessLog<AccessLogEntry>(uid));
   }
 
   public addAccessLogEntry(log: AccessLogEntry): AccessLogEntry {
-    this.state.accessLog.unshift(log);
-    if (this.state.accessLog.length > 200) {
-      this.state.accessLog.pop();
-    }
-    this.saveState();
+    putAppAccessLog(log.userId, [{ id: log.id, at: log.timestamp, json: JSON.stringify(log) }]);
     return log;
   }
 
   public getTopicLog(userId?: string): TopicLogEntry[] {
-    if (!userId) return this.state.topicLog;
-    return this.state.topicLog.filter((t) => t.userId === userId);
+    if (userId) return loadAppRows<TopicLogEntry>(userId, 'app_topic_log');
+    return listCustomers().flatMap((uid) => loadAppRows<TopicLogEntry>(uid, 'app_topic_log'));
   }
 
   public addTopicLogEntry(entry: TopicLogEntry): TopicLogEntry {
-    this.state.topicLog.unshift(entry);
-    this.saveState();
+    putAppRows(entry.userId, 'app_topic_log', [{ id: entry.id, ts: entry.timestamp, json: JSON.stringify(entry) }]);
     return entry;
   }
 
@@ -921,41 +673,47 @@ class Database {
 
   // ---- v14: conversations, partner earnings, one-time shares
   public getConversations(userId: string): Conversation[] {
-    return this.state.conversations.filter((c) => c.userId === userId);
+    return loadAppRows<Conversation>(userId, 'app_conversations');
   }
 
   public getConversation(id: string): Conversation | undefined {
-    return this.state.conversations.find((c) => c.id === id);
+    for (const uid of listCustomers()) {
+      const c = loadAppRows<Conversation>(uid, 'app_conversations').find((x) => x.id === id);
+      if (c) return c;
+    }
+    return undefined;
   }
 
   public addConversation(c: Conversation): Conversation {
-    this.state.conversations.push(c);
-    this.saveState();
+    putAppRows(c.userId, 'app_conversations', [{ id: c.id, ts: c.createdAt, json: JSON.stringify(c) }]);
     return c;
   }
 
   public touchConversation(id: string, updates: Partial<Conversation> = {}) {
     const c = this.getConversation(id);
     if (!c) return;
-    Object.assign(c, updates, { updatedAt: new Date().toISOString() });
-    this.saveState();
+    const next = { ...c, ...updates, updatedAt: new Date().toISOString() };
+    putAppRows(c.userId, 'app_conversations', [{ id: c.id, ts: c.createdAt, json: JSON.stringify(next) }]);
   }
 
   public updateMessage(id: string, updates: Partial<ChatMessage>) {
-    const m = this.state.messages.find((x) => x.id === id);
-    if (!m) return undefined;
-    Object.assign(m, updates);
-    this.saveState();
-    return m;
+    for (const uid of listCustomers()) {
+      const m = loadAppRows<ChatMessage>(uid, 'app_messages').find((x) => x.id === id);
+      if (m) {
+        const next = { ...m, ...updates };
+        putAppRows(uid, 'app_messages', [{ id: m.id, ts: m.createdAt, json: JSON.stringify(next) }]);
+        return next;
+      }
+    }
+    return undefined;
   }
 
   public getEarnings(userId: string): Earning[] {
-    return this.state.earnings.filter((e) => e.userId === userId);
+    return loadAppBankRows<Earning>(userId, 'app_earnings');
   }
 
   public addEarning(e: Earning): Earning {
-    this.state.earnings.push(e);
-    this.saveState();
+    putAppBankRows(e.userId, 'app_earnings', [{ id: e.id, at: e.createdAt, json: JSON.stringify(e) }]);
     return e;
   }
 

@@ -19,6 +19,9 @@ function check(name: string, cond: boolean, extra = '') {
 const { db } = await import('../src/server/db.js');
 const { applyNordeaData, parseCsv } = await import('../src/server/nordeaData.js');
 await db.init();
+const { runLegacyMigration } = await import('../src/server/arch/legacyMigrate.js');
+const migB = runLegacyMigration();
+if (!migB.ok) throw new Error('demo migration failed: ' + migB.failures.join('; '));
 
 const USER = 'lauri';
 

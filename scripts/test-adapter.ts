@@ -18,6 +18,9 @@ const { writeDemoDb } = await import('./demo-data.js');
 writeDemoDb(DIR);
 const { db } = await import('../src/server/db.js');
 await db.init();
+const { runLegacyMigration } = await import('../src/server/arch/legacyMigrate.js');
+const migA = runLegacyMigration();
+if (!migA.ok) throw new Error('demo migration failed: ' + migA.failures.join('; '));
 const S = await import('../src/server/arch/store/index.js');
 const A = await import('../src/server/arch/orchestrator.js');
 
@@ -38,11 +41,11 @@ check('lauri balances live in the Nordea DB', !!S.loadBalances('lauri')?.current
 check('lauri bank accounts live in the Nordea DB', (S.loadNordeaDb('lauri')?.accounts ?? []).some((a) => a.userId === 'lauri' && a.key === 'current'));
 check('entry history migrated into the Context Memory DB', S.loadHistory('lauri').length >= 3, S.loadHistory('lauri').length);
 
-// --- The old store keeps plumbing only; the file is stripped of customer data
-const fileState = JSON.parse(fs.readFileSync(path.join(DIR, 'cabinet-db.json'), 'utf-8'));
-check('the legacy file no longer carries customer data', !fileState.cabinetEntries && !fileState.users && !fileState.transactions, Object.keys(fileState));
-check('the legacy file still carries app plumbing (access log + topic log)', Array.isArray(fileState.accessLog) && Array.isArray(fileState.topicLog));
-check('rewards stay in the old store, keyed by customer', fileState.rewards?.lauri?.points === 120, fileState.rewards);
+// --- Owner 16:35: the explicit migration moved EVERYTHING into the three agent DBs and deleted the file
+check('the legacy file is gone after the verified migration', !fs.existsSync(path.join(DIR, 'cabinet-db.json')));
+check('access log lives in the Context Memory DB', S.loadAppAccessLog('lauri').length >= 1, S.loadAppAccessLog('lauri').length);
+check('topic log lives in the User DB', (S.loadAppRows('lauri', 'app_topic_log') as unknown[]).length >= 1);
+check('rewards live in the Nordea DB, keyed by customer', JSON.parse(S.loadAppRewards('lauri') ?? '{}').points === 120, S.loadAppRewards('lauri'));
 
 // --- getState composes the old DatabaseState shape
 const state = db.getState();

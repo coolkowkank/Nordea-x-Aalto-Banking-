@@ -203,3 +203,49 @@ export function removeEntry(uid: string, id: string) {
   const db = openDb(fileFor(uid, 'cm'), 'cm');
   try { db.prepare('DELETE FROM entries WHERE id = ?').run(id); } finally { db.close(); }
 }
+
+// ---------- App metadata namespace: gateway access log + the legacy-migration ledger ----------
+
+export function putAppAccessLog(uid: string, rows: { id: string; at: string; json: string }[]) {
+  if (!rows.length) return;
+  registerCustomer(uid);
+  const db = openDb(fileFor(uid, 'cm'), 'cm');
+  try {
+    const stmt = db.prepare('INSERT INTO app_access_log (id, at, json) VALUES (?, ?, ?) ON CONFLICT(id) DO UPDATE SET json = excluded.json');
+    db.exec('BEGIN');
+    for (const r of rows) stmt.run(r.id, r.at, r.json);
+    // Keep the newest 200 entries per customer (the old store's cap, now per customer).
+    db.exec('DELETE FROM app_access_log WHERE id NOT IN (SELECT id FROM app_access_log ORDER BY at DESC LIMIT 200)');
+    db.exec('COMMIT');
+  } finally { db.close(); }
+}
+
+export function loadAppAccessLog<T>(uid: string): T[] {
+  if (!fs.existsSync(fileFor(uid, 'cm'))) return [];
+  const db = openDb(fileFor(uid, 'cm'), 'cm');
+  try {
+    return (db.prepare('SELECT json FROM app_access_log ORDER BY at').all() as { json: string }[]).map((r) => JSON.parse(r.json) as T);
+  } finally { db.close(); }
+}
+
+export interface MigrationLedgerRow { kind: string; sourceHash: string; rows: number; doneAt: string }
+
+export function putMigrationLedger(uid: string, rows: MigrationLedgerRow[]) {
+  registerCustomer(uid);
+  const db = openDb(fileFor(uid, 'cm'), 'cm');
+  try {
+    const stmt = db.prepare('INSERT INTO app_migration_ledger (kind, source_hash, rows, done_at) VALUES (?, ?, ?, ?) ON CONFLICT(kind) DO UPDATE SET source_hash = excluded.source_hash, rows = excluded.rows, done_at = excluded.done_at');
+    db.exec('BEGIN');
+    for (const r of rows) stmt.run(r.kind, r.sourceHash, r.rows, r.doneAt);
+    db.exec('COMMIT');
+  } finally { db.close(); }
+}
+
+export function loadMigrationLedger(uid: string): MigrationLedgerRow[] {
+  if (!fs.existsSync(fileFor(uid, 'cm'))) return [];
+  const db = openDb(fileFor(uid, 'cm'), 'cm');
+  try {
+    return (db.prepare('SELECT kind, source_hash, rows, done_at FROM app_migration_ledger ORDER BY kind').all() as Record<string, unknown>[])
+      .map((r) => ({ kind: r.kind as string, sourceHash: r.source_hash as string, rows: r.rows as number, doneAt: r.done_at as string }));
+  } finally { db.close(); }
+}

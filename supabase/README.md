@@ -69,20 +69,21 @@ At startup the app replaces its local agent databases with the hosted rows (hydr
 later writes back; if Supabase is unreachable it keeps working on the local files and logs the
 failure. Deleting a customer's database in the app clears that customer's hosted rows too.
 
-## 4. (Optional) App plumbing: `setup.sql`
+## 4. RETIRED: app plumbing (`setup.sql`)
 
-Only needed if you also want the app's plumbing hosted: chat transcripts, logs, rewards,
-kept-document records (the `abel_records` table and the private `abel-documents` bucket).
-Customer data does NOT live here - it is in the three agent tables from step 1.
+As of G30 the app stores everything in the three agent databases - no plumbing table, no fourth
+store. `setup.sql` / `abel_records` is unused and kept for reference only; do not run it. A
+leftover local `data/cabinet-db.json` moves into the agent databases with `npm run migrate:legacy`
+(verified, then deleted). Kept documents still use the private `abel-documents` bucket via
+`SUPABASE_URL` + `SUPABASE_SECRET_KEY` (below).
 
 1. **SQL Editor** → **New query** → paste all of [`setup.sql`](setup.sql) → **Run**.
 2. Add two values to `.env` (AI Studio: Settings → Secrets):
    - `SUPABASE_URL` - **Project Settings → Data API → Project URL** (`https://<ref>.supabase.co`)
    - `SUPABASE_SECRET_KEY` - **Project Settings → API Keys → Secret keys** (`sb_secret_...`)
 
-Without these two variables the plumbing stays in `data/cabinet-db.json` locally. If you set them
-but skip the SQL, the load fails with a missing-`abel_records`-table error. The secret key gives
-full access to the project: keep it in Secrets or `.env` only, never in code, a commit or a chat.
+The secret key gives full access to the project: keep it in Secrets or `.env` only, never in
+code, a commit or a chat.
 
 ## 5. (Optional) New-data feed: `nordea-feed.sql`
 
@@ -107,7 +108,7 @@ may contain is documented in the comments of `nordea-feed.sql` and in
 | You see | Fix |
 |---|---|
 | `permission denied for table agent_...` | Step 1 wasn't run, or ran in a different project than the URL points to. |
-| `The table "abel_records" is missing. Run supabase/setup.sql…` | Step 4's SQL wasn't run (or unset `SUPABASE_URL`/`SUPABASE_SECRET_KEY` to stay local). |
+| `The table "abel_records" is missing. Run supabase/setup.sql…` | Old app version: update. Current versions never use `abel_records`. |
 | `The table "nordea_feed" is missing…` | Run step 5, or ignore it if you don't use the feed. |
 | `Invalid API key` / `401` | Wrong key in step 4: use the **secret** key, not the publishable/anon one. |
 | Connection timeout to `db.<project>.supabase.co` | Use the session pooler host from step 2 (the direct host is IPv6-only). |

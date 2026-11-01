@@ -261,6 +261,10 @@ const { writeDemoDb } = await import('./demo-data.js');
 writeDemoDb(CABINET_DATA_DIR);
 const { db: legacyDb } = await import('../src/server/db.js');
 await legacyDb.init();
+// Owner 16:35: startup never migrates on its own - the explicit command does (and deletes the file).
+const { runLegacyMigration } = await import('../src/server/arch/legacyMigrate.js');
+const mig0 = runLegacyMigration();
+if (!mig0.ok) throw new Error('demo migration failed: ' + mig0.failures.join('; '));
 const { applyNordeaData } = await import('../src/server/nordeaData.js');
 const UID5 = 'lauri';
 S.deleteDb(UID5, 'cm');

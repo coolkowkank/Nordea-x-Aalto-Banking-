@@ -13,11 +13,13 @@
     "lint": "tsc --noEmit",
     "test": "tsx scripts/test-bank-records.ts",
     "check:feed": "tsx scripts/check-feed-csv.ts",
-    "test:arch": "node scripts/run_python.mjs scripts/check_review_lines.py && tsx scripts/test-arch.ts",
+    "test:arch": "node scripts/run_python.mjs scripts/check_review_lines.py && tsx scripts/test-arch.ts && tsx scripts/test-migrate.ts",
     "test:adapter": "tsx scripts/test-adapter.ts",
     "test:remote": "tsx scripts/test-remote.ts",
     "check:review": "node scripts/run_python.mjs scripts/check_review_lines.py",
-    "test:e2e": "tsx scripts/test-e2e.ts"
+    "test:e2e": "tsx scripts/test-e2e.ts",
+    "migrate:legacy": "tsx scripts/migrate-legacy.ts",
+    "test:migrate": "tsx scripts/test-migrate.ts"
   },
   "dependencies": {
     "@google/genai": "^2.4.0",

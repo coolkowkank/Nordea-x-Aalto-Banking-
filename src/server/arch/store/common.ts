@@ -27,7 +27,10 @@ const SCHEMAS: Record<DbKind, string> = {
   user: `CREATE TABLE IF NOT EXISTS kv (k TEXT PRIMARY KEY, v TEXT NOT NULL);
     CREATE TABLE IF NOT EXISTS goals (id TEXT PRIMARY KEY, title TEXT NOT NULL, detail TEXT NOT NULL, created_at TEXT NOT NULL, doc TEXT);
     CREATE TABLE IF NOT EXISTS personal_facts (id TEXT PRIMARY KEY, source TEXT NOT NULL, text TEXT NOT NULL, at TEXT NOT NULL, via_airlock_id TEXT NOT NULL);
-    CREATE TABLE IF NOT EXISTS documents (id TEXT PRIMARY KEY, json TEXT NOT NULL);`,
+    CREATE TABLE IF NOT EXISTS documents (id TEXT PRIMARY KEY, json TEXT NOT NULL);
+    CREATE TABLE IF NOT EXISTS app_conversations (id TEXT PRIMARY KEY, created_at TEXT NOT NULL, json TEXT NOT NULL);
+    CREATE TABLE IF NOT EXISTS app_messages (id TEXT PRIMARY KEY, created_at TEXT NOT NULL, json TEXT NOT NULL);
+    CREATE TABLE IF NOT EXISTS app_topic_log (id TEXT PRIMARY KEY, at TEXT NOT NULL, json TEXT NOT NULL);`,
   cm: `CREATE TABLE IF NOT EXISTS kv (k TEXT PRIMARY KEY, v TEXT NOT NULL);
     CREATE TABLE IF NOT EXISTS entries (
       id TEXT PRIMARY KEY, title TEXT NOT NULL, detail TEXT NOT NULL, goal_ids TEXT NOT NULL,
@@ -35,7 +38,9 @@ const SCHEMAS: Record<DbKind, string> = {
       dispute_reason TEXT, created_at TEXT NOT NULL, observed TEXT, risk TEXT, auto_accepted INTEGER, doc TEXT);
     CREATE TABLE IF NOT EXISTS history (id TEXT PRIMARY KEY, entry_id TEXT NOT NULL, at TEXT NOT NULL, json TEXT NOT NULL);
     CREATE TABLE IF NOT EXISTS shares (id TEXT PRIMARY KEY, json TEXT NOT NULL);
-    CREATE TABLE IF NOT EXISTS undo (token TEXT PRIMARY KEY, at TEXT NOT NULL, json TEXT NOT NULL);`,
+    CREATE TABLE IF NOT EXISTS undo (token TEXT PRIMARY KEY, at TEXT NOT NULL, json TEXT NOT NULL);
+    CREATE TABLE IF NOT EXISTS app_access_log (id TEXT PRIMARY KEY, at TEXT NOT NULL, json TEXT NOT NULL);
+    CREATE TABLE IF NOT EXISTS app_migration_ledger (kind TEXT PRIMARY KEY, source_hash TEXT NOT NULL, rows INTEGER NOT NULL, done_at TEXT NOT NULL);`,
   nordea: `CREATE TABLE IF NOT EXISTS kv (k TEXT PRIMARY KEY, v TEXT NOT NULL);
     CREATE TABLE IF NOT EXISTS accounts (id TEXT PRIMARY KEY, json TEXT NOT NULL);
     CREATE TABLE IF NOT EXISTS transactions (
@@ -44,7 +49,10 @@ const SCHEMAS: Record<DbKind, string> = {
     CREATE INDEX IF NOT EXISTS idx_transactions_category ON transactions(category);
     CREATE INDEX IF NOT EXISTS idx_transactions_date ON transactions(date);
     CREATE TABLE IF NOT EXISTS balance_snapshots (id TEXT PRIMARY KEY, account_key TEXT NOT NULL, at TEXT NOT NULL, json TEXT NOT NULL);
-    CREATE TABLE IF NOT EXISTS import_batches (id TEXT PRIMARY KEY, at TEXT NOT NULL, json TEXT NOT NULL);`,
+    CREATE TABLE IF NOT EXISTS import_batches (id TEXT PRIMARY KEY, at TEXT NOT NULL, json TEXT NOT NULL);
+    CREATE TABLE IF NOT EXISTS app_earnings (id TEXT PRIMARY KEY, at TEXT NOT NULL, json TEXT NOT NULL);
+    CREATE TABLE IF NOT EXISTS app_data_rewards (id TEXT PRIMARY KEY, at TEXT NOT NULL, json TEXT NOT NULL);
+    CREATE TABLE IF NOT EXISTS app_rewards (user_id TEXT PRIMARY KEY, json TEXT NOT NULL);`,
   bus: `CREATE TABLE IF NOT EXISTS kv (k TEXT PRIMARY KEY, v TEXT NOT NULL);
     CREATE TABLE IF NOT EXISTS messages (
       id TEXT PRIMARY KEY, at TEXT NOT NULL, frm TEXT NOT NULL, tto TEXT NOT NULL,
@@ -56,9 +64,9 @@ const SCHEMAS: Record<DbKind, string> = {
 
 /** Id column per SQLite table, per database kind (used by the G6 hosted sync). */
 const TABLE_IDS: Record<DbKind, Record<string, string>> = {
-  user: { kv: 'k', goals: 'id', personal_facts: 'id', documents: 'id' },
-  cm: { kv: 'k', entries: 'id', history: 'id', shares: 'id', undo: 'token' },
-  nordea: { kv: 'k', accounts: 'id', transactions: 'id', balance_snapshots: 'id', import_batches: 'id' },
+  user: { kv: 'k', goals: 'id', personal_facts: 'id', documents: 'id', app_conversations: 'id', app_messages: 'id', app_topic_log: 'id' },
+  cm: { kv: 'k', entries: 'id', history: 'id', shares: 'id', undo: 'token', app_access_log: 'id', app_migration_ledger: 'kind' },
+  nordea: { kv: 'k', accounts: 'id', transactions: 'id', balance_snapshots: 'id', import_batches: 'id', app_earnings: 'id', app_data_rewards: 'id', app_rewards: 'user_id' },
   bus: { kv: 'k', messages: 'id', airlock: 'id' },
 };
 

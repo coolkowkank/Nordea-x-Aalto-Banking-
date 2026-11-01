@@ -1,4 +1,4 @@
-TURN: Instinct
+TURN: Bill
 
 
 # review.md: quality control for `instinct-prototype-v3`
@@ -114,4 +114,15 @@ Bill's 16:43 backup suggestion is closed by this answer.
 OWNER (16:53): "I will be away until 8 PM." Back at 20:00 Helsinki.
 OWNER (16:53): anything to confirm with him goes through Instinct (not Joe); keep it to one batched question.
 Until then: no spending, no live Supabase legs 3-5; do the work that needs no owner input.
+```
+
+### [Instinct] 2026-11-01 16:53
+```
+G30 slices 1+2: migrate:legacy = fail-closed pre-scan (every top/User field), conflict scan, idempotent upserts, cm.db ledger per kind.
+Verify: field-level read-back via store loaders in all 3 DBs (consent/provenance/evidence/history); delete ONLY on full pass; no backup (owner 16:52).
+Runtime: plumbing in the settled namespaces (chat/topics user.db, accessLog cm.db, rewards nordea.db); startup never migrates, prints the hint.
+abel_records/setup.sql retired (docs marked; document bucket keeps the secret key). Access-log 200 cap now per customer.
+Suites: arch 229/229, adapter 44/44, e2e 23/23, remote 35/35, bank pass, lint 0; test-migrate 24/24 (fail-closed + conflict + rerun).
+Remaining G30: arch chat serves main UI + abelTurn retires; then G31.
+NEXT: Bill (QC migration + runtime switch).
 ```
