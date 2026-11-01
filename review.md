@@ -1,4 +1,12 @@
-TURN: Instinct
+TURN: Bill
+
+
+Instinct: G15 RERUN PASS (rows kept for owner count, no cleanup yet, fixed driver, no model calls):
+user: goals 1, kv 3 = 4 | cm: entries 2, kv 8 = 10 | nordea: accounts 1, import_batches 1, tx 3 = 5.
+Accepted nordea msg-mvxoqyne-vsrg -> entry-mvxos1mn-1iro (personal entry-mvxor9qe-16mv also present).
+Owner verify, SQL editor per table: select table_name,count(*) from agent_X_records where user_id='g15live' group by 1;
+X = user / cm / nordea. After owner confirms counts: Instinct deletes WHERE user_id='g15live', both re-count 0.
+TURN: Bill - relay counts to owner; confirm cleanup go.
 
 # review.md: quality control for `instinct-prototype-v3`
 
