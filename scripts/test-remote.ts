@@ -9,6 +9,8 @@ import fs from 'fs';
 import os from 'os';
 import path from 'path';
 
+import type { PoolLike } from '../src/server/arch/store/remote.js';
+
 const DIR = fs.mkdtempSync(path.join(os.tmpdir(), 'remote-test-'));
 process.env.CABINET_DATA_DIR = DIR;
 
@@ -54,10 +56,10 @@ class FakePg {
     }
     throw new Error(`fake pg: unsupported SQL: ${text}`);
   }
-  pool(url: string): R.PoolLike {
+  pool(url: string): PoolLike {
     const self = this;
     return {
-      query: (text, params) => Promise.resolve(self.run(url, text, params)),
+      query: (text: string, params?: unknown[]) => Promise.resolve(self.run(url, text, params)),
       connect: () => Promise.resolve({
         query: (text: string, params?: unknown[]) => Promise.resolve(self.run(url, text, params)),
         release: () => undefined,
