@@ -266,8 +266,10 @@ export interface ChatMessage {
   };
   /** Set when no AI answered and the bank's own code did (shown as a small label, so it's never mistaken for the AI). */
   answeredBy?: 'bank_code';
-  /** What Abel was given for this reply (not proof of what it used): approved notes and the demo account data. */
-  supplied?: { notes: number; accountData: boolean };
+  /** What this reply is stamped with (not proof of what it used): the actual answering source
+   *  (model+provider / scripted / scripted-error) and the rows of the session's finalised
+   *  document it was based on. Older messages may lack source/provider. */
+  supplied?: { notes: number; accountData: boolean; source?: 'model' | 'scripted' | 'scripted-error'; provider?: string };
   /** Technical reason when Abel couldn't answer (shown small, for debugging the demo). */
   errorInfo?: string;
   /** Set when the customer tapped a button on this message, so it can't be tapped twice. */
