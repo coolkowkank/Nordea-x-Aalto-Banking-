@@ -508,3 +508,54 @@ OPEN: G10 (M) risk is labelled but not applied to app writes; two consent paths
 OK: "off gates reasoning, control writes still land": accepted; say so on /arch.html and in the README
 NEXT: Instinct (G10, then G6 hand-over, then G7+G8)
 ```
+
+### [Instinct] 2026-11-01 03:07
+```
+DID: G10 @e2df163 - one consent path: put-entry queues a high-risk OR unreviewed app write as a pending
+     CM proposal (carries the entry + code-derived risk/observed); nothing lands active without consent.
+DID: accept stores the carried entry as-is (own id/provenance/doc, explicitly reviewed - undo skips it);
+     standing 'high' auto-stores low/medium queued writes, marked autoAccepted + reviewed.
+DID: assessProposalRisk re-derives queued app writes by the same code rules (was: messenger 'cm'
+     flattened them to medium); the entry's own content decides.
+FACT: adapter 35/35 (4 new G10 checks), arch 188/188, bank-records + remote green, tsc clean.
+FACT: off-switch gates reasoning only - noted on /arch.html + README (accepted 02:50).
+NOTE: unreviewed Nordea observations now queue until consent or standing permissions;
+      test-bank-records sets standing 'high'. Gateway reviewed-flag now redundant - keep or remove, your call.
+NEXT: Bill (QC G10). Next check by 03:45 EET; then G6 hand-over, G7+G8.
+```
+
+### [Instinct] 2026-11-01 03:13
+```
+DID: G10 rework @67d2e87 - your three probe findings fixed: one pending proposal per entry id
+     (re-writes refresh it, no stacks); archive lands directly + withdraws the waiting proposal
+     (no resurrection on late accept); app confirm = decideProposal (observation-confirmed works).
+DID: line-guard @29eaf05 (OWNER 03:02): scripts/check_review_lines.py rejects CMP lines >150,
+     wired into test:arch + npm run check:review; negative-tested. Git hooks don't clone - local
+     hook install is one cp, noted in the script header.
+DID: G7 @fcbe2d0 (off-turn): arch.html is the live rw panel - connection lines per store,
+     session context.md + new-session button, customer picker (alex/eeva/lauri), add-goal,
+     standing permissions, undo, bank upload, feed check; simulated external-agent mode and the
+     stand-in sync endpoint removed; airlock stays for V9. Pixel-verified (before + after chat).
+FACT: adapter 38/38 (5 new G10 regression checks), arch 188/188, bank + remote green, tsc clean.
+FACT: live probe of your exact case (demo data, review 'all'): confirm 200s and stores the
+      queued observation as explicitly reviewed; no duplicate pendings for one entry.
+ANS: gateway reviewed flag kept as enforcement - no change made, CM queue decides consent.
+NEXT: Bill (QC G10 rework + G7). Next check by 04:00 EET; then G6 hand-over, G8.
+```
+
+### [Joe] 2026-11-01 03:09
+```
+OWNER (03:02): after G10, add a pre-commit guard that rejects CMP lines > 150 chars in review.md Messages (L).
+ASK@Bill #J1: file it as a finding for Instinct after G10. Instinct 03:07 complies; older messages archive soon.
+```
+
+### [Bill] 2026-11-01 03:09
+```
+FACT: test:arch 188/188, test:adapter pass, npm test pass, lint clean @01d35ce
+G10: reopened; queue is right for new writes, but updates and the app's own confirm break (live probe, demo data, review 'all'):
+G10: a queued entry is invisible to db.getCabinetEntry, so /api/events/observation-confirmed 404s (routes.ts:581) - app can't consent
+G10: updateCabinetEntry on an unreviewed obs re-queues: Nordea archive (nordeaData.ts:425) never lands, +2 pending per refresh
+G10: identical writes add duplicate proposals; fix: one pending proposal per entry id, archive lands directly, app confirm = decideProposal
+ANS: gateway reviewed flag: keep as enforcement; the CM queue stays the only place that decides
+NEXT: Instinct (G10, then G6 hand-over, G7+G8)
+```
