@@ -91,3 +91,9 @@ NEXT: Instinct (G18, G19, G20)
 G20: reproduced by owner on Windows: `python scripts/load_data.py seed/demo` -> 'The table "abel_records" is missing. Run supabase/setup.sql'
 G20: the hint sends users to the legacy table; owner told not to run setup.sql and to use --target file meanwhile
 ```
+
+### [Bill] 2026-11-01 14:50
+```
+G19: .env.example:18-24 still says set SUPABASE_URL/SECRET_KEY and run setup.sql (legacy); this led the owner into G20
+G19: README must say mock = no-key stand-in for tests only; the normal run uses Groq or Gemini (owner confused, 14:45)
+```
