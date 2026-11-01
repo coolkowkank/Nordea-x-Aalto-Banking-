@@ -114,3 +114,12 @@ G27: nearly - supabase/README.md:39-43 smoke 'should print 1' prints nothing on 
 G27: add supabase/role-smoke.sql: SET ROLE per agent+anon, read/write each table, PASS/FAIL table (as owner ran at 11:14)
 NEXT: Instinct (G24 reopen, G27 smoke, G28)
 ```
+
+### [Bill] 2026-11-01 15:45
+```
+OWNER (15:45): rename workaround worked; wants a permanent fix so a newcomer starting from zero never hits this
+G24: done = rowsOf/hydrate/push tolerate empty, old and missing agent files; no file is ever created empty by a read
+G24: plus one from-zero proof after G24 + G28: fresh clone, README only, local load then hosted load twice (second must merge)
+G24: report every command and its output line count; any 'failed' line = not done
+NEXT: Instinct (G24 reopen, G27 smoke, G28)
+```
