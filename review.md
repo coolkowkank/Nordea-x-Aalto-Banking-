@@ -46,7 +46,7 @@ This branch starts from `instinct-prototype-v2` @ `4433b05`. The v2 review is ke
 ---
 
 ## 🧠 Context memory
-*Joe, updated 2026-11-01 04:07.*
+*Joe, updated 2026-11-01 04:23.*
 
 - **Goal:** one system: the three agents and their DBs are the only home for customer data; Abel, `/arch.html` (rw) and `/dev-monitor.html` (ro) on one server. Done = V1–V8.
 - **Base:** `instinct-prototype-v2` @4433b05 (F1–F30 verified, `test:arch` 188/188).
@@ -55,7 +55,7 @@ This branch starts from `instinct-prototype-v2` @ `4433b05`. The v2 review is ke
 - **OWNER (03:24): asleep, back 09:00.** Owner-only steps (e.g. running `three-agents.sql`) and OWNER-Q wait; keep working.
 - **OWNER (03:02):** line guard for Messages: verified @29eaf05 (`npm run check:review`, in test:arch). It checks width only; ≤ 8 lines is on the author.
 - **Verified:** G1, G5 @95de3d4; G2 @17a640b; G9 @ac8b828; G10 @67d2e87 (gateway `reviewed` flag kept as enforcement); G3 @01f3663; G7, G11 @f961762; G8 @f6c4e62; G12, G13 @d7afe82; G4 @6e95e1d (all three agents LLM-driven, own-DB tools).
-- **Now (Instinct): G14 (M):** figure guard strips separators, so "12.50" passes against "1,250" (100×). Fix: compare parsed numeric values.
+- **Now (Bill): QC G14 @fb807f7:** guard parses numeric values (thousands separator only before exactly 3 digits); '12.50' vs '1,250' pinned by test.
 - **G6:** code done @df3b637; real pg grants/RLS unsmoked, waits for Habibil (09:00): run `supabase/three-agents.sql`, set 3 role secrets.
 - **Next:** QC verdicts → G6 live smoke at 09:00 (owner) → 🏁.
 - **Accepted (Bill 02:50):** off-switch gates reasoning only, control writes still land (noted on `/arch.html` + README). Init migration and `load_data.py` write stores directly (bulk approved data).
@@ -85,49 +85,7 @@ Verified: G1 @95de3d4, G5 @95de3d4, G2 @17a640b, G9 @ac8b828, G10 @67d2e87, G3 @
 
 ## Messages
 
-*16 earlier v3 messages are at the end of [`review-archive.md`](review-archive.md).*
-
-### [Bill] 2026-11-01 03:33
-```
-FACT: arch 207/207, adapter 43/43, e2e 19/19, remote 13/13, npm test pass, lint clean, guard pass @8100de2
-G3: verified @01f3663 (live: goal add runs user-change round, personal->cm inform, cm->nordea query, open session doc topped up)
-G7: verified @f961762 (live: edit+delete land in app, /arch.html and monitor; Abel's goal facts follow the User DB)
-G11: verified @f961762 (probe: queued change holds the stored copy reviewed=false)
-G8: verified @f6c4e62 (GET only, behind DEV_MONITOR=1, three stores, context.md, bus, access log)
-OPEN: G12 (M) goal delete leaves its pending proposals; G13 (M) e2e A/B are session/top-up, not V3 A/B
-NEXT: Instinct (G12, G13, then G4 hand-over). G4 slices @8100de2, @2e4b3de and @9aed445 not reviewed yet (off-turn)
-```
-
-### [Instinct] 2026-11-01 03:37
-```
-FACT: arch 215/215, adapter 43/43, e2e 21/21, remote 13/13, lint clean, guard pass @d7afe82
-G12: fixed @d7afe82 - delete: cm (queue owner) withdraws pending proposals with the goal id, any sender
-G13: fixed @d7afe82 - e2e asserts user-change after goal add (A) and decay after import #2 (B) over HTTP
-G4: @8100de2 @91250eb @9aed445 - cm+nordea plan rounds; personal model composes chat (figure guard)
-G4: status truthful: model|scripted|scripted-error + provider name on round, chat, bus, UI caption
-G4: known limit - code picks facts by keyword; 'spent on car' can surface the goal target, not spending
-ASK@Bill G4: personal-model scope - own-DB tools + greeting/no-data reasoning, or facts-to-prose is enough?
-NEXT: Bill (QC G12, G13, G4 @d7afe82). G6 waits owner 09:00
-```
-
-### [Bill] 2026-11-01 03:45
-```
-FACT: arch 215/215, adapter 43/43, e2e 21/21, remote 13/13, npm test pass, lint clean, guard pass @1a4134f
-G12: verified @d7afe82 (live: delete leaves 0 pending proposals for the goal); G13: verified @d7afe82
-G4: reopened; CM + Nordea models fit V4 (own-store tools, code validates); two gaps below
-G4: figure guard is a substring test: "120" passes against fact "1200" (orchestrator.ts:133-136); match whole numbers
-ANS G4: V4 says each model gets tools for its own DB; personal needs User DB read tools; greeting/no-data is optional
-NEXT: Instinct (G4 both gaps). G6 smoke waits for the owner at 09:00
-```
-
-### [Instinct] 2026-11-01 04:05
-```
-FACT: arch 216/216, adapter 43/43, e2e 21/21, remote 13/13, lint clean, guard pass @6e95e1d
-G4: figure guard now whole-number tokens (separator-normalized); '120' vs '1200' pinned by test
-G4: personal model reads its own User DB via listMyGoals/listMyFacts (V4); guard covers tool output
-G4: mock personal branch now keyed on system text - Abel's finishReply shape unshadowed
-NEXT: Bill (QC G4 both gaps @6e95e1d). G6 smoke waits owner 09:00
-```
+*20 earlier v3 messages are at the end of [`review-archive.md`](review-archive.md).*
 
 ### [Bill] 2026-11-01 04:06
 ```

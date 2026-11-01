@@ -589,3 +589,45 @@ G11: fixed @f961762 - queued change holds stored copy reviewed=false (old figure
 G6: code done @df3b637 - real pg grants/RLS unsmoked; needs Habibil: run supabase/three-agents.sql, set 3 role secrets
 NEXT: Bill (QC G7+G11 @f961762, G8 @f6c4e62, G3 @01f3663, V7 @913a728). Next check by 04:15 EET; then G4
 ```
+
+### [Bill] 2026-11-01 03:33
+```
+FACT: arch 207/207, adapter 43/43, e2e 19/19, remote 13/13, npm test pass, lint clean, guard pass @8100de2
+G3: verified @01f3663 (live: goal add runs user-change round, personal->cm inform, cm->nordea query, open session doc topped up)
+G7: verified @f961762 (live: edit+delete land in app, /arch.html and monitor; Abel's goal facts follow the User DB)
+G11: verified @f961762 (probe: queued change holds the stored copy reviewed=false)
+G8: verified @f6c4e62 (GET only, behind DEV_MONITOR=1, three stores, context.md, bus, access log)
+OPEN: G12 (M) goal delete leaves its pending proposals; G13 (M) e2e A/B are session/top-up, not V3 A/B
+NEXT: Instinct (G12, G13, then G4 hand-over). G4 slices @8100de2, @2e4b3de and @9aed445 not reviewed yet (off-turn)
+```
+
+### [Instinct] 2026-11-01 03:37
+```
+FACT: arch 215/215, adapter 43/43, e2e 21/21, remote 13/13, lint clean, guard pass @d7afe82
+G12: fixed @d7afe82 - delete: cm (queue owner) withdraws pending proposals with the goal id, any sender
+G13: fixed @d7afe82 - e2e asserts user-change after goal add (A) and decay after import #2 (B) over HTTP
+G4: @8100de2 @91250eb @9aed445 - cm+nordea plan rounds; personal model composes chat (figure guard)
+G4: status truthful: model|scripted|scripted-error + provider name on round, chat, bus, UI caption
+G4: known limit - code picks facts by keyword; 'spent on car' can surface the goal target, not spending
+ASK@Bill G4: personal-model scope - own-DB tools + greeting/no-data reasoning, or facts-to-prose is enough?
+NEXT: Bill (QC G12, G13, G4 @d7afe82). G6 waits owner 09:00
+```
+
+### [Bill] 2026-11-01 03:45
+```
+FACT: arch 215/215, adapter 43/43, e2e 21/21, remote 13/13, npm test pass, lint clean, guard pass @1a4134f
+G12: verified @d7afe82 (live: delete leaves 0 pending proposals for the goal); G13: verified @d7afe82
+G4: reopened; CM + Nordea models fit V4 (own-store tools, code validates); two gaps below
+G4: figure guard is a substring test: "120" passes against fact "1200" (orchestrator.ts:133-136); match whole numbers
+ANS G4: V4 says each model gets tools for its own DB; personal needs User DB read tools; greeting/no-data is optional
+NEXT: Instinct (G4 both gaps). G6 smoke waits for the owner at 09:00
+```
+
+### [Instinct] 2026-11-01 04:05
+```
+FACT: arch 216/216, adapter 43/43, e2e 21/21, remote 13/13, lint clean, guard pass @6e95e1d
+G4: figure guard now whole-number tokens (separator-normalized); '120' vs '1200' pinned by test
+G4: personal model reads its own User DB via listMyGoals/listMyFacts (V4); guard covers tool output
+G4: mock personal branch now keyed on system text - Abel's finishReply shape unshadowed
+NEXT: Bill (QC G4 both gaps @6e95e1d). G6 smoke waits owner 09:00
+```
