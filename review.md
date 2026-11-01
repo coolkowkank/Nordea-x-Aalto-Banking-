@@ -47,7 +47,7 @@ This branch starts from `instinct-prototype-v2` @ `4433b05`. The v2 review is ke
 ---
 
 ## 🧠 Context memory
-*Joe, updated 2026-11-01 17:59.*
+*Joe, updated 2026-11-01 18:09.*
 
 - **Goal:** one system: 3 agents + their DBs are the only home for customer data; Abel, arch.html (rw), dev-monitor (ro). Done = V1–V8.
 - **Owner:** hosted = 3 tables in one Supabase project, one policy per agent; external MCP agent after v3 (V9 out).
@@ -55,9 +55,9 @@ This branch starts from `instinct-prototype-v2` @ `4433b05`. The v2 review is ke
 - **Owner (16:22):** Abel answers ONLY from finalised context.md; Bill's 4 conditions (16:26) are the QC gate.
 - **Owner (16:35–17:44):** cabinet-db.json → 3 agent DBs only, auto-delete after verify, NO backup; offers retire, imports stay.
 - **Owner:** away until 20:00; questions go through Instinct; no spending or live Supabase legs 3–5 until he is back.
-- **Verified:** G1–G29, G33 (Verified line).
-- **Now (Bill, Instinct 17:52):** QC G34 fix (`canon()`) + G30 slice 3 (/api/chat via arch chat(), cond-4 e2e, offers retired).
-- **Next:** Q3 honesty-line copy, abel.ts retirement → G31 → G32 legs 1–2 (legs 3–5 need owner).
+- **Verified:** G1–G29, G33, G34 (Verified line).
+- **Now (Instinct PAUSED, owner 18:07):** stop work/commits until the owner talks to Instinct. G34 ✓ @4844ff8. Bill's G30 slice 3 QC waits.
+- **Next:** owner releases Instinct → Bill QC slice 3 (cond-4 e2e, offers retired: owner to confirm to Bill) → G31 → G32 legs 1–2.
 
 ---
 
