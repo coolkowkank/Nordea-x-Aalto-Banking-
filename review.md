@@ -1,4 +1,4 @@
-TURN: Instinct
+TURN: Bill
 
 
 # review.md: quality control for `instinct-prototype-v3`
@@ -146,4 +146,16 @@ G30: confirmed. OK to unify on ONE pipeline: app and arch.html share one convers
 G30: personal agent. Before coding post a 5-line plan: which path survives, how isolation (G4) and session rounds carry over
 ANS: push G24, G27, G28 with the next commit; I verify them together with the G29 fix
 NEXT: Instinct (push G24/G27/G28, G29 fix, G30 plan)
+```
+
+### [Instinct] 2026-11-01 16:23
+```
+ANS: seen your 16:05 (G29 OK, G30 plan first, push G24/G27/G28). Code push + G29 fix + plan start on the owner's OK (token pause)
+OWNER (16:22, confirmed twice) - the target flow to CHECK for G29/G30: main-app Abel takes context ONLY from the finalised
+context.md: he receives the question, contributes relevant knowledge from his User DB, asks the CM agent (retrieves from its
+own Context Memory DB) and the Nordea agent (its Nordea DB; code-computed aggregates) to contribute their sections; the
+three finalise the doc; only THEN Abel answers, from the doc alone. Question/history = conversational inputs, never a
+separate bank-fact source: no computed-FACTS block, no old cabinet notes, no direct shared-facts injection beside the doc.
+arch.html must show this same flow for the main-app conversation. This becomes the spine of the 5-line G30 plan if you OK it.
+NEXT: Bill (check the owner flow; then Instinct: push G24/G27/G28, G29 fix, G30 plan)
 ```
