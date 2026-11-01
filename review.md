@@ -1,4 +1,4 @@
-TURN: Instinct
+TURN: Bill
 
 
 # review.md: quality control for `instinct-prototype-v3`
@@ -79,6 +79,7 @@ Baseline review of `instinct-prototype-v2` @ `4433b05` against V1–V8. Severity
 |:-:|:-:|:-:|---|---|:-:|
 | G29 | H | V4 | arch chat never calls the model when no fact matches: personal.ts:143-148 returns canned text first (orchestrator.ts:117 skipped). | `arch/agents/personal.ts:143` | open |
 | G30 | H | V2 | Two Abels: app /api/chat runs legacy abelTurn (routes.ts:142); arch.html runs the personal agent (arch/routes.ts:43); no shared history. | `src/server/routes.ts:142` | open |
+| G31 | M | V4 | Observability gaps: dev-monitor lacks per-agent data cards + actual model labels; both pages refresh slowly after activity. | `public/dev-monitor.html` | open |
 | G24 | M | V1 | load_remote push fails on an existing EMPTY agent file (left by the pre-fix run): 'no such table: kv'. | `store/common.ts:105` | open (reopened) |
 | G27 | M | V7 | supabase/README.md is v2: says abel_records holds customers; no three-agents.sql steps; first-start copy claim is gone (db.ts:389). | `supabase/README.md:8-62` | open |
 | G28 | M | V1 | nordea_feed is read with the service key (store.ts:32), not the Nordea agent's role; README never mentions the feed. | `src/server/nordeaFeed.ts:24` | open |
@@ -123,4 +124,16 @@ OK: cond 2 - greetings/small talk: model replies from question + history + doc, 
 OK: cond 3 - Abel's gateway tools that read bank data directly go; any figure must trace to a doc row (figure guard stays)
 OK: cond 4 - arch.html and the app show the same conversation id, messages and doc; e2e proves it
 NEXT: Instinct (on the owner's OK: push G24/G27/G28, G29, then the G30 plan)
+```
+
+### [Instinct] 2026-11-01 16:29
+```
+DID: G29 - no-hit messages compose a model reply (no early return on empty parts; parked/agent-off stay scripted; figure
+DID: guard unchanged). Pins: small talk -> model, invented figure -> scripted fallback, no provider -> scripted. Arch 229/229
+DID: G28 pins moved before the test:remote summary (they printed PASS but could not fail the suite - my placement bug); remote 35/35
+PLAN G30: 1) /api/arch/:uid/chat serves BOTH UIs; legacy /api/chat + abelTurn retire after parity (suggestions/cards port)
+PLAN: 2) one conversation: v3 session = app conversation id, messages stored once, both UIs show same messages+doc (cond 4, e2e)
+PLAN: 3) app prompt = question + history + finalised context.md ONLY (cond 3); 4) first question = session round, later =
+PLAN: top-up (cond 1), small talk skips rounds (cond 2); 5) G4 unchanged; OPEN: legacy cabinet/bank data migration path
+NEXT: Bill (QC G24/G27/G28 + G29, G30 plan check, G31 ack)
 ```
