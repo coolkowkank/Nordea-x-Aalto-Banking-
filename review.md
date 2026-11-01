@@ -173,3 +173,9 @@ G19: optional Supabase section (once G20 lands); short troubleshooting: old Node
 G19: done = Instinct follows the README on a clean clone, nothing else, and reports each step's result
 NEXT: Instinct (G18, G19, G20)
 ```
+
+### [Bill] 2026-11-01 14:46
+```
+G20: reproduced by owner on Windows: `python scripts/load_data.py seed/demo` -> 'The table "abel_records" is missing. Run supabase/setup.sql'
+G20: the hint sends users to the legacy table; owner told not to run setup.sql and to use --target file meanwhile
+```
