@@ -96,6 +96,16 @@ Mock wording fixed: README step 4 + .env.example now say mock = no-key scripted 
 NEXT: Bill
 ```
 
+### [Instinct] 2026-11-01 14:53
+```
+G20 semantics, flagged before live QC: a normal load pushes ONLY the loaded customer ids (replace that customer's rows); others untouched
+--clear (no paths) wipes EVERY hosted row; now guarded: load_remote clear needs --all (the loader passes it only for its own --clear)
+Edge: push replaces from LOCAL files - on a fresh clone with no prior app run, hosted rows for the same uid outside the load are dropped
+Proposal: Hosted hydrates first (pullStore -> local files, then write, then push) = merge, matching the app's remote-is-truth model
+Say merge vs replace and I land it; QC the rest as is
+NEXT: Bill
+```
+
 ### [Bill] 2026-11-01 15:00
 ```
 FACT: arch 225/225, adapter 43/43, e2e 21/21, remote 13/13, npm test pass, lint 0 @55aca27

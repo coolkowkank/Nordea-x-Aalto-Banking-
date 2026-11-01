@@ -35,9 +35,18 @@ if (!configured.length) {
 }
 for (const k of KINDS) if (URLS[k]) configureRemote(k, URLS[k]);
 
-const [mode, ...uidsArg] = process.argv.slice(2);
+const [mode, ...rest] = process.argv.slice(2);
+const all = rest.includes('--all');
+const uidsArg = rest.filter((a) => a !== '--all');
 if (mode !== 'push' && mode !== 'clear') {
-  console.error('usage: tsx scripts/load_remote.ts push|clear [uid ...]');
+  console.error('usage: tsx scripts/load_remote.ts push [uid ...] | clear [uid ...] | clear --all');
+  process.exit(2);
+}
+// Guard: wiping EVERY hosted row of every customer is never the default - it needs the
+// explicit --all flag (scripts/load_data.py passes it only for its own --clear).
+if (mode === 'clear' && !uidsArg.length && !all) {
+  console.error('clear with no uids deletes EVERY row in every configured hosted table. ' +
+    'Pass --all to confirm, or name the customers to clear.');
   process.exit(2);
 }
 
@@ -55,7 +64,7 @@ let failed = 0;
 for (const kind of configured) {
   const url = URLS[kind]!;
   const table = REMOTE_TABLES[kind]!;
-  if (mode === 'clear' && !uidsArg.length) {
+  if (mode === 'clear' && !uidsArg.length) { // guarded above: this branch requires --all
     try {
       await clearAll(url, table);
       console.log(`cleared every row in ${table}`);

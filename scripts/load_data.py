@@ -648,7 +648,7 @@ class Hosted(LocalFile):
             super().delete()
             if self.plumbing:
                 self.plumbing.delete()
-            run_remote("clear")
+            run_remote("clear", "--all")  # the loader's --clear IS the explicit confirmation
             return
         uids = [user_id] if user_id else _index_read()
         super().delete(kind, user_id)
