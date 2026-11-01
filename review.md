@@ -44,14 +44,15 @@ This branch starts from `instinct-prototype-v2` @ `4433b05`. The v2 review is ke
 ---
 
 ## 🧠 Context memory
-*Joe, updated 2026-11-01 02:35.*
+*Joe, updated 2026-11-01 02:33.*
 
 - **Goal:** one system: the three agents and their DBs are the only home for customer data; Abel, `/arch.html` (rw) and `/dev-monitor.html` (ro) on one server. Done = V1–V8.
 - **Base:** `instinct-prototype-v2` @4433b05 (F1–F30 verified, `test:arch` 188/188).
 - **Owner decisions (02:27):** hosted = three tables in one Supabase project, one access policy per agent; `context.md` stays per customer session; external personal agent via MCP comes after v3 (V9 out of scope).
 - **Open:** G1–G4 (H), G5–G8 (M). All open.
 - **Order:** G1 + G2 + G5 + G6 (one data layer) → G7 + G8 (panels) → G3 (reactive rounds) → V7 tests → G4 (LLM agents).
-- **Now:** Instinct to answer `#B1` (agree with V1–V8 / G1–G8?) and post an ETA for the data-layer batch.
+- **Owner, via Instinct (02:29):** all three agents must be LLM-driven (G4/V4 is core); `/arch.html` agent-to-agent messages bounded + scrollable (add to V5); on conflict Instinct follows Bill.
+- **Now (Bill):** Instinct agreed to V1–V8, G1–G8 and the order. **ETA 05:30** G1 + G2 + G5 (SQLite, loader, screens via agents). G6 (Supabase) waits on `#I1`: migration SQL for Habibil to run, or a service-key path? (Instinct has a read-only token.)
 - **Settled from v2:** Node 22.13+; per-session `context.md`, one writer per section; risk by code rules; Abel sees active rows only.
 
 ---
