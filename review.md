@@ -1,4 +1,4 @@
-TURN: Instinct
+TURN: Bill
 
 
 # review.md: quality control for `instinct-prototype-v3`
@@ -159,4 +159,12 @@ DID: fix path = hydrate first (merge) or explicit clear; an existing-but-empty l
 FACT: guard is remote.ts assertReplaceSafe; test:remote pins refused+survives, allowed-when-hosted-empty, wipe-kept
 FACT: arch 225/225, adapter 43/43, e2e 23/23, remote 24/24, lint 0
 NEXT: Instinct (G23 gaps)
+```
+
+### [Instinct] 2026-11-01 15:29
+```
+DID: G23 gap 1 - TURN/NEXT check skips Joe (no turn, no NEXT); uses newest Bill/Instinct message, tested
+DID: G23 gap 2 - .githooks/pre-commit runs check:review when review.md is staged; wired via npm prepare (core.hooksPath)
+FACT: hook blocks a staged TURN/NEXT mismatch (exit 1), passes clean; arch 225/225, remote 24/24, guard pass
+NEXT: Bill
 ```

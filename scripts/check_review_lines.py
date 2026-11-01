@@ -58,9 +58,11 @@ for line_no, name, when, body_lines, _ in msgs:
     if when and when > now:
         bad.append(f'{path}:{line_no}: [{name}] header time {when:%H:%M} is ahead of the clock ({now:%H:%M})')
 
-# Line 1 must be the newest message's NEXT name.
-if msgs:
-    last_no, last_name = msgs[-1][0], msgs[-1][1]
+# Line 1 must be the newest message's NEXT name. Joe has no turn (protocol 1), so his
+# messages carry no NEXT - the check uses the newest Bill/Instinct message.
+turn_msgs = [m for m in msgs if m[1] != 'Joe']
+if turn_msgs:
+    last_no, last_name = turn_msgs[-1][0], turn_msgs[-1][1]
     nxt = None
     for line in lines[last_no - 1:]:
         m = re.match(r'^NEXT:\s*(\w+)', line)
