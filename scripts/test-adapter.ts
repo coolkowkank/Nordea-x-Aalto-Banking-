@@ -89,10 +89,23 @@ check('an UNREVIEWED low-risk write also queues (G10: no second consent flag)',
   !S.loadCmDb('lauri').entries.some((e) => e.id === 'g2-routed-4')
   && S.loadBus('lauri').messages.some((m) => m.type === 'propose' && m.status === 'pending' && (m.payload as { entry?: { id?: string } })?.entry?.id === 'g2-routed-4'));
 
+// Bill 03:09 probe: identical writes must not stack duplicate proposals.
+db.addCabinetEntry({ id: 'g2-routed-4', userId: 'lauri', type: 'preference', title: 'G2 unreviewed preference', detail: 'from an unreviewed import', source: 'customer', status: 'active', private: false, readableBy: { abel: true, offers: true }, provenance: { channel: 'app' }, reviewed: false, createdAt: '2026-11-01T00:00:00Z', updatedAt: '2026-11-01T00:00:00Z' });
+const pending4 = S.loadBus('lauri').messages.filter((m) => m.type === 'propose' && m.status === 'pending' && (m.payload as { entry?: { id?: string } })?.entry?.id === 'g2-routed-4');
+check('an identical re-write keeps ONE pending proposal per entry id', pending4.length === 1, `pending: ${pending4.length}`);
+
+// Bill 03:09: the app's confirm IS the queue decision - it must not 404 on a queued entry.
+db.updateCabinetEntry('g2-routed-4', { reviewed: true, confirmedAt: '2026-11-01T01:00:00Z' });
+const confirmed4 = db.getCabinetEntry('g2-routed-4');
+check('app confirm accepts the queued write (decideProposal) and stores it explicitly reviewed',
+  !!confirmed4 && confirmed4.reviewed === true && confirmed4.confirmedAt === '2026-11-01T01:00:00Z'
+  && S.loadCmDb('lauri').entries.find((e) => e.id === 'g2-routed-4')?.autoAccepted !== true);
+
 A.setStandingPermissions('lauri', 'high');
-const stored4 = S.loadCmDb('lauri').entries.find((e) => e.id === 'g2-routed-4');
-check('standing permissions (high) auto-store the queued low-risk write, marked autoAccepted + reviewed',
-  !!stored4 && stored4.autoAccepted === true && stored4.doc?.reviewed === true && stored4.risk === 'low');
+db.addCabinetEntry({ id: 'g2-routed-5', userId: 'lauri', type: 'preference', title: 'G2 second unreviewed preference', detail: 'queued then auto-stored', source: 'customer', status: 'active', private: false, readableBy: { abel: true, offers: true }, provenance: { channel: 'app' }, reviewed: false, createdAt: '2026-11-01T00:00:00Z', updatedAt: '2026-11-01T00:00:00Z' });
+const stored5 = S.loadCmDb('lauri').entries.find((e) => e.id === 'g2-routed-5');
+check('standing permissions (high) auto-store a queued low-risk write, marked autoAccepted + reviewed',
+  !!stored5 && stored5.autoAccepted === true && stored5.doc?.reviewed === true && stored5.risk === 'low');
 check('the high-risk write still waits under standing permissions (only explicit consent stores it)',
   !S.loadCmDb('lauri').entries.some((e) => e.id === 'g2-routed-2'));
 
@@ -100,6 +113,15 @@ A.decideProposal('lauri', queued2!.id, true);
 const stored2 = S.loadCmDb('lauri').entries.find((e) => e.id === 'g2-routed-2');
 check('accepting the queued write stores it as explicitly reviewed (not autoAccepted, so undo skips it)',
   !!stored2 && stored2.doc?.reviewed === true && !stored2.autoAccepted && stored2.risk === 'high');
+
+// Bill 03:09: an archive is a removal, not new content - it lands directly (no queue),
+// and a still-waiting proposal for the same entry is withdrawn so a late accept cannot resurrect it.
+S.putEntry('lauri', { id: 'g2-routed-6', title: 'Migrated unreviewed observation', detail: 'predates the consent path', goalIds: [], proposedBy: 'nordea', status: 'active', createdAt: '2026-10-01T00:00:00Z',
+  doc: { id: 'g2-routed-6', userId: 'lauri', type: 'observation', title: 'Migrated unreviewed observation', detail: 'predates the consent path', source: 'nordea', status: 'active', private: false, readableBy: { abel: true, offers: false }, provenance: { channel: 'system' }, reviewed: false, createdAt: '2026-10-01T00:00:00Z', updatedAt: '2026-10-01T00:00:00Z' } });
+db.updateCabinetEntry('g2-routed-6', { status: 'archived' }, { by: 'nordea', how: 'No longer seen' });
+check('an archive of an unreviewed entry lands directly (no queue, nothing pending for it)',
+  db.getCabinetEntry('g2-routed-6')?.status === 'archived'
+  && !S.loadBus('lauri').messages.some((m) => m.type === 'propose' && m.status === 'pending' && (m.payload as { entry?: { id?: string } })?.entry?.id === 'g2-routed-6'));
 
 db.addCabinetEntry({ id: 'g2-routed-3', userId: 'lauri', type: 'goal', title: 'G2 routed goal', detail: '', source: 'customer', status: 'active', private: false, readableBy: { abel: true, offers: true }, provenance: { channel: 'app' }, reviewed: true, createdAt: '2026-11-01T00:00:00Z', updatedAt: '2026-11-01T00:00:00Z' });
 check('a goal write arrives at the PERSONAL agent as a control message and lands in the User DB',

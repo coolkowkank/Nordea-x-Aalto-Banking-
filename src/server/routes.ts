@@ -578,7 +578,7 @@ export function registerV14Routes(app: Express) {
   // When the customer confirms something Nordea noticed. For a salary change, Abel follows up in a new chat.
   app.post('/api/events/observation-confirmed', (req, res) => {
     const { userId = 'lauri', entryId } = req.body || {};
-    const e = db.getCabinetEntry(entryId);
+    const e = db.getCabinetEntry(entryId) ?? db.getQueuedCabinetEntry(entryId);
     if (!e || e.userId !== userId) return res.status(404).json({ error: 'Entry not found' });
     db.updateCabinetEntry(e.id, { reviewed: true, confirmedAt: now() }, { by: 'you', how: 'You confirmed it' });
     const u = db.getUser(userId)!;

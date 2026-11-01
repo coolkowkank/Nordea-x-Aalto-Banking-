@@ -434,9 +434,30 @@ function handleMessage(uid: string, msg: AgentMessage) {
       // G10: ONE consent path. A high-risk or unreviewed app write waits in the CM review
       // queue exactly like an agent proposal, under the same standing permissions (AC7) -
       // nothing reaches the cabinet active without the customer's consent somewhere.
+      // An archive is a removal, not new content: it lands directly, and a still-waiting
+      // proposal for the same entry is withdrawn so a late accept cannot resurrect it.
+      if (inEntry.status === 'archived') {
+        const waiting = loadBus(uid).messages.find((m) => m.type === 'propose' && m.status === 'pending'
+          && (m.payload as { appWrite?: boolean; entry?: { id?: string } } | undefined)?.appWrite === true
+          && (m.payload as { entry?: { id?: string } } | undefined)?.entry?.id === inEntry.id);
+        if (waiting) updateMessage(uid, waiting.id, { status: 'rejected' });
+        putEntry(uid, { ...inEntry, risk, observed });
+        appendMessage(uid, { from: 'cm', to: 'app', type: 'reply', summary: `Context Memory agent archived "${inEntry.title}".`, payload: { inReplyTo: msg.id, ok: true, archived: true } });
+        updateMessage(uid, msg.id, { status: 'answered' });
+        return;
+      }
       if (risk === 'high' || doc.reviewed === false) {
-        const proposal = appendMessage(uid, {
+        // One pending proposal per entry id: a repeated write refreshes the waiting
+        // proposal instead of stacking duplicates in the customer's review queue.
+        const existing = loadBus(uid).messages.find((m) => m.type === 'propose' && m.status === 'pending'
+          && (m.payload as { appWrite?: boolean; entry?: { id?: string } } | undefined)?.appWrite === true
+          && (m.payload as { entry?: { id?: string } } | undefined)?.entry?.id === inEntry.id);
+        const proposal = existing ?? appendMessage(uid, {
           from: 'cm', to: 'user', type: 'propose', status: 'pending',
+          summary: inEntry.title,
+          payload: {},
+        });
+        updateMessage(uid, proposal.id, {
           summary: inEntry.title,
           payload: { detail: inEntry.detail, goalIds: inEntry.goalIds, appWrite: true, entry: { ...inEntry, risk, observed }, risk, observed },
         });

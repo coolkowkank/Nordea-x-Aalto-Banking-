@@ -25,7 +25,8 @@ import { Remote, Row, supabaseConfigured, supabaseRemote, cleanErr } from './sto
 // The app layer may import the store modules (see the store file headers); agents never
 // import this module, and no agent module imports another agent's store.
 import { listCustomers, unregisterCustomer, deleteDbFile, ARCH_DIR, hydrateAgentStores } from './arch/store/common.js';
-import { appWrites } from './arch/orchestrator.js';
+import { loadBus } from './arch/store/busStore.js';
+import { appWrites, decideProposal } from './arch/orchestrator.js';
 import {
   loadUserDb, loadProfile, saveProfile, putGoal, removeGoal,
   loadDocuments, putDocument, removeStoredDocument, deleteUserDb,
@@ -624,8 +625,34 @@ class Database {
     return entry;
   }
 
+  /** G10: a write still waiting in the CM review queue, as the CabinetEntry it carries.
+   *  Lets app flows (e.g. observation-confirmed) find it; the actual consent decision
+   *  still goes through decideProposal in updateCabinetEntry. */
+  public getQueuedCabinetEntry(id: string): CabinetEntry | undefined {
+    for (const uid of listCustomers()) {
+      const pending = loadBus(uid).messages.find((m) => m.type === 'propose' && m.status === 'pending'
+        && (m.payload as { appWrite?: boolean; entry?: { id?: string; doc?: CabinetEntry } } | undefined)?.appWrite === true
+        && (m.payload as { entry?: { id?: string } } | undefined)?.entry?.id === id);
+      const doc = (pending?.payload as { entry?: { doc?: CabinetEntry } } | undefined)?.entry?.doc;
+      if (doc) return doc;
+    }
+    return undefined;
+  }
+
   public updateCabinetEntry(id: string, updates: Partial<CabinetEntry>, meta: ChangeMeta = {}): CabinetEntry | undefined {
-    const before = this.getCabinetEntry(id);
+    let before = this.getCabinetEntry(id);
+    if (!before && updates.reviewed === true) {
+      // G10 one consent path: the write may still wait in the CM review queue. The app's
+      // confirm IS the queue decision (Bill 03:09) - accept the pending proposal for this
+      // entry, then apply the rest of the update to the now-stored entry.
+      for (const uid of listCustomers()) {
+        const pending = loadBus(uid).messages.find((m) => m.type === 'propose' && m.status === 'pending'
+          && (m.payload as { appWrite?: boolean; entry?: { id?: string } } | undefined)?.appWrite === true
+          && (m.payload as { entry?: { id?: string } } | undefined)?.entry?.id === id);
+        if (pending) { decideProposal(uid, pending.id, true); break; }
+      }
+      before = this.getCabinetEntry(id);
+    }
     if (!before) return undefined;
     const after = { ...before, ...updates, updatedAt: new Date().toISOString() };
     if (before.type === 'goal') {
