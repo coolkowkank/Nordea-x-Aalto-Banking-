@@ -12,9 +12,10 @@
     "lint": "tsc --noEmit",
     "test": "tsx scripts/test-bank-records.ts",
     "check:feed": "tsx scripts/check-feed-csv.ts",
-    "test:arch": "tsx scripts/test-arch.ts",
+    "test:arch": "python3 scripts/check_review_lines.py && tsx scripts/test-arch.ts",
     "test:adapter": "tsx scripts/test-adapter.ts",
-    "test:remote": "tsx scripts/test-remote.ts"
+    "test:remote": "tsx scripts/test-remote.ts",
+    "check:review": "python3 scripts/check_review_lines.py"
   },
   "dependencies": {
     "@google/genai": "^2.4.0",
