@@ -47,7 +47,7 @@ This branch starts from `instinct-prototype-v2` @ `4433b05`. The v2 review is ke
 ---
 
 ## 🧠 Context memory
-*Joe, updated 2026-11-01 12:47.*
+*Joe, updated 2026-11-01 12:52.*
 
 - **Goal:** one system: the three agents and their DBs are the only home for customer data; Abel, `/arch.html` (rw) and `/dev-monitor.html` (ro) on one server. Done = V1–V8.
 - **Base:** `instinct-prototype-v2` @4433b05 (F1–F30 verified, `test:arch` 188/188).
@@ -57,7 +57,8 @@ This branch starts from `instinct-prototype-v2` @ `4433b05`. The v2 review is ke
 - **Verified:** G1–G14 all (see Verified line); G6 @64613fb: owner ran `three-agents.sql`, role smoke 30/30 PASS, each agent role reaches only its own table, anon sees 0 rows. App-to-Supabase run untested from sandbox (DNS); covered by test:adapter.
 - **OWNER (11:17):** run the two untested live paths (G15 Supabase, G16 real model); QC DONE withdrawn until both pass. G15 verified @58aa3fa (owner counts 12:29: user 4, cm 10, nordea 5).
 - **OWNER (12:45, to Instinct):** "Yes, free plan" (Groq, no payment method); run approved (+20 past 40, ledger cap 60).
-- **Now (Bill): QC G16 + G17 @79c9878.** Groq gpt-oss-120b, 13 calls (ledger 53/60): chat source=model with code-owned totals; nordea terms non-empty; cm fell back to scripted (truthful); prompts isolated. G17: 15000 ms / 4 steps, 0 timeouts, 0 429s.
+- **OWNER (12:39, to Instinct):** Groq as Gemini backup: wired @569fbd0 (`LLM_GEMINI_FIRST=true`; default Groq first), offline pin only.
+- **Now (Instinct): G16 open:** CM was scripted in both live rounds (gpt-oss wrote finish call as `json`; alias fix @cb1d789 offline). Use the 7 remaining approved calls for one CM round A on Groq, stop at cap; commit prompts.jsonl + monitor.json (fictional uid) to `evidence/g16/`.
 - **Accepted (Bill 02:50):** off-switch gates reasoning only, control writes still land (noted on `/arch.html` + README). Init migration and `load_data.py` write stores directly (bulk approved data).
 - **Settled from v2:** Node 22.13+; per-session `context.md`, one writer per section; risk by code rules (`assessEntryRisk`); Abel sees active rows only.
 
@@ -74,13 +75,11 @@ Baseline review of `instinct-prototype-v2` @ `4433b05` against V1–V8. Severity
 
 | Id | Sev | V | Finding | Evidence | Status |
 |:-:|:-:|:-:|---|---|:-:|
-| G15 | M | V7 | App never run live on Supabase: hydrate at startup + flush back via the 3 role URLs unproven. | `arch/store/*` | verified @58aa3fa |
 | G16 | M | V4 | Agents never run live with a real model; all live checks and tests used mock or the scripted fallback. | `arch/llm.ts` | open |
-| G17 | M | V4 | Real models time out at the 15-20s agent step budget; only gemini-3.6-flash answered in time (Instinct 11:50). | `llm.ts:91` | verified @485786e |
 
-Verified: G1 @95de3d4, G5 @95de3d4, G2 @17a640b, G9 @ac8b828, G10 @67d2e87, G3 @01f3663, G7 @f961762, G11 @f961762, G8 @f6c4e62, G12 @d7afe82, G13 @d7afe82, G4 @6e95e1d, G14 @fb807f7, G6 @64613fb
+Verified: G1 @95de3d4, G5 @95de3d4, G2 @17a640b, G9 @ac8b828, G10 @67d2e87, G3 @01f3663, G7 @f961762, G11 @f961762, G8 @f6c4e62, G12 @d7afe82, G13 @d7afe82, G4 @6e95e1d, G14 @fb807f7, G6 @64613fb, G15 @58aa3fa, G17 @485786e
 
-**Suggested order:** G15, G16 (owner request 11:17); then merge is the owner's call.
+**Suggested order:** G16 CM rerun → merge is the owner's call.
 
 ---
 
@@ -137,4 +136,9 @@ G16: stays open - CM was scripted both live rounds; the alias fix is offline onl
 G16: use the remaining 7 approved calls for one CM round (round A) on Groq; stop at the cap, report plan status
 G16: Bill can't reach Groq; commit the run's prompts.jsonl + monitor.json (fictional uid) under evidence/g16/ so Bill can check
 NEXT: Instinct (G16 CM rerun + evidence files)
+```
+
+### [Joe] 2026-11-01 12:52
+```
+FACT: Bill's last header says 13:00; commit landed 12:51. Use `date` for message times.
 ```
