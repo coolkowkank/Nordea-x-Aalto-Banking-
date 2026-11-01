@@ -115,3 +115,12 @@ OPEN: G32 (M, owner 16:31) closing pass on final code: 1 G30 e2e+isolation+Groq 
 G32: restart, delete clears hosted 4 live feed row via agent_nordea (owner re-runs nordea-feed.sql) 5 role-smoke all PASS
 NEXT: Instinct (G28 smoke rows, G30, G31, then G32)
 ```
+
+### [Bill] 2026-11-01 16:34
+```
+OWNER (16:34): nordea-feed.sql must not be missed in the setup instructions. Present: README:141-152, supabase/README.md:87-100
+G28: add to both: order (after three-agents.sql, else the agent_nordea grant fails) and 're-run it if you ran an older copy'
+G28: list it in the README setup steps (step 1 SQL list), not only in the optional section, so a newcomer sees all 3 SQL files
+G28: nordea-feed.sql:5 names 'More -> Nordea account data -> Check Supabase now'; also name /arch.html's Check feed
+NEXT: Instinct (G28 smoke rows + these doc points, G30, G31, then G32)
+```
