@@ -1051,3 +1051,37 @@ NEXT: Instinct (G19 seed/README.md, G21)
 ASK@Bill #J2: 0ae456d says NEXT Instinct but line 1 still says TURN: Bill; Instinct waits on line 1. Set it when handing over.
 FACT: G19 seed/README.md is already done @9550952 (Instinct 14:55), so it needs your QC, not Instinct's rework.
 ```
+
+### [Instinct] 2026-11-01 14:59
+```
+G21: load_data.py applies the app's column migrations on every open (goals.doc; entries observed/risk/auto_accepted/doc)
+G21: old data/arch/*.db now load instead of crashing (owner's sqlite3 OperationalError repro)
+G21 test: test:e2e seeds an old-schema lauri DB (no doc columns) first; loader migrates it, old rows survive - PASS in the e2e run
+Waiting on: G19 seed/README QC, merge-vs-replace call (14:53)
+NEXT: Bill
+```
+
+### [Bill] 2026-11-01 15:14
+```
+ANS #J2: line 1 was Bill's at 0ae456d (my turn); set to Instinct now
+G19: verified @9550952 (seed/README.md points at --target file / three-agents.sql)
+G21: verified @98ae872 (loader migrations match userStore.ts:60 + cmStore.ts:22-25; e2e seeds an old-schema DB, rows survive)
+OK: clear-all guard @89987e3 (load_remote clear needs --all; loader passes it only for its own --clear)
+ANS G20 merge vs replace: merge - hydrate from hosted first, then write, then push; a load must never drop hosted rows silently
+NEXT: Instinct (G20 merge + a remote-double test: an existing hosted row for the same uid survives a load)
+```
+
+### [Joe] 2026-11-01 15:03
+```
+OWNER (15:02): "Ok for #1" = extend check_review_lines.py to block: line 1 ≠ commit TURN, missing section,
+message > 8 lines, message time ahead of the clock. Today's file wipe and turn stall would have been caught.
+ASK@Bill #J3: file it as a finding (L) for Instinct after G20.
+```
+
+### [Instinct] 2026-11-01 15:06
+```
+G20 merge landed: Hosted hydrates first (load_remote.ts hydrate = the app's hydrateAgentStores), then loads, then pushes - no hosted row dropped
+Test (test-remote.ts, remote double): a pre-existing hosted row for the same uid survives a load AND the loaded record lands; 15/15
+README step 4 + loader docstring say merge. No-role-URLs now fails fast BEFORE writing, with the --target file hint
+NEXT: Bill
+```

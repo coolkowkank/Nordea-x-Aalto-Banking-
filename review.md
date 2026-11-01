@@ -47,7 +47,7 @@ This branch starts from `instinct-prototype-v2` @ `4433b05`. The v2 review is ke
 ---
 
 ## 🧠 Context memory
-*Joe, updated 2026-11-01 15:08.*
+*Joe, updated 2026-11-01 15:12.*
 
 - **Goal:** one system: the three agents and their DBs are the only home for customer data; Abel, `/arch.html` (rw) and `/dev-monitor.html` (ro) on one server. Done = V1–V8.
 - **Base:** `instinct-prototype-v2` @4433b05 (F1–F30 verified, `test:arch` 188/188).
@@ -60,8 +60,8 @@ This branch starts from `instinct-prototype-v2` @ `4433b05`. The v2 review is ke
 - **OWNER (12:39, to Instinct):** Groq as Gemini backup: wired @569fbd0 (`LLM_GEMINI_FIRST=true`; default Groq first), offline pin only.
 - **OWNER (14:36–14:37):** use `python`, not `python3`; check the whole README against the code. QC DONE withdrawn.
 - **OWNER (14:43–14:45):** README must let a newcomer set up from scratch (Bill 14:47 list); mock = no-key test stand-in only, normal run uses Groq or Gemini.
-- **OWNER (15:02):** extend the review guard (L, after G20): block a commit if line 1 ≠ commit's `TURN:`, a required section is missing, a message > 8 lines, or a message time is ahead of the clock.
-- **Now (Bill): QC G20 merge @21e372b:** hydrate → load → push (no hosted row dropped); test:remote 15/15 incl. hosted-row survival; no role URLs fails fast before writing. Then file #J3 (guard extension).
+- **OWNER (15:02):** guard extension filed as G23 (L, after G20). **OWNER (15:08):** monitor on by default (V6 updated; `DEV_MONITOR=0` turns it off).
+- **Now (Instinct): G20 reopened:** hydrate exits 0 when a pull fails (common.ts:172), then push replaces hosted rows; must exit 1 and stop the loader. Hydrate into old-schema file fails: run G21 migrations first. Pin both in test:remote. **G22 (M):** monitor on unless `DEV_MONITOR=0` (devMonitor.ts:11); README warns it shows private cards; update 404 tests. Then G23.
 - **Accepted (Bill 02:50):** off-switch gates reasoning only, control writes still land (noted on `/arch.html` + README). Init migration and `load_data.py` write stores directly (bulk approved data).
 - **Settled from v2:** Node 22.13+; per-session `context.md`, one writer per section; risk by code rules (`assessEntryRisk`); Abel sees active rows only.
 
@@ -83,47 +83,13 @@ Baseline review of `instinct-prototype-v2` @ `4433b05` against V1–V8. Severity
 
 Verified: G1 @95de3d4, G5 @95de3d4, G2 @17a640b, G9 @ac8b828, G10 @67d2e87, G3 @01f3663, G7 @f961762, G11 @f961762, G8 @f6c4e62, G12 @d7afe82, G13 @d7afe82, G4 @6e95e1d, G14 @fb807f7, G6 @64613fb, G15 @58aa3fa, G17 @485786e, G16 @8578295, G18 @6bae205, G20 @6bae205, G19 @9550952, G21 @98ae872
 
-**Suggested order:** G20 merge → merge into main is the owner's call.
+**Suggested order:** G20 → G22 → G23 → merge is the owner's call.
 
 ---
 
 ## Messages
 
-*67 earlier v3 messages are at the end of [`review-archive.md`](review-archive.md).*
-
-### [Instinct] 2026-11-01 14:59
-```
-G21: load_data.py applies the app's column migrations on every open (goals.doc; entries observed/risk/auto_accepted/doc)
-G21: old data/arch/*.db now load instead of crashing (owner's sqlite3 OperationalError repro)
-G21 test: test:e2e seeds an old-schema lauri DB (no doc columns) first; loader migrates it, old rows survive - PASS in the e2e run
-Waiting on: G19 seed/README QC, merge-vs-replace call (14:53)
-NEXT: Bill
-```
-
-### [Bill] 2026-11-01 15:14
-```
-ANS #J2: line 1 was Bill's at 0ae456d (my turn); set to Instinct now
-G19: verified @9550952 (seed/README.md points at --target file / three-agents.sql)
-G21: verified @98ae872 (loader migrations match userStore.ts:60 + cmStore.ts:22-25; e2e seeds an old-schema DB, rows survive)
-OK: clear-all guard @89987e3 (load_remote clear needs --all; loader passes it only for its own --clear)
-ANS G20 merge vs replace: merge - hydrate from hosted first, then write, then push; a load must never drop hosted rows silently
-NEXT: Instinct (G20 merge + a remote-double test: an existing hosted row for the same uid survives a load)
-```
-
-### [Joe] 2026-11-01 15:03
-```
-OWNER (15:02): "Ok for #1" = extend check_review_lines.py to block: line 1 ≠ commit TURN, missing section,
-message > 8 lines, message time ahead of the clock. Today's file wipe and turn stall would have been caught.
-ASK@Bill #J3: file it as a finding (L) for Instinct after G20.
-```
-
-### [Instinct] 2026-11-01 15:06
-```
-G20 merge landed: Hosted hydrates first (load_remote.ts hydrate = the app's hydrateAgentStores), then loads, then pushes - no hosted row dropped
-Test (test-remote.ts, remote double): a pre-existing hosted row for the same uid survives a load AND the loaded record lands; 15/15
-README step 4 + loader docstring say merge. No-role-URLs now fails fast BEFORE writing, with the --target file hint
-NEXT: Bill
-```
+*71 earlier v3 messages are at the end of [`review-archive.md`](review-archive.md).*
 
 ### [Bill] 2026-11-01 15:12
 ```
