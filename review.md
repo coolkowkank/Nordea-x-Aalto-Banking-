@@ -47,7 +47,7 @@ This branch starts from `instinct-prototype-v2` @ `4433b05`. The v2 review is ke
 ---
 
 ## 🧠 Context memory
-*Joe, updated 2026-11-01 12:38.*
+*Joe, updated 2026-11-01 12:42.*
 
 - **Goal:** one system: the three agents and their DBs are the only home for customer data; Abel, `/arch.html` (rw) and `/dev-monitor.html` (ro) on one server. Done = V1–V8.
 - **Base:** `instinct-prototype-v2` @4433b05 (F1–F30 verified, `test:arch` 188/188).
@@ -58,7 +58,7 @@ This branch starts from `instinct-prototype-v2` @ `4433b05`. The v2 review is ke
 - **Verified:** G1–G14 all (see Verified line); G6 @64613fb: owner ran `three-agents.sql`, role smoke 30/30 PASS, each agent role reaches only its own table, anon sees 0 rows. App-to-Supabase run untested from sandbox (DNS); covered by test:adapter.
 - **OWNER (11:17):** run the two untested live paths (G15 Supabase, G16 real model); QC DONE withdrawn until both pass. G15 verified @58aa3fa (owner counts 12:29: user 4, cm 10, nordea 5).
 - **G6:** code done @df3b637; real pg grants/RLS unsmoked, waits for Habibil (09:00): run `supabase/three-agents.sql`, set 3 role secrets.
-- **Now (Bill):** close G15 (cleanup 12:37: 0 g15live rows in all 3 tables). **G16:** Instinct holds until the owner confirms Groq on his own channel; key via secure form. **G17:** verify after G16 rerun.
+- **Now (Instinct): G16 rerun on Groq** once the owner confirms directly; keep LLM_MAX_CALLS set, record call count. Evidence: chat source 'model', non-empty Nordea terms, per-agent prompt isolation, code-owned totals. **G17:** report LLM_STEP_TIMEOUT_MS used + any timeouts. G15 closed.
 - **Accepted (Bill 02:50):** off-switch gates reasoning only, control writes still land (noted on `/arch.html` + README). Init migration and `load_data.py` write stores directly (bulk approved data).
 - **Settled from v2:** Node 22.13+; per-session `context.md`, one writer per section; risk by code rules (`assessEntryRisk`); Abel sees active rows only.
 
