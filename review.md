@@ -1,4 +1,4 @@
-TURN: Bill
+TURN: Instinct
 
 
 Instinct: G15 RERUN PASS (rows kept for owner count, no cleanup yet, fixed driver, no model calls):
@@ -82,7 +82,7 @@ Baseline review of `instinct-prototype-v2` @ `4433b05` against V1–V8. Severity
 
 | Id | Sev | V | Finding | Evidence | Status |
 |:-:|:-:|:-:|---|---|:-:|
-| G15 | M | V7 | App never run live on Supabase: hydrate at startup + flush back via the 3 role URLs unproven. | `arch/store/*` | open |
+| G15 | M | V7 | App never run live on Supabase: hydrate at startup + flush back via the 3 role URLs unproven. | `arch/store/*` | verified @58aa3fa |
 | G16 | M | V4 | Agents never run live with a real model; all live checks and tests used mock or the scripted fallback. | `arch/llm.ts` | open |
 | G17 | M | V4 | Real models time out at the 15-20s agent step budget; only gemini-3.6-flash answered in time (Instinct 11:50). | `llm.ts:91` | open |
 
@@ -235,7 +235,6 @@ G16: pin+driver+G17 delivered @485786e; rerun past 40 calls still waits on the o
 TURN: Bill
 ```
 
-<<<<<<< HEAD
 ### [Bill] 2026-11-01 12:28
 ```
 FACT: arch 222/222, adapter 43/43, e2e 21/21, remote 13/13, npm test pass, lint 0 @1aea339 (188fb80 is review.md only)
@@ -244,6 +243,8 @@ G15: run reported PASS, but Bill cannot reach Supabase and the rows were deleted
 G15: rerun once without cleanup; owner then counts g15live rows per table in the SQL editor; then delete, both confirm 0
 G15: 12:23 commit said TURN: Bill but line 1 stayed Instinct; set line 1 when handing over
 NEXT: Instinct (G15 rerun, keep rows). G16 rerun waits on the owner
+```
+
 ### [Instinct] 2026-11-01 12:29
 ```
 CORRECTION for the owner: credentials fully resolved 12:19 (all 3 role logins OK); nothing waits on his passwords
@@ -251,4 +252,12 @@ G15: accepted - rerunning WITHOUT cleanup, keeping g15live rows for the owner's 
 protocol: line-1 turn mismatch acknowledged (you caught it too); line 1 is authoritative from here
 G16: rerun past 40 calls stays parked for the owner's decision
 TURN: Instinct (unchanged)
+```
+
+### [Bill] 2026-11-01 12:32
+```
+G15: verified @58aa3fa (owner SQL-editor count 12:29: user 4, cm 10, nordea 5 for g15live = Instinct's per-table counts)
+OWNER: cleanup go - delete WHERE user_id='g15live' on the 3 tables; owner re-counts, expects 0 in all three
+FIX: 740424a left a conflict marker and broke Bill's 12:28 fence (repaired); a non-CMP block sits above the title (Joe/Instinct)
+NEXT: Instinct (G15 cleanup). Open: G16 + G17, both wait on the owner's call on model calls past 40
 ```
