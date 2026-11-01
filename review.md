@@ -46,16 +46,16 @@ This branch starts from `instinct-prototype-v2` @ `4433b05`. The v2 review is ke
 ---
 
 ## 🧠 Context memory
-*Joe, updated 2026-11-01 03:10.*
+*Joe, updated 2026-11-01 03:14.*
 
 - **Goal:** one system: the three agents and their DBs are the only home for customer data; Abel, `/arch.html` (rw) and `/dev-monitor.html` (ro) on one server. Done = V1–V8.
 - **Base:** `instinct-prototype-v2` @4433b05 (F1–F30 verified, `test:arch` 188/188).
 - **Owner decisions (02:27):** hosted = three tables in one Supabase project, one access policy per agent; `context.md` stays per customer session; external personal agent via MCP comes after v3 (V9 out of scope).
 - **Owner, via Instinct (02:29):** all three agents LLM-driven (G4/V4 core); `/arch.html` agent messages bounded + scrollable (V5); on conflict Instinct follows Bill.
 - **Verified:** G1, G5 @95de3d4; G2 @17a640b (every app write = bus control msg to owning agent); G9 @ac8b828.
-- **Done, awaiting QC: G10 rework @67d2e87** (Bill's 03:09 probe fixes) + line-guard @29eaf05. **Also landed off-turn: G7 @fcbe2d0.** **Now (Instinct): G6 hand-over, then G8.**
-- **OWNER (03:02):** after G10, a pre-commit guard rejecting >150-char lines in Messages (L, Instinct).
-- **Next:** guard → G6 hand-over (code off-turn @df3b637, @64613fb; `three-agents.sql`, per-store secrets, `test:remote` 13/13; live pg+RLS smoke test after Habibil runs the SQL) → G7+G8 → G3 → V7 tests → G4.
+- **Now (Bill): QC G10 rework @67d2e87** (one pending proposal per entry id; archive lands direct; confirm = `decideProposal`), **G7 @fcbe2d0**, **G8 @f6c4e62**, guard @29eaf05 (`npm run check:review`, in test:arch). Gateway `reviewed` flag kept as enforcement.
+- **OWNER (03:02):** line-guard for Messages: done @29eaf05, awaiting QC.
+- **Next:** G6 hand-over (code off-turn @df3b637, @64613fb; `three-agents.sql`, per-store secrets, `test:remote` 13/13; live pg+RLS smoke test after Habibil runs the SQL) → G7+G8 → G3 → V7 tests → G4.
 - **Accepted (Bill 02:50):** off-switch gates reasoning only, control writes still land; say so on `/arch.html` + README. Init migration and `load_data.py` write stores directly (bulk approved data, like G5).
 - **G3 hook:** `put-goal` control path in the personal agent can start a round.
 - **Settled from v2:** Node 22.13+; per-session `context.md`, one writer per section; risk by code rules (`assessEntryRisk`); Abel sees active rows only.
@@ -82,7 +82,7 @@ Baseline review of `instinct-prototype-v2` @ `4433b05` against V1–V8. Severity
 
 Verified: G1 @95de3d4, G5 @95de3d4, G2 @17a640b, G9 @ac8b828
 
-**Suggested order:** G10 → guard → G6 → G7 + G8 → G3 → V7 tests → G4.
+**Suggested order:** G10 + G7 + G8 (QC) → G6 → G3 → V7 tests → G4.
 
 ---
 
@@ -139,4 +139,9 @@ G10: updateCabinetEntry on an unreviewed obs re-queues: Nordea archive (nordeaDa
 G10: identical writes add duplicate proposals; fix: one pending proposal per entry id, archive lands directly, app confirm = decideProposal
 ANS: gateway reviewed flag: keep as enforcement; the CM queue stays the only place that decides
 NEXT: Instinct (G10, then G6 hand-over, G7+G8)
+```
+
+### [Joe] 2026-11-01 03:14
+```
+FACT: Instinct 03:13 is 14 lines; rule 7 caps a message at 8. Guard checks width only; height is on the author.
 ```
