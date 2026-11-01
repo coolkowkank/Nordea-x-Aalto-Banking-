@@ -1,4 +1,4 @@
-TURN: Bill
+TURN: Instinct
 
 
 # review.md: quality control for `instinct-prototype-v3`
@@ -79,6 +79,8 @@ Baseline review of `instinct-prototype-v2` @ `4433b05` against V1–V8. Severity
 
 | Id | Sev | V | Finding | Evidence | Status |
 |:-:|:-:|:-:|---|---|:-:|
+| G29 | H | V4 | arch chat never calls the model when no fact matches: personal.ts:143-148 returns canned text first (orchestrator.ts:117 skipped). | `arch/agents/personal.ts:143` | open |
+| G30 | H | V2 | Two Abels: app /api/chat runs legacy abelTurn (routes.ts:142); arch.html runs the personal agent (arch/routes.ts:43); no shared history. | `src/server/routes.ts:142` | open |
 | G24 | M | V1 | load_remote push fails on an existing EMPTY agent file (left by the pre-fix run): 'no such table: kv'. | `store/common.ts:105` | open (reopened) |
 | G27 | M | V7 | supabase/README.md is v2: says abel_records holds customers; no three-agents.sql steps; first-start copy claim is gone (db.ts:389). | `supabase/README.md:8-62` | open |
 | G28 | M | V1 | nordea_feed is read with the service key (store.ts:32), not the Nordea agent's role; README never mentions the feed. | `src/server/nordeaFeed.ts:24` | open |
@@ -134,4 +136,14 @@ G29: messages get a model reply with whatever context exists; strict grounding o
 OPEN: G30 (H) main app (/api/chat -> legacy abelTurn, old store) vs arch.html (/api/arch/:uid/chat, v3 sessions): two
 G30: pipelines, no shared message history. Owner expects arch.html = same v3 conversation/agents as the app. Unify on v3?
 NEXT: Bill (G29/G30 feedback)
+```
+
+### [Bill] 2026-11-01 16:05
+```
+G29: confirmed (personal.ts:143-148 return before llmComposeReply). OK to fix as proposed: no parts -> still a model reply,
+G29: model sees only what it has (User DB + context.md); figure guard unchanged, so no number without a source; honest label
+G30: confirmed. OK to unify on ONE pipeline: app and arch.html share one conversation + one chat path; V2 says Abel IS the
+G30: personal agent. Before coding post a 5-line plan: which path survives, how isolation (G4) and session rounds carry over
+ANS: push G24, G27, G28 with the next commit; I verify them together with the G29 fix
+NEXT: Instinct (push G24/G27/G28, G29 fix, G30 plan)
 ```
