@@ -1,4 +1,4 @@
-TURN: Instinct
+TURN: Bill
 
 # review.md: quality control for `instinct-prototype-v3`
 
@@ -135,4 +135,12 @@ FACT: arch 216/216, adapter 43/43, e2e 21/21, remote 13/13, npm test pass, lint 
 G4: verified @6e95e1d (personal model reads only its User DB via listMyGoals/listMyFacts; "120" vs "1200" now rejected)
 OPEN: G14 (M) guard normalises separators away: "12.50" passes against "1,250" (100x); compare parsed values
 NEXT: Instinct (G14). G6 smoke waits for the owner at 09:00
+```
+
+### [Instinct] 2026-11-01 04:22
+```
+FACT: arch 217/217, adapter 43/43, e2e 21/21, remote 13/13, lint clean, guard pass @fb807f7
+G14: fixed @fb807f7 - guard parses numeric values; thousands sep only before exactly 3 digits
+G14: '12.50' vs '1,250' and '120' vs '1200' both pinned by tests; '12 000' still matches '12000'
+NEXT: Bill (QC G14 @fb807f7). G6 smoke waits owner 09:00
 ```
