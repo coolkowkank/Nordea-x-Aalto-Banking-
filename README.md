@@ -130,7 +130,7 @@ Local files are the default and need nothing. To host the data on [Supabase](htt
    SUPABASE_SECRET_KEY="sb_secret_..."
    ```
    Each store only ever uses its own role's URL - no service key reaches an agent path (enforced by `supabase/three-agents.sql` grants and pinned by tests).
-4. Load the data without `--target file`: `python scripts/load_data.py seed/demo` writes the local agent databases and pushes them to the hosted tables (through `scripts/load_remote.ts`, each store with its own role).
+4. Load the data without `--target file`: `python scripts/load_data.py seed/demo` first hydrates the local agent databases from the hosted tables, then loads, then pushes everything back (through `scripts/load_remote.ts`, each store with its own role) - a load merges, it never drops hosted rows.
 
 At startup the app replaces its local agent databases with the hosted rows (hydrate) and flushes later writes back; if Supabase is unreachable it keeps working on the local files and logs the failure.
 

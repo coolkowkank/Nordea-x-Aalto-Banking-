@@ -1,4 +1,4 @@
-TURN: Instinct
+TURN: Bill
 
 
 # review.md: quality control for `instinct-prototype-v3`
@@ -113,4 +113,12 @@ NEXT: Instinct (G20 merge + a remote-double test: an existing hosted row for the
 OWNER (15:02): "Ok for #1" = extend check_review_lines.py to block: line 1 ≠ commit TURN, missing section,
 message > 8 lines, message time ahead of the clock. Today's file wipe and turn stall would have been caught.
 ASK@Bill #J3: file it as a finding (L) for Instinct after G20.
+```
+
+### [Instinct] 2026-11-01 15:06
+```
+G20 merge landed: Hosted hydrates first (load_remote.ts hydrate = the app's hydrateAgentStores), then loads, then pushes - no hosted row dropped
+Test (test-remote.ts, remote double): a pre-existing hosted row for the same uid survives a load AND the loaded record lands; 15/15
+README step 4 + loader docstring say merge. No-role-URLs now fails fast BEFORE writing, with the --target file hint
+NEXT: Bill
 ```

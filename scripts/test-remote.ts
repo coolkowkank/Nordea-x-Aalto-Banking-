@@ -142,6 +142,26 @@ const rightRole = await hydrateAgentStores();
 check('with its own secret the CM store hydrates its table',
   rightRole.some((h) => h.startsWith('cm')) && S.loadCmDb('lauri').entries.some((e) => e.id === 'e1'), rightRole);
 
+// ---------- G20 merge: the loader's hydrate -> write -> push keeps hosted rows ----------
+// Mirrors scripts/load_data.py's Hosted path: hydrate (already done above), write straight into
+// the local SQLite like the Python loader does (no openDb, no auto-flush), then the push
+// load_remote.ts performs. The pre-existing hosted row for the same uid must survive.
+{
+  const { rowsOf, fileFor } = await import('../src/server/arch/store/common.js');
+  const { DatabaseSync } = await import('node:sqlite');
+  const before = (fake.tables.get('agent_user_records') ?? []).filter((r) => r.user_id === 'eeva').map((r) => r.id);
+  const db = new DatabaseSync(fileFor('eeva', 'user'));
+  db.exec(`CREATE TABLE IF NOT EXISTS goals (id TEXT PRIMARY KEY, title TEXT NOT NULL, detail TEXT NOT NULL, created_at TEXT NOT NULL, doc TEXT)`);
+  db.prepare("INSERT INTO goals (id, title, detail, created_at) VALUES ('g-load', 'Loaded goal', 'from load_data.py', '2026-11-01')").run();
+  db.close();
+  const rows = rowsOf(fileFor('eeva', 'user'), 'user').map((r) => ({ user_id: 'eeva', ...r }));
+  await R.pushCustomer('user', URLS.user, 'eeva', rows);
+  const after = (fake.tables.get('agent_user_records') ?? []).filter((r) => r.user_id === 'eeva').map((r) => r.id);
+  check('G20 merge: the pre-existing hosted row for the same uid survives a load',
+    before.every((id) => after.includes(id)), { before, after });
+  check('G20 merge: the loaded record lands hosted too', after.includes('g-load'), after);
+}
+
 console.log(`\n${passed} passed, ${failed} failed`);
 if (failed) { console.error('REMOTE TESTS FAILED'); process.exit(1); }
 console.log('All checks passed');

@@ -28,7 +28,9 @@ Examples:
 The default hosted target needs the three per-agent role URLs - USER_DB_URL, CM_DB_URL and
 NORDEA_DB_URL (run supabase/three-agents.sql once in Supabase -> SQL Editor, one plain password
 per role) - and pushes customer records to agent_user_records / agent_cm_records /
-agent_nordea_records, each through its own agent's role, via scripts/load_remote.ts.
+agent_nordea_records, each through its own agent's role, via scripts/load_remote.ts. The load
+first hydrates the local databases from the hosted tables, so existing hosted records merge with
+the load instead of being replaced by it.
 App plumbing (chat transcripts, logs, rewards) goes to the abel_records table when
 SUPABASE_URL and SUPABASE_SECRET_KEY are also set (run supabase/setup.sql once for that),
 and to data/cabinet-db.json otherwise. All variables are read from the environment, .env
@@ -626,8 +628,9 @@ def run_remote(*args: str) -> None:
     except FileNotFoundError:
         sys.exit("npx was not found - install Node.js (the hosted push runs scripts/load_remote.ts).")
     except subprocess.CalledProcessError:
-        sys.exit("Pushing to the hosted agent tables failed (see above). The local files under "
-                 "data/arch are loaded; fix the role URLs and re-run: npx tsx scripts/load_remote.ts push")
+        sys.exit("Syncing with the hosted agent tables failed (see above). Set the role URLs "
+                 "(USER_DB_URL, CM_DB_URL, NORDEA_DB_URL - see the README Supabase section), "
+                 "or use --target file for a local-only load.")
 
 
 class Hosted(LocalFile):
@@ -639,6 +642,9 @@ class Hosted(LocalFile):
     are set, and to data/cabinet-db.json otherwise."""
 
     def __init__(self) -> None:
+        # G20 (merge, Bill 15:14): pull the hosted rows into the local agent databases FIRST,
+        # so the load merges with them - a load must never drop hosted rows silently.
+        run_remote("hydrate")
         super().__init__()
         has_sb = os.environ.get("SUPABASE_URL") and \
             (os.environ.get("SUPABASE_SECRET_KEY") or os.environ.get("SUPABASE_SERVICE_ROLE_KEY"))

@@ -12,7 +12,7 @@
  * A store whose URL is unset is skipped with a note.
  */
 import dotenv from 'dotenv';
-import { fileFor, listCustomers, remoteConfigured, configureRemote, rowsOf, type DbKind } from '../src/server/arch/store/common.js';
+import { fileFor, listCustomers, remoteConfigured, configureRemote, rowsOf, hydrateAgentStores, type DbKind } from '../src/server/arch/store/common.js';
 import { pushCustomer, REMOTE_TABLES, type PoolLike } from '../src/server/arch/store/remote.js';
 
 dotenv.config({ path: '.env' });
@@ -38,9 +38,16 @@ for (const k of KINDS) if (URLS[k]) configureRemote(k, URLS[k]);
 const [mode, ...rest] = process.argv.slice(2);
 const all = rest.includes('--all');
 const uidsArg = rest.filter((a) => a !== '--all');
-if (mode !== 'push' && mode !== 'clear') {
-  console.error('usage: tsx scripts/load_remote.ts push [uid ...] | clear [uid ...] | clear --all');
+if (mode !== 'push' && mode !== 'clear' && mode !== 'hydrate') {
+  console.error('usage: tsx scripts/load_remote.ts hydrate | push [uid ...] | clear [uid ...] | clear --all');
   process.exit(2);
+}
+if (mode === 'hydrate') {
+  // G20 (merge): pull every hosted row into the local agent databases first, so a following
+  // load merges with what is hosted instead of replacing it. Same code path as the app's startup.
+  const hydrated = await hydrateAgentStores();
+  console.log(hydrated.length ? `hydrated from hosted: ${hydrated.join(', ')}` : 'hydrated from hosted: no rows yet');
+  process.exit(0);
 }
 // Guard: wiping EVERY hosted row of every customer is never the default - it needs the
 // explicit --all flag (scripts/load_data.py passes it only for its own --clear).
