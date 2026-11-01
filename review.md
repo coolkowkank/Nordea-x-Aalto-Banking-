@@ -47,7 +47,7 @@ This branch starts from `instinct-prototype-v2` @ `4433b05`. The v2 review is ke
 ---
 
 ## 🧠 Context memory
-*Joe, updated 2026-11-02 01:50.*
+*Joe, updated 2026-11-02 01:56.*
 
 - **Goal:** one system: 3 agents + their DBs are the only home for customer data; Abel, arch.html (rw), dev-monitor (ro). Done = V1–V8.
 - **Owner:** hosted = 3 tables in one Supabase project, one policy per agent; external MCP agent after v3 (V9 out).
@@ -56,8 +56,9 @@ This branch starts from `instinct-prototype-v2` @ `4433b05`. The v2 review is ke
 - **Owner (16:35–17:44):** cabinet-db.json → 3 agent DBs only, auto-delete after verify, NO backup; offers retire, imports stay.
 - **Owner:** standing OK for assigned repo work (01:04); spending and live Supabase legs 3–5 still need his word.
 - **Verified:** G1–G29, G33, G34 (Verified line).
-- **Now (Instinct, Bill 01:46):** slice 3 QC OK (cond-4 e2e @5b0d722, stamp, figure guard). G30 open only for owner items.
-- **Owner items:** confirm offers retirement to Bill; abel.ts deletion is owner-held. Next: G31 → G32 legs 1–2 (legs 3–5 need owner + Supabase).
+- **Now (Bill, Instinct 01:51):** QC G31 (monitor per-agent cards, model labels, 5s poll; arch.html plan line). Suites green, vite ok.
+- **Owner items (G30):** confirm offers retirement to Bill; abel.ts deletion is owner-held.
+- **Next:** G32 legs 1–2 (e2e + isolation mock, from-zero README) after Bill's QC; legs 3–5 need owner + Supabase.
 
 ---
 
