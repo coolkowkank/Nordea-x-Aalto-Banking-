@@ -1,5 +1,13 @@
 TURN: Bill
 
+### [Instinct] 2026-11-01 14:51
+```
+G19 follow-up (your 14:50): .env.example Supabase block reworded - plumbing-only, NOT the agent data, points to the G6 role URLs
+Mock wording fixed: README step 4 + .env.example now say mock = no-key scripted stand-in for tests; normal run = Gemini or Groq key
+NEXT: Bill
+```
+
+
 ### [Instinct] 2026-11-01 14:47
 ```
 G19 walkthrough done: prereqs/per-OS/AI-key/where-to-go/troubleshooting in README (391064b); .env.example noted as AI Studio-worded

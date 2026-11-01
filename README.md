@@ -74,11 +74,13 @@ npm install --legacy-peer-deps
 python scripts/load_data.py seed/demo --target file   # local files; drop --target file for the hosted Supabase stores
 # "python" not found? The command is "python3" on most Mac/Linux machines - both work.
 
-# 4. Start it - no AI key needed for a first look
+# 4. Start it with the scripted stand-in (no key needed for a first look)
 LLM_PROVIDER=mock npm run dev        # bash (Mac/Linux)
 # PowerShell:   $env:LLM_PROVIDER="mock"; npm run dev
 # Windows cmd:  set LLM_PROVIDER=mock && npm run dev
 ```
+
+`LLM_PROVIDER=mock` is a no-key stand-in the tests use - fine for clicking around, but every answer is scripted. The normal run uses a real model: set a Gemini or Groq key (below) and start with plain `npm run dev`.
 
 **Where to go once it is listening on port 3000:**
 
@@ -88,7 +90,7 @@ LLM_PROVIDER=mock npm run dev        # bash (Mac/Linux)
 | **http://localhost:3000/arch.html** | The three-agent demo: pick a demo customer (`alex`, `eeva` or `lauri`) in the Customer picker, add a goal, chat |
 | **http://localhost:3000/dev-monitor.html** | Read-only developer monitor - only when started with `DEV_MONITOR=1` (same per-OS form as `LLM_PROVIDER` above) |
 
-**Optional: real AI answers.** Copy `.env.example` to `.env` and add one free key, then restart without `LLM_PROVIDER=mock`. (`.env.example` is worded for the hosted AI Studio deployment; locally the same variable names go in `.env`, which git ignores.)
+**Real AI answers (the normal run).** Copy `.env.example` to `.env` and add one free key, then restart without `LLM_PROVIDER=mock`. (`.env.example` is worded for the hosted AI Studio deployment; locally the same variable names go in `.env`, which git ignores.)
 
 - **Gemini**: create a free key at [aistudio.google.com](https://aistudio.google.com) and set `GEMINI_API_KEY=...`.
 - **Groq** (free tier): create a key at [console.groq.com](https://console.groq.com) and set `LLM_PROVIDER="openai"`, `LLM_BASE_URL="https://api.groq.com/openai/v1"`, `LLM_API_KEY=...`, `LLM_MODEL="openai/gpt-oss-120b"`.
