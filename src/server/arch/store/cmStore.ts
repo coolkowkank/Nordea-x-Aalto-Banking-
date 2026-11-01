@@ -6,7 +6,10 @@ import fs from 'fs';
 import { fileFor, openDb, kvGet, kvSet, deleteDbFile, migrateLegacy } from './common.js';
 import type { ArchEntry, CmDb } from '../types.js';
 import type { EntryEvent, Share, UndoRecord } from '../../../types.js';
-import { registerCustomer } from './common.js';
+import { registerCustomer, configureRemote } from './common.js';
+
+// G6: this store reads ONLY its own hosted secret (one Postgres role per agent). Unset = local SQLite.
+configureRemote('cm', process.env.CM_DB_URL);
 
 const emptyCm = (userId: string): CmDb => ({ userId, entries: [] });
 

@@ -63,6 +63,24 @@ check('adapter writes record entry history in the Context Memory DB', S.loadHist
 const roundTrip = db.getCabinetEntry('p-adapt-1');
 check('a written entry reads back through getState mapping with Abel fields intact', roundTrip?.title === 'Adapter preference' && roundTrip?.type === 'preference' && roundTrip?.provenance.channel === 'app');
 
+// --- G6: each agent store reads ONLY its own hosted secret (one Postgres role per agent)
+const readSrc = (p: string) => fs.readFileSync(new URL(p, import.meta.url), 'utf-8');
+const SECRETS = ['USER_DB_URL', 'CM_DB_URL', 'NORDEA_DB_URL'];
+const stores: [string, string][] = [['userStore', 'USER_DB_URL'], ['cmStore', 'CM_DB_URL'], ['nordeaStore', 'NORDEA_DB_URL']];
+for (const [mod, own] of stores) {
+  const code = readSrc(`../src/server/arch/store/${mod}.ts`);
+  check(`G6: ${mod} reads only its own secret (${own})`,
+    code.includes(own) && SECRETS.filter((s) => s !== own).every((s) => !code.includes(s)));
+}
+check('G6: the shared store plumbing names no connection secret at all',
+  SECRETS.every((s) => !readSrc('../src/server/arch/store/common.ts').includes(s)));
+check('G6: the bus store has no hosted secret (transient agent messaging stays local)',
+  SECRETS.every((s) => !readSrc('../src/server/arch/store/busStore.ts').includes(s)));
+check('G6: the migration SQL ships one table + one role per agent database', (() => {
+  const sql = readSrc('../supabase/three-agents.sql');
+  return ['user', 'cm', 'nordea'].every((a) => sql.includes(`agent_${a}_records`) && sql.includes(`agent_${a} `)) && !sql.toLowerCase().includes('service_role');
+})());
+
 console.log(`\n${passed} passed, ${failed} failed`);
 if (failed) { console.error('ADAPTER TESTS FAILED'); process.exit(1); }
 console.log('All checks passed');

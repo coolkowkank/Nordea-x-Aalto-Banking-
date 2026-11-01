@@ -24,7 +24,7 @@ import { Remote, Row, supabaseConfigured, supabaseRemote, cleanErr } from './sto
 // G1: customer data lives in the three agent databases (User / Context Memory / Nordea).
 // The app layer may import the store modules (see the store file headers); agents never
 // import this module, and no agent module imports another agent's store.
-import { listCustomers, unregisterCustomer, deleteDbFile, ARCH_DIR } from './arch/store/common.js';
+import { listCustomers, unregisterCustomer, deleteDbFile, ARCH_DIR, hydrateAgentStores } from './arch/store/common.js';
 import {
   loadUserDb, loadProfile, saveProfile, putGoal, removeGoal,
   loadDocuments, putDocument, removeStoredDocument, deleteUserDb,
@@ -349,6 +349,10 @@ class Database {
   public async init() {
     this.synced.clear();
     this.state = getEmptyPlumb();
+    // G6: when the three agent stores have hosted secrets, their tables are the source of
+    // truth - pull them into the local SQLite files before anything reads them.
+    const hydrated = await hydrateAgentStores();
+    if (hydrated.length) console.log(`Database: agent stores hydrated from hosted tables: ${hydrated.join(', ')}`);
     if (!supabaseConfigured()) {
       this.adoptLoaded(this.loadFile());
       console.log(`Database: local file (${listCustomers().length} customers in the three databases)`);

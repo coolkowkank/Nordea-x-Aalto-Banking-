@@ -6,7 +6,10 @@ import fs from 'fs';
 import { fileFor, legacyFileFor, openDb, kvGet, kvSet, deleteDbFile, migrateLegacy } from './common.js';
 import type { Goal, UserDb } from '../types.js';
 import type { StoredDocument } from '../../../types.js';
-import { registerCustomer } from './common.js';
+import { registerCustomer, configureRemote } from './common.js';
+
+// G6: this store reads ONLY its own hosted secret (one Postgres role per agent). Unset = local SQLite.
+configureRemote('user', process.env.USER_DB_URL);
 
 const emptyUser = (userId: string): UserDb => ({ userId, goals: [], personalFacts: [], personalAgent: { mode: 'abel' }, agentsOff: [] });
 

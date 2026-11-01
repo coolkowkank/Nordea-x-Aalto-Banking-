@@ -54,12 +54,128 @@ const SCHEMAS: Record<DbKind, string> = {
       status TEXT NOT NULL, decided_at TEXT);`,
 };
 
+/** Id column per SQLite table, per database kind (used by the G6 hosted sync). */
+const TABLE_IDS: Record<DbKind, Record<string, string>> = {
+  user: { kv: 'k', goals: 'id', personal_facts: 'id', documents: 'id' },
+  cm: { kv: 'k', entries: 'id', history: 'id', shares: 'id', undo: 'token' },
+  nordea: { kv: 'k', accounts: 'id', transactions: 'id', balance_snapshots: 'id', import_batches: 'id' },
+  bus: { kv: 'k', messages: 'id', airlock: 'id' },
+};
+
+/**
+ * G6: per-store hosted secret, configured by the owning store module and ONLY by it
+ * (each store module passes only its own env var - pinned by a source-scan test).
+ * common.ts itself never names an env var.
+ */
+const REMOTE_SECRETS = new Map<DbKind, string>();
+export function configureRemote(kind: DbKind, url: string | undefined) {
+  if (url) REMOTE_SECRETS.set(kind, url);
+}
+export const remoteConfigured = (kind: DbKind) => REMOTE_SECRETS.has(kind);
+
+/** Write verbs mark a handle dirty; a dirty remote-backed handle flushes on close. */
+const WRITE_VERB = /^\s*(INSERT|UPDATE|DELETE|REPLACE|CREATE|DROP|ALTER)/i;
+
 export function openDb(file: string, kind: DbKind): DatabaseSync {
   fs.mkdirSync(path.dirname(file), { recursive: true });
   const db = new DatabaseSync(file);
   db.exec(SCHEMAS[kind]);
-  return db;
+  if (!REMOTE_SECRETS.has(kind)) return db;
+  // Remote-backed: watch for writes and flush this customer's database on close.
+  let dirty = false;
+  const wrap = <A extends unknown[], R>(fn: (...args: A) => R) => (...args: A) => {
+    if (typeof args[0] === 'string' && WRITE_VERB.test(args[0])) dirty = true;
+    return fn.apply(db, args);
+  };
+  const wrapped = {
+    prepare: wrap(db.prepare.bind(db) as (...a: unknown[]) => unknown),
+    exec: wrap(db.exec.bind(db) as (...a: unknown[]) => unknown),
+    close: () => { db.close(); if (dirty) scheduleFlush(file, kind); },
+  };
+  return wrapped as unknown as DatabaseSync;
 }
+
+// ---------- G6: hosted sync (hydrate at startup, flush after writes) ----------
+
+const flushTimers = new Map<string, ReturnType<typeof setTimeout>>();
+const flushChains = new Map<string, Promise<void>>();
+
+/** Serialize every row of every table of one local database file for its hosted table. */
+function rowsOf(file: string, kind: DbKind): { table_name: string; id: string; data: Record<string, unknown> }[] {
+  const db = new DatabaseSync(file);
+  try {
+    const out: { table_name: string; id: string; data: Record<string, unknown> }[] = [];
+    for (const [table, idCol] of Object.entries(TABLE_IDS[kind])) {
+      for (const row of db.prepare(`SELECT * FROM ${table}`).all() as Record<string, unknown>[]) {
+        out.push({ table_name: table, id: String(row[idCol]), data: row });
+      }
+    }
+    return out;
+  } finally { db.close(); }
+}
+
+function scheduleFlush(file: string, kind: DbKind) {
+  const url = REMOTE_SECRETS.get(kind);
+  if (!url) return;
+  const key = `${kind}:${file}`;
+  if (flushTimers.has(key)) clearTimeout(flushTimers.get(key)!);
+  flushTimers.set(key, setTimeout(() => {
+    flushTimers.delete(key);
+    const uid = path.basename(file).replace(/\.(user|cm|nordea|bus)\.db$/, '');
+    const rows = rowsOf(file, kind).map((r) => ({ user_id: uid, ...r }));
+    const prev = flushChains.get(key) ?? Promise.resolve();
+    const next = prev.then(() => import('./remote.js').then((R) => R.pushCustomer(kind, url, uid, rows)))
+      .catch((err) => console.error(`Remote flush failed for ${key}:`, err instanceof Error ? err.message : err));
+    flushChains.set(key, next);
+  }, 250));
+}
+
+/**
+ * Hydrate the local SQLite files from the hosted tables at startup (hosted mode only).
+ * The remote tables are the source of truth when configured: each customer's local rows
+ * for that kind are replaced by the remote ones. Runs before the app serves requests.
+ */
+export async function hydrateAgentStores(): Promise<string[]> {
+  const hydrated: string[] = [];
+  for (const [kind, url] of REMOTE_SECRETS) {
+    if (kind === 'bus') continue; // the bus is transient agent messaging, local by design
+    try {
+      const R = await import('./remote.js');
+      const rows = await R.pullStore(kind, url);
+      const byUid = new Map<string, typeof rows>();
+      for (const r of rows) {
+        const list = byUid.get(r.user_id) ?? [];
+        list.push(r);
+        byUid.set(r.user_id, list);
+      }
+      for (const [uid, list] of byUid) {
+        const file = fileFor(uid, kind);
+        fs.mkdirSync(path.dirname(file), { recursive: true });
+        const db = new DatabaseSync(file);
+        try {
+          db.exec(SCHEMAS[kind]);
+          db.exec('BEGIN');
+          for (const table of Object.keys(TABLE_IDS[kind])) db.prepare(`DELETE FROM ${table}`).run();
+          for (const r of list) {
+            const idCol = TABLE_IDS[kind][r.table_name];
+            if (!idCol) continue;
+            const cols = Object.keys(r.data);
+            db.prepare(`INSERT INTO ${r.table_name} (${cols.join(', ')}) VALUES (${cols.map(() => '?').join(', ')})`)
+              .run(...cols.map((c) => r.data[c] as string | number | null));
+          }
+          db.exec('COMMIT');
+        } finally { db.close(); }
+        registerCustomer(uid);
+      }
+      hydrated.push(`${kind} (${rows.length} rows)`);
+    } catch (err) {
+      // A failed remote must not stop the app: keep working on the local files.
+      console.error(`Remote hydrate failed for ${kind}:`, err instanceof Error ? err.message : err);
+    }
+  }
+  return hydrated;
+}
+
 
 export const kvGet = (db: DatabaseSync, k: string): string | undefined =>
   (db.prepare('SELECT v FROM kv WHERE k = ?').get(k) as { v: string } | undefined)?.v;

@@ -6,7 +6,10 @@ import fs from 'fs';
 import { fileFor, legacyFileFor, openDb, deleteDbFile, migrateLegacy } from './common.js';
 import type { NordeaDb } from '../types.js';
 import type { BalanceSnapshot, BankAccount, ImportBatch, Transaction, User } from '../../../types.js';
-import { kvGet, kvSet, registerCustomer } from './common.js';
+import { kvGet, kvSet, registerCustomer, configureRemote } from './common.js';
+
+// G6: this store reads ONLY its own hosted secret (one Postgres role per agent). Unset = local SQLite.
+configureRemote('nordea', process.env.NORDEA_DB_URL);
 
 export function nordeaFileExists(uid: string) {
   return fs.existsSync(fileFor(uid, 'nordea')) || fs.existsSync(legacyFileFor(uid, 'nordea'));
