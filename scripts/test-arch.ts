@@ -559,6 +559,7 @@ const sessRound53 = R.loadRound(UID53, doc53.roundId ?? '')!;
 check('G4: a session round carries the LLM plan too', sessRound53.trigger === 'session' && (sessRound53.llm?.goalTitles ?? []).length >= 1, JSON.stringify(sessRound53.llm));
 check('G4: the round records which path each agent took', sessRound53.llm?.status?.cm === 'model' && sessRound53.llm?.status?.nordea === 'model', JSON.stringify(sessRound53.llm?.status));
 check('G4: the personal agent model composes the chat reply (truthful source)', chat53.source === 'model', chat53.source + ': ' + chat53.reply.slice(0, 80));
+check('G4: the provider is named so mock is never mistaken for a live model', chat53.provider === 'mock (tests only)' && sessRound53.llm?.status?.provider === 'mock (tests only)', String(chat53.provider));
 await A.chat(UID53, 'tell me more about the car', 'llm-sess-1');
 const docTop53 = S.loadContext(UID53)!;
 check('G4: an unanswered follow-up tops up with an LLM-planned round', docTop53.roundId !== doc53.roundId && docTop53.trigger === 'topup' && R.loadRound(UID53, docTop53.roundId ?? '')?.llm?.status?.cm === 'model', docTop53.roundId + ' ' + docTop53.trigger);

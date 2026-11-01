@@ -73,7 +73,7 @@ function saveSession(uid: string, session: ChatSession) { busKvSet(uid, 'chatSes
  * has nothing from the Context Memory agent for a follow-up, a top-up round adds rows to the
  * same document (never a fresh one).
  */
-export async function chat(uid: string, text: string, clientSessionId?: string): Promise<{ reply: string; used: string[]; sessionId: string; source: 'model' | 'scripted' | 'scripted-error'; plan?: { cm: string; nordea: string; error?: string } }> {
+export async function chat(uid: string, text: string, clientSessionId?: string): Promise<{ reply: string; used: string[]; sessionId: string; source: 'model' | 'scripted' | 'scripted-error'; provider?: string; plan?: { cm: string; nordea: string; provider?: string; error?: string } }> {
   const parked = getCabinetParkedMirror(uid); // the personal agent's parked gate, no status ping
   const { session, isNew } = resolveSession(uid, clientSessionId);
   // F17: direct input (a typed goal) is saved BEFORE any round opens, so the session round's
@@ -90,7 +90,7 @@ export async function chat(uid: string, text: string, clientSessionId?: string):
   }
   if (begin.kind === 'direct') { saveSession(uid, { ...session, lastActivityAt: now() }); return { ...begin.direct!, sessionId: session.id, source: 'scripted' }; }
   // The plan is only computed when a round will actually use it (a provider call per plan).
-  let planStatus: { cm: 'model' | 'scripted' | 'error'; nordea: 'model' | 'scripted' | 'error'; error?: string } | undefined;
+  let planStatus: { cm: 'model' | 'scripted' | 'error'; nordea: 'model' | 'scripted' | 'error'; provider?: string; error?: string } | undefined;
   if (!parked && isNew && !getOff(uid).some((a) => a === 'personal' || a === 'cm' || a === 'nordea')) {
     const plan = await planRoundLlm(uid, text);
     const round = runRound(uid, 'session', { question: text, sessionId: session.id, llm: plan });
@@ -124,7 +124,9 @@ export async function chat(uid: string, text: string, clientSessionId?: string):
     }
   }
   saveSession(uid, { ...session, lastActivityAt: now() });
-  return { reply: answer.reply, used: answer.used, sessionId: session.id, source, ...(planStatus ? { plan: planStatus } : {}) };
+  const { archLlmProviderName } = await import('./llm.js');
+  const provider = archLlmProviderName() ?? undefined;
+  return { reply: answer.reply, used: answer.used, sessionId: session.id, source, ...(provider ? { provider } : {}), ...(planStatus ? { plan: planStatus } : {}) };
 }
 
 /** Every figure in the model's reply must come from the facts code selected. */
@@ -223,8 +225,10 @@ async function planRoundLlm(uid: string, question: string): Promise<NonNullable<
   const { llmPlanRetrieval } = await import('./agents/cm.js');
   const { llmProposeMatchTerms } = await import('./agents/nordea.js');
   const [cmPlan, nordeaPlan] = await Promise.all([llmPlanRetrieval(uid, question, titles), llmProposeMatchTerms(uid, titles)]);
+  const { archLlmProviderName } = await import('./llm.js');
   const status = {
     cm: cmPlan.status, nordea: nordeaPlan.status,
+    ...(archLlmProviderName() ? { provider: archLlmProviderName()! } : {}),
     ...(cmPlan.error || nordeaPlan.error ? { error: [cmPlan.error, nordeaPlan.error].filter(Boolean).join('; ') } : {}),
   };
   if (!cmPlan.plan && !nordeaPlan.plan && !status.error) return undefined; // fully scripted, nothing to record

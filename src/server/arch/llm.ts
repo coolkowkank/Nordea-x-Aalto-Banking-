@@ -13,6 +13,12 @@ export function archLlmEnabled(): boolean {
   try { return getProvider().isConfigured(); } catch { return false; }
 }
 
+/** Which provider the agents' reasoning runs on ('mock (tests only)', 'gemini', 'openai'),
+ *  or null when scripted. The UI must show this: 'model' on the mock is wiring, not quality. */
+export function archLlmProviderName(): string | null {
+  try { const p = getProvider(); return p.isConfigured() ? p.name : null; } catch { return null; }
+}
+
 interface AgentRunArgs {
   agent: 'cm' | 'nordea' | 'personal';
   system: string;
