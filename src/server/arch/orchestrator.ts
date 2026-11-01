@@ -115,7 +115,7 @@ export async function chat(uid: string, text: string, clientSessionId?: string):
   if (!parked && answer.used.length && !getOff(uid).includes('personal')) {
     const { llmComposeReply } = await import('./agents/personal.js');
     const composed = await llmComposeReply(uid, text, answer.parts);
-    if (composed.plan && figuresGrounded(composed.plan, answer.factSources)) {
+    if (composed.plan && figuresGrounded(composed.plan, [...answer.factSources, ...(composed.seenFacts ?? [])])) {
       answer = { ...answer, reply: composed.plan };
       source = 'model';
     } else if (composed.status === 'error') source = 'scripted-error';
@@ -129,11 +129,16 @@ export async function chat(uid: string, text: string, clientSessionId?: string):
   return { reply: answer.reply, used: answer.used, sessionId: session.id, source, ...(provider ? { provider } : {}), ...(planStatus ? { plan: planStatus } : {}) };
 }
 
-/** Every figure in the model's reply must come from the facts code selected. */
+/** Every figure in the model's reply must come from the facts code selected. Whole-number
+ *  comparison on separator-normalized tokens: '120' must NOT pass against a fact '1200'. */
+function figureTokens(s: string): string[] {
+  const out: string[] = [];
+  for (const m of s.matchAll(/\d(?:[\d\s.,]*\d)?/g)) out.push(m[0].replace(/[\s.,]/g, ''));
+  return out.filter((x) => x.length > 0);
+}
 function figuresGrounded(reply: string, factSources: string[]): boolean {
-  const facts = factSources.join(' ').toLowerCase();
-  const figures = reply.match(/\d[\d\s.,]*\d|\d/g) ?? [];
-  return figures.every((f) => facts.includes(f.trim().toLowerCase()));
+  const facts = new Set(figureTokens(factSources.join(' ')));
+  return figureTokens(reply).every((f) => facts.has(f));
 }
 
 /**

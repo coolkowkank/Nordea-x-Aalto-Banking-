@@ -575,6 +575,14 @@ const downChat53 = await A.chat(UID53, 'how much did I spend on my car?', 'llm-s
 check('G4: the chat reply says scripted when the provider failed', downChat53.source === 'scripted-error' && downChat53.plan?.cm === 'error', downChat53.source);
 LL.setProviderForTests(null);
 
+// G4 (Bill 03:45): the figure guard must match whole numbers - '120' must not pass against '1200'.
+const goal53 = S.loadUserDb(UID53).goals[0];
+A.appWrites.updateGoal(UID53, goal53.id, { detail: 'budget 1200 EUR' });
+LL.setProviderForTests({ name: 'mock (tests only)', isConfigured: () => true, step: async () => ({ calls: [{ id: 'bad1', name: 'finishReply', args: { reply: 'You spent 120 on the car.' } }] }) });
+const badChat53 = await A.chat(UID53, 'how much did I spend on my car?', 'llm-sess-4');
+check('G4: a substring figure (120 vs fact 1200) is dropped back to the scripted reply', badChat53.source === 'scripted' && !badChat53.reply.includes('You spent 120'), badChat53.source + ': ' + badChat53.reply.slice(0, 70));
+LL.setProviderForTests(null);
+
 // --- F18: maintenance rounds merge into the open session's document - no row is dropped.
 const UID17 = 'mergeround';
 A.addGoalDirect(UID17, 'Save for a car');

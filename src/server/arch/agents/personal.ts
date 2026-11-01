@@ -158,28 +158,47 @@ export function finishChat(uid: string, begin: ChatBegin): { reply: string; used
  *  It sees ONLY those parts (its own DB hits + shared-context rows), never a database.
  *  Code validates the reply afterwards: any figure not present in the facts drops the
  *  reply back to the grounded scripted template. */
-export async function llmComposeReply(uid: string, question: string, parts: string[]): Promise<import('../llm.js').PlanOutcome<string>> {
+export async function llmComposeReply(uid: string, question: string, parts: string[]): Promise<import('../llm.js').PlanOutcome<string> & { seenFacts: string[] }> {
   const { archLlmEnabled, runAgentReasoning } = await import('../llm.js');
-  if (!archLlmEnabled() || !parts.length) return { plan: null, status: 'scripted' };
+  if (!archLlmEnabled() || !parts.length) return { plan: null, status: 'scripted', seenFacts: [] };
+  // V4: the personal model reads its OWN User DB through tools (goals, personal facts) -
+  // never another agent's store. Code still pre-selects rows into the prompt and checks
+  // every figure in the answer against what the model could have seen (seenFacts).
+  const seenFacts: string[] = [];
   const { result: out, error } = await runAgentReasoning({
     agent: 'personal',
     system: [
       'You are Abel, the customer\'s personal banking assistant agent. You answer the customer.',
-      'Use ONLY the facts listed below - they are the rows code selected from your User DB and the shared context. You never see a database.',
-      'Keep every amount and figure EXACTLY as written in the facts. Never invent, convert or recompute a number.',
-      'If the facts do not answer the question, say plainly what is missing.',
+      'The facts below are rows code selected from your User DB and the shared context; you may read more of YOUR OWN User DB through listMyGoals and listMyFacts. You never see another agent\'s database.',
+      'Keep every amount and figure EXACTLY as written in the facts or tool results. Never invent, convert or recompute a number.',
+      'If the available facts do not answer the question, say plainly what is missing.',
       'Answer in one to three short sentences, then finishReply.',
     ].join(' '),
     prompt: `Question: ${question}\nFacts:\n- ${parts.join('\n- ')}`,
     tools: [
+      { name: 'listMyGoals', description: 'List the goals in your own User DB: title, detail, target amount and date.', parameters: { type: 'object', properties: {} } },
+      { name: 'listMyFacts', description: 'List the personal facts in your own User DB.', parameters: { type: 'object', properties: {} } },
       { name: 'finishReply', description: 'Finish with the reply to the customer.', parameters: { type: 'object', properties: { reply: { type: 'string' } }, required: ['reply'] } },
     ],
-    runTool: () => ({ error: 'unknown tool' }),
+    runTool: (call) => {
+      const u = loadUserDb(uid);
+      if (call.name === 'listMyGoals') {
+        const rows = u.goals.map((g) => ({ title: g.title, detail: g.detail, ...(g.doc?.target ? { targetAmount: g.doc.target.amount, targetDate: g.doc.target.date } : {}) }));
+        seenFacts.push(JSON.stringify(rows));
+        return rows.slice(0, 20);
+      }
+      if (call.name === 'listMyFacts') {
+        const rows = u.personalFacts.map((f) => ({ text: f.text, source: f.source }));
+        seenFacts.push(JSON.stringify(rows));
+        return rows.slice(0, 20);
+      }
+      return { error: 'unknown tool' };
+    },
     finishTool: 'finishReply',
   });
-  if (error) return { plan: null, status: 'error', error };
+  if (error) return { plan: null, status: 'error', error, seenFacts };
   const reply = typeof out?.reply === 'string' ? out.reply.trim() : '';
-  return reply.length >= 8 && reply.length <= 600 ? { plan: reply, status: 'model' } : { plan: null, status: 'scripted' };
+  return reply.length >= 8 && reply.length <= 600 ? { plan: reply, status: 'model', seenFacts } : { plan: null, status: 'scripted', seenFacts };
 }
 
 // ---------- Agent-to-agent queries (transport for the external demo client) ----------
