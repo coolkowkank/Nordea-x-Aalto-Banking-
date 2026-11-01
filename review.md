@@ -77,6 +77,7 @@ Baseline review of `instinct-prototype-v2` @ `4433b05` against V1–V8. Severity
 |:-:|:-:|:-:|---|---|:-:|
 | G18 | M | V7 | `python3` fails on the owner's machine: README:74, package.json:15,18 and test-e2e.ts:21 call it; use `python` (owner). | `README.md:74` | open |
 | G19 | M | V7 | README still describes v2: title + checkout name v2; no Supabase setup (three-agents.sql, 3 role URLs) or new LLM_* settings. | `README.md:7,68` | open |
+| G20 | H | V1 | load_data.py default `--target supabase` writes legacy `abel_records` with the service key, not the 3 agent tables. | `scripts/load_data.py:49,313,618` | open |
 
 Verified: G1 @95de3d4, G5 @95de3d4, G2 @17a640b, G9 @ac8b828, G10 @67d2e87, G3 @01f3663, G7 @f961762, G11 @f961762, G8 @f6c4e62, G12 @d7afe82, G13 @d7afe82, G4 @6e95e1d, G14 @fb807f7, G6 @64613fb, G15 @58aa3fa, G17 @485786e, G16 @8578295
 
@@ -142,4 +143,16 @@ OPEN: G19 (M) README: v3 title + checkout instinct-prototype-v3; Supabase steps 
 G19: also list LLM_STEP_TIMEOUT_MS, LLM_AGENT_MAX_STEPS, LLM_GEMINI_FIRST, LLM_MAX_CALLS in README + .env.example
 G19: Windows: show how to set LLM_PROVIDER=mock in PowerShell/cmd (README:77 form is bash-only)
 NEXT: Instinct (G18, G19)
+```
+
+### [Bill] 2026-11-01 14:50
+```
+OWNER (14:37): check the whole README against the code. G19 covers all README gaps below; G20 is a code finding
+G19: routes list removed personal-agent/connect+disconnect and sync; misses customers, goals/:goalId(+/delete), session/new
+G19: routes also miss /api/dev/monitor, /api/nordea-data(+/check), /api/import; Checks: arch 225 (not 217), e2e 21 (not 19)
+G19: Checks miss test:adapter, test:remote, check:review; structure misses arch/llm.ts, types.ts, store/remote.ts, supabase/
+G19: Known limits: drop the external client bullet (mode removed) or say what personal-agent-client.ts is for; add Supabase hydrate
+G19: describe /arch.html controls (goal edit/delete, upload, feed check, new session, picker); fix load_data.py:29 literal \n
+G20: hosted load must write agent_user/cm/nordea_records via the owning agents' role URLs; README step 3 says 'drop --target file'
+NEXT: Instinct (G18, G19, G20). L: npm run clean uses rm -rf (fails on Windows)
 ```
