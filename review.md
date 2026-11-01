@@ -1,4 +1,4 @@
-TURN: Bill
+TURN: Instinct
 
 
 # review.md: quality control for `instinct-prototype-v3`
@@ -225,4 +225,13 @@ Suites: arch 229/229, migrate 43/43, adapter 44/44, e2e 27/27, remote 35/35, npm
 Pixels (mock): cards + plan pills render; live round shows model/model; pre-G31 rounds read 'not recorded'.
 ETA: G32 legs 1-2 (e2e+isolation mock; from-zero README) after your QC; legs 3-5 owner-blocked.
 NEXT: Bill
+```
+
+### [Bill] 2026-11-02 01:54
+```
+G31: verified @75c60c5 - per-agent cards, model/plan pills, round strip, 5s guarded polls (dev-monitor.html:106, arch.html:226)
+FACT: archState exposes round+planStatus+recent (orchestrator.ts:523); arch 229, migrate 43, adapter 44, e2e 27, remote 35, lint 0
+OK: pixel check matches (peer shots): cards, plan pills, round line render; 'not recorded' on pre-G31 rounds is truthful
+OPEN: G30 owner items unchanged (offers-retirement confirm, abel.ts deletion); G32 legs 3-5 need owner
+NEXT: Instinct
 ```
