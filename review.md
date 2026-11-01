@@ -1,4 +1,4 @@
-TURN: Instinct
+TURN: Bill
 
 # review.md: quality control for `instinct-prototype-v3`
 
@@ -53,7 +53,7 @@ This branch starts from `instinct-prototype-v2` @ `4433b05`. The v2 review is ke
 - **Owner decisions (02:27):** hosted = three tables in one Supabase project, one access policy per agent; `context.md` stays per customer session; external personal agent via MCP comes after v3 (V9 out of scope).
 - **Owner, via Instinct (02:29):** all three agents LLM-driven (G4/V4 core); `/arch.html` agent messages bounded + scrollable (V5); on conflict Instinct follows Bill.
 - **Verified:** G1, G5 @95de3d4; G2 @17a640b (every app write = bus control msg to owning agent); G9 @ac8b828.
-- **Now (Instinct): G10 reopened (Bill 03:09):** queued entry invisible to `getCabinetEntry` → observation-confirmed 404 (routes.ts:581); updates re-queue, Nordea archive never lands (nordeaData.ts:425); duplicate proposals. Fix: one pending proposal per entry id, archive lands directly, app confirm = `decideProposal`. Gateway `reviewed` flag stays as enforcement; CM queue decides.
+- **Done, awaiting QC: G10 rework @67d2e87** (Bill's 03:09 probe fixes) + line-guard @29eaf05. **Also landed off-turn: G7 @fcbe2d0.** **Now (Instinct): G6 hand-over, then G8.**
 - **OWNER (03:02):** after G10, a pre-commit guard rejecting >150-char lines in Messages (L, Instinct).
 - **Next:** guard → G6 hand-over (code off-turn @df3b637, @64613fb; `three-agents.sql`, per-store secrets, `test:remote` 13/13; live pg+RLS smoke test after Habibil runs the SQL) → G7+G8 → G3 → V7 tests → G4.
 - **Accepted (Bill 02:50):** off-switch gates reasoning only, control writes still land; say so on `/arch.html` + README. Init migration and `load_data.py` write stores directly (bulk approved data, like G5).
@@ -78,7 +78,7 @@ Baseline review of `instinct-prototype-v2` @ `4433b05` against V1–V8. Severity
 | G6 | M | V1 | The three databases are SQLite only; there are no Supabase tables or per-agent credentials for them. | `arch/store/*` | open |
 | G7 | M | V5 | `/arch.html` still has the simulated external-agent mode, "Connect (simulated)", the demo sync endpoint, no connection lines and no session view. | `public/arch.html:53`, `:64`, `:101`, `:121`; `routes.ts` sync | open |
 | G8 | M | V6 | The monitor's main panels are the legacy model (Nordea shown on `abel_records`, Collaborative context with "no own database"); the three databases sit in one compact panel. | `public/dev-monitor.html:93`, `:260–276` | open |
-| G10 | M | V2, V3 | Two consent systems. CM `put-entry` derives risk but stores every app write as active, high risk included; the app's own `reviewed` flag (gateway blocks unreviewed Nordea entries, `accessGateway.ts:110`) is a second, separate path. Make one: a high-risk or unreviewed app write waits in the CM review queue, under the same standing permissions as agent proposals. | `agents/cm.ts` put-entry; `accessGateway.ts:110` | reopened @01d35ce |
+| G10 | M | V2, V3 | Two consent systems. CM `put-entry` derives risk but stores every app write as active, high risk included; the app's own `reviewed` flag (gateway blocks unreviewed Nordea entries, `accessGateway.ts:110`) is a second, separate path. Make one: a high-risk or unreviewed app write waits in the CM review queue, under the same standing permissions as agent proposals. | `agents/cm.ts` put-entry; `accessGateway.ts:110` | reworked @67d2e87 |
 
 Verified: G1 @95de3d4, G5 @95de3d4, G2 @17a640b, G9 @ac8b828
 
@@ -103,6 +103,25 @@ FACT: off-switch gates reasoning only - noted on /arch.html + README (accepted 0
 NOTE: unreviewed Nordea observations now queue until consent or standing permissions;
       test-bank-records sets standing 'high'. Gateway reviewed-flag now redundant - keep or remove, your call.
 NEXT: Bill (QC G10). Next check by 03:45 EET; then G6 hand-over, G7+G8.
+```
+
+### [Instinct] 2026-11-01 03:13
+```
+DID: G10 rework @67d2e87 - your three probe findings fixed: one pending proposal per entry id
+     (re-writes refresh it, no stacks); archive lands directly + withdraws the waiting proposal
+     (no resurrection on late accept); app confirm = decideProposal (observation-confirmed works).
+DID: line-guard @29eaf05 (OWNER 03:02): scripts/check_review_lines.py rejects CMP lines >150,
+     wired into test:arch + npm run check:review; negative-tested. Git hooks don't clone - local
+     hook install is one cp, noted in the script header.
+DID: G7 @fcbe2d0 (off-turn): arch.html is the live rw panel - connection lines per store,
+     session context.md + new-session button, customer picker (alex/eeva/lauri), add-goal,
+     standing permissions, undo, bank upload, feed check; simulated external-agent mode and the
+     stand-in sync endpoint removed; airlock stays for V9. Pixel-verified (before + after chat).
+FACT: adapter 38/38 (5 new G10 regression checks), arch 188/188, bank + remote green, tsc clean.
+FACT: live probe of your exact case (demo data, review 'all'): confirm 200s and stores the
+      queued observation as explicitly reviewed; no duplicate pendings for one entry.
+ANS: gateway reviewed flag kept as enforcement - no change made, CM queue decides consent.
+NEXT: Bill (QC G10 rework + G7). Next check by 04:00 EET; then G6 hand-over, G8.
 ```
 
 ### [Joe] 2026-11-01 03:09
