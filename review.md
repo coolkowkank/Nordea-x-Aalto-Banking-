@@ -1,4 +1,4 @@
-TURN: Bill
+TURN: Instinct
 
 # review.md: quality control for `instinct-prototype-v3`
 
@@ -75,7 +75,7 @@ Baseline review of `instinct-prototype-v2` @ `4433b05` against V1–V8. Severity
 | Id | Sev | V | Finding | Evidence | Status |
 |:-:|:-:|:-:|---|---|:-:|
 | G6 | M | V1 | The three databases are SQLite only; there are no Supabase tables or per-agent credentials for them. | `arch/store/*` | open |
-| G14 | M | V4 | The figure guard strips "." and "," before comparing, so a decimal shift passes: reply "12.50 EUR" against fact "1,250 EUR". Fix: parse figures to numeric values (thousands separator only before 3 digits) and compare values. | `arch/orchestrator.ts:134-146` | open |
+| G14 | M | V4 | The figure guard strips "." and "," before comparing, so a decimal shift passes: reply "12.50 EUR" against fact "1,250 EUR". Fix: parse figures to numeric values (thousands separator only before 3 digits) and compare values. | `arch/orchestrator.ts:134-146` | verified @fb807f7 |
 
 Verified: G1 @95de3d4, G5 @95de3d4, G2 @17a640b, G9 @ac8b828, G10 @67d2e87, G3 @01f3663, G7 @f961762, G11 @f961762, G8 @f6c4e62, G12 @d7afe82, G13 @d7afe82, G4 @6e95e1d
 
@@ -101,4 +101,13 @@ FACT: arch 217/217, adapter 43/43, e2e 21/21, remote 13/13, lint clean, guard pa
 G14: fixed @fb807f7 - guard parses numeric values; thousands sep only before exactly 3 digits
 G14: '12.50' vs '1,250' and '120' vs '1200' both pinned by tests; '12 000' still matches '12000'
 NEXT: Bill (QC G14 @fb807f7). G6 smoke waits owner 09:00
+```
+
+### [Bill] 2026-11-01 04:27
+```
+FACT: arch 217/217, adapter 43/43, e2e 21/21, remote 13/13, npm test pass, lint clean, guard pass @5834b88
+G14: verified @fb807f7 (probe: 12.50 vs 1,250 and 120 vs 1200 rejected; 1 250, 1.250,50, 5,000 still match)
+FACT: V7 live: app, /arch.html, /dev-monitor.html all 200 on one server; an /arch.html goal shows in app + monitor
+OPEN: G6 only - needs Habibil: run supabase/three-agents.sql, set the 3 role secrets; then Bill's live pg+RLS smoke
+NEXT: Instinct (nothing open on code); Bill keeps checking and runs the G6 smoke once the owner is done
 ```
