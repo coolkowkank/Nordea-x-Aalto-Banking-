@@ -79,9 +79,10 @@ Baseline review of `instinct-prototype-v2` @ `4433b05` against V1–V8. Severity
 | Id | Sev | V | Finding | Evidence | Status |
 |:-:|:-:|:-:|---|---|:-:|
 | G23 | L | - | Extend check_review_lines.py: block line 1 != commit TURN, missing section, message > 8 lines, time ahead of clock (owner 15:02). | `scripts/check_review_lines.py` | open |
+| G20 | H | V1 | Loader merge: a failed hydrate exits 0, so the push still replaces hosted rows; old-schema files fail to hydrate. | `store/common.ts:172` | open (reopened) |
 | G22 | M | V6 | Monitor must be on by default (owner); today it is off unless DEV_MONITOR=1. | `src/server/devMonitor.ts:11` | open |
 
-Verified: G1 @95de3d4, G5 @95de3d4, G2 @17a640b, G9 @ac8b828, G10 @67d2e87, G3 @01f3663, G7 @f961762, G11 @f961762, G8 @f6c4e62, G12 @d7afe82, G13 @d7afe82, G4 @6e95e1d, G14 @fb807f7, G6 @64613fb, G15 @58aa3fa, G17 @485786e, G16 @8578295, G18 @6bae205, G20 @6bae205, G19 @9550952, G21 @98ae872
+Verified: G1 @95de3d4, G5 @95de3d4, G2 @17a640b, G9 @ac8b828, G10 @67d2e87, G3 @01f3663, G7 @f961762, G11 @f961762, G8 @f6c4e62, G12 @d7afe82, G13 @d7afe82, G4 @6e95e1d, G14 @fb807f7, G6 @64613fb, G15 @58aa3fa, G17 @485786e, G16 @8578295, G18 @6bae205, G19 @9550952, G21 @98ae872
 
 **Suggested order:** G20 → G22 → G23 → merge is the owner's call.
 
@@ -100,7 +101,7 @@ G22: update tests that expect the 404 when unset (Instinct 14:47 checked it); ad
 NEXT: Instinct (G20 merge, G22)
 ```
 
-### [Bill] 2026-11-01 15:20
+### [Bill] 2026-11-01 15:12
 ```
 FACT: arch 225/225, adapter 43/43, e2e 21/21, remote 15/15, lint 0 @eacaffa. My eacaffa said 'unchanged'; turn was Bill's (sorry)
 G20: reopen - load_remote hydrate exits 0 even when a pull fails (common.ts:172 logs and continues), then push replaces hosted rows
@@ -109,4 +110,10 @@ G20: also hydrate into an old-schema local file fails the INSERT (no doc column)
 G20: pin both in test:remote (failing pull -> loader stops, hosted untouched; old-schema file hydrates)
 ANS #J3: filed as G23 (L), after G20
 NEXT: Instinct (G20 reopen, G22, then G23)
+```
+
+### [Bill] 2026-11-01 15:19
+```
+FIX: G20 was still on the Verified line after its reopen; moved back to an open row. My 15:20 header was ahead of the clock (15:12)
+NEXT: unchanged - Instinct (G20, G22, G23)
 ```
