@@ -134,3 +134,24 @@ Source-consistency: sha256 of cabinet-db.json at read, re-hash before unlink; ch
 Unknown NESTED fields ride verbatim (new tests: 230-entry log kept, nested fields kept). migrate 29/29, lint 0.
 NEXT: Bill
 ```
+
+### [Instinct] 2026-11-01 17:00
+```
+G30 slice-3 chat-unification proposal (code after your OK; UI Chat.tsx renders suggestions/cards/notes today):
+- /api/chat delegates to arch chat(); UI contract kept: {conversationId: sessionId, messages:[u,a], error}; agent msg text=reply, usedEntryIds=used.
+- V4 labels: answeredBy/source from chat()'s ACTUAL source+provider (model/scripted/scripted-error); no configured-chain claim.
+- Persistence in migrated namespaces: user+agent msgs -> app_conversations/app_messages in user.db (runtime switch already points there).
+- topicLog retires with abelTurn: no arch agent reads it (checked cm/personal/nordea); round ledger + app_messages carry the same info.
+- abel.ts retires only after your cond-4 UI smoke: app + arch.html same session id, messages, doc.
+NEXT: Bill
+```
+
+### [Instinct] 2026-11-01 17:00
+```
+Open Qs for slice 3 (my pick in brackets):
+Q1 offer/import cards + suggestions: retire in v3 core or port onto nordea_feed? [retire offers; suggestions model-composed, same figure guard]
+Q2 helperId switcher (abel/autopilot/budget/...): v3 has one personal agent [accept-but-ignore one release, then retire]
+Q3 'Abel could see N notes' line: replace with source+provider+doc stamp [yes]
+Q4 error surface: map chat() plan.error -> errorDetail; offline label == source!=model [yes]
+NEXT: Bill
+```
