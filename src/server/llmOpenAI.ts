@@ -224,7 +224,9 @@ export function makeOpenAiProvider(o: OpenAiOpts): LlmProvider & { model: string
       let text = stripThinking(String(msg.content || ''));
       // A tool call written as text ({"name":"getSpending",…} or finishReply's fields as lines): run it as a real call.
       if (args.tools.length && text) {
-        const found = callsInText(text, args.tools.map((t) => t.name), args.tools.length === 1 ? { name: args.tools[0].name, required: (args.tools[0].parameters as any)?.required || [] } : undefined);
+        const finishes = args.tools.filter((t) => t.name.startsWith('finish'));
+        const finish = finishes.length === 1 ? { name: finishes[0].name, required: (finishes[0].parameters as any)?.required || [] } : undefined;
+        const found = callsInText(text, args.tools.map((t) => t.name), args.tools.length === 1 ? { name: args.tools[0].name, required: (args.tools[0].parameters as any)?.required || [] } : undefined, finish);
         if (found.calls.length) {
           if (!calls.length) calls.push(...found.calls);
           else calls.push(...found.calls.filter((c) => !calls.some((x) => x.name === c.name)));

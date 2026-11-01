@@ -617,6 +617,27 @@ check('G16: the counter resets and the cap lifts when unset', LL.llmCallCount() 
   LL.setProviderForTests(null);
 }
 
+// G16 Groq pin (real 12:43 response): gpt-oss writes the finish call as text
+// {"name":"json","arguments":{…}}; with exactly one finish* tool and args holding its
+// required keys, run it as that finish call instead of falling back to scripted.
+{
+  const RP = await import('../src/server/replyParse.js');
+  const tools = [
+    { name: 'listMyEntries', description: 'd', parameters: { type: 'object', properties: {} } },
+    { name: 'finishRetrievalPlan', description: 'd', parameters: { type: 'object', properties: { goalTitles: { type: 'array', items: { type: 'string' } }, reason: { type: 'string' } }, required: ['goalTitles'] } },
+  ];
+  const realText = '{"name": "json", "arguments": {\n  "goalTitles": [\n    "Save for a car"\n  ],\n  "reason": "No existing cabinet entries add new information."\n}}';
+  const finishes = tools.filter((t) => t.name.startsWith('finish'));
+  const finish = finishes.length === 1 ? { name: finishes[0].name, required: (finishes[0].parameters as any)?.required || [] } : undefined;
+  const parsed = RP.callsInText(realText, tools.map((t) => t.name), undefined, finish);
+  const c0 = parsed.calls[0];
+  check('G16 Groq pin: {"name":"json",…} aliases to the finish tool when args match its required keys',
+    parsed.calls.length === 1 && c0?.name === 'finishRetrievalPlan' && JSON.stringify((c0?.args as any)?.goalTitles) === '["Save for a car"]',
+    JSON.stringify(parsed.calls).slice(0, 120));
+  const notArgs = RP.callsInText('{"name": "json", "arguments": {"foo": 1}}', tools.map((t) => t.name), undefined, finish);
+  check('G16 Groq pin: a {"name":"json"} block without the required keys is NOT a call', notArgs.calls.length === 0, JSON.stringify(notArgs.calls));
+}
+
 // G17: the agent step budget and step timeout are configurable via env; defaults unchanged.
 {
   const AL = await import('../src/server/arch/llm.js');

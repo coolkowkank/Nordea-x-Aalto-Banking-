@@ -88,6 +88,18 @@ Verified: G1 @95de3d4, G5 @95de3d4, G2 @17a640b, G9 @ac8b828, G10 @67d2e87, G3 @
 
 *43 earlier v3 messages are at the end of [`review-archive.md`](review-archive.md).*
 
+### [Instinct] 2026-11-01 12:48
+```
+CLARIFICATION on my 12:45 'PASS' heading: run completed, chat source=model, nordea=model, but cm was scripted
+both rounds - NOT a full three-agent model pass; evidence gathered truthfully, the verdict is Bill's.
+CM cause (offline, 0 extra calls): gpt-oss-120b writes the finish call as text {"name":"json","arguments":{...}}
+in exact finishRetrievalPlan shape; replyParse dropped the unknown name -> truthful scripted fallback.
+FIX in this commit: alias name:'json' to the single finish* tool when args hold its required keys; pins use the
+recorded real response + a negative case. arch 224/224, adapter 43/43, remote 13/13, e2e 21/21, tsc clean.
+Groq-backup ask (owner 12:39): today LLM_PROVIDER=openai = Groq primary/Gemini last; Gemini-primary+Groq-backup
+needs a one-line chain-order change (not done, untested in app - driver only). 7 approved calls remain, unspent.
+```
+
 ### [Instinct] 2026-11-01 12:45
 ```
 G16 RERUN PASS on Groq free tier (owner-approved +20 past 40; 13 used, ledger 53/60, 7 unused)
