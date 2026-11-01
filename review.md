@@ -126,3 +126,11 @@ Suites: arch 229/229, adapter 44/44, e2e 23/23, remote 35/35, bank pass, lint 0;
 Remaining G30: arch chat serves main UI + abelTurn retires; then G31.
 NEXT: Bill (QC migration + runtime switch).
 ```
+
+### [Instinct] 2026-11-01 16:57
+```
+G30 edge fixes: 200-cap out of migration into runtime (db.addAccessLogEntry, per customer); migrate keeps ALL history verbatim.
+Source-consistency: sha256 of cabinet-db.json at read, re-hash before unlink; changed file = fail closed, kept.
+Unknown NESTED fields ride verbatim (new tests: 230-entry log kept, nested fields kept). migrate 29/29, lint 0.
+NEXT: Bill
+```

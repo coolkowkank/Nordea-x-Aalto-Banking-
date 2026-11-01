@@ -128,8 +128,11 @@ export function runLegacyMigration(): MigrationResult {
     return { ok: true, deleted: false, alreadyDone: true, failures: [], ledger: [] };
   }
   let raw: RawFile;
+  let sourceHash: string;
   try {
-    raw = JSON.parse(fs.readFileSync(DB_FILE, 'utf-8')) as RawFile;
+    const buf = fs.readFileSync(DB_FILE);
+    sourceHash = crypto.createHash('sha256').update(buf).digest('hex');
+    raw = JSON.parse(buf.toString('utf-8')) as RawFile;
   } catch (err) {
     return { ok: false, deleted: false, alreadyDone: false, failures: [`cabinet-db.json is not readable JSON: ${(err as Error).message}`], ledger: [] };
   }
@@ -244,7 +247,13 @@ export function runLegacyMigration(): MigrationResult {
     return { ok: false, deleted: false, alreadyDone: false, failures, ledger };
   }
 
-  // ---- Verified: the legacy file goes, exactly once ----
+  // ---- Verified. Last guard: the source must be the same bytes we migrated from (crash-resume
+  // safety: a file that changed mid-migration is a NEW source - never delete it) ----
+  const nowHash = crypto.createHash('sha256').update(fs.readFileSync(DB_FILE)).digest('hex');
+  if (nowHash !== sourceHash) {
+    return { ok: false, deleted: false, alreadyDone: false,
+      failures: ['cabinet-db.json changed during the migration - kept; run again against the current file'], ledger };
+  }
   fs.unlinkSync(DB_FILE);
   return { ok: true, deleted: true, alreadyDone: false, failures: [], ledger };
 }

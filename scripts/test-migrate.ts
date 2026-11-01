@@ -165,5 +165,40 @@ console.log('test-migrate: legacy cabinet-db.json -> three agent databases');
   fs.rmSync(dir, { recursive: true, force: true });
 }
 
+// Case 6: a long access log migrates VERBATIM (no retention trim during migration)
+{
+  const big = fixture();
+  big.accessLog = Array.from({ length: 230 }, (_, i) => ({
+    id: `a${i}`, timestamp: `2026-01-07T10:${String(i % 60).padStart(2, '0')}:${String(i).padStart(2, '0')}Z`,
+    userId: 'lauri', agentId: 'cm', agentName: 'CM', purpose: 'context',
+    itemsReadCount: 1, blockedCount: 0, allowedItems: [], blockedReasons: [],
+  }));
+  const { dir, result } = runCase('long-access-log', big);
+  check('long access log: migration ok', result.ok === true, JSON.stringify(result.failures).slice(0, 200));
+  const { DatabaseSync } = await import('node:sqlite');
+  const c = new DatabaseSync(path.join(dir, 'arch', 'lauri.cm.db'));
+  const n = c.prepare('SELECT COUNT(*) c FROM app_access_log').get() as { c: number };
+  c.close();
+  check('long access log: all 230 entries preserved (no migration trim)', n.c === 230, String(n.c));
+  fs.rmSync(dir, { recursive: true, force: true });
+}
+
+// Case 7: unknown NESTED fields ride verbatim (entry + message + reward shapes)
+{
+  const nested = fixture();
+  (nested.cabinetEntries[0] as Record<string, unknown>).customTag = { team: 'x', prio: 1 };
+  (nested.messages[0] as Record<string, unknown>).futureFlag = ['a', 'b'];
+  const { dir, result } = runCase('nested', nested);
+  check('nested: migration ok', result.ok === true, JSON.stringify(result.failures).slice(0, 200));
+  const { DatabaseSync } = await import('node:sqlite');
+  const u = new DatabaseSync(path.join(dir, 'arch', 'lauri.user.db'));
+  const g = JSON.parse((u.prepare('SELECT doc FROM goals WHERE id = ?').get('e-goal') as { doc: string }).doc);
+  const m = JSON.parse((u.prepare('SELECT json FROM app_messages WHERE id = ?').get('m1') as { json: string }).json);
+  u.close();
+  check('nested: unknown entry field preserved in doc', g.customTag?.team === 'x' && g.customTag?.prio === 1);
+  check('nested: unknown message field preserved', Array.isArray(m.futureFlag) && m.futureFlag.length === 2);
+  fs.rmSync(dir, { recursive: true, force: true });
+}
+
 console.log(`\ntest-migrate: ${passed} passed, ${failed} failed`);
 process.exit(failed ? 1 : 0);

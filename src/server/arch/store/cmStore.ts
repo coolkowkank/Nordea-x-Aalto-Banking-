@@ -214,8 +214,6 @@ export function putAppAccessLog(uid: string, rows: { id: string; at: string; jso
     const stmt = db.prepare('INSERT INTO app_access_log (id, at, json) VALUES (?, ?, ?) ON CONFLICT(id) DO UPDATE SET json = excluded.json');
     db.exec('BEGIN');
     for (const r of rows) stmt.run(r.id, r.at, r.json);
-    // Keep the newest 200 entries per customer (the old store's cap, now per customer).
-    db.exec('DELETE FROM app_access_log WHERE id NOT IN (SELECT id FROM app_access_log ORDER BY at DESC LIMIT 200)');
     db.exec('COMMIT');
   } finally { db.close(); }
 }
@@ -237,6 +235,17 @@ export function putMigrationLedger(uid: string, rows: MigrationLedgerRow[]) {
     const stmt = db.prepare('INSERT INTO app_migration_ledger (kind, source_hash, rows, done_at) VALUES (?, ?, ?, ?) ON CONFLICT(kind) DO UPDATE SET source_hash = excluded.source_hash, rows = excluded.rows, done_at = excluded.done_at');
     db.exec('BEGIN');
     for (const r of rows) stmt.run(r.kind, r.sourceHash, r.rows, r.doneAt);
+    db.exec('COMMIT');
+  } finally { db.close(); }
+}
+
+export function deleteAppAccessLogRows(uid: string, ids: string[]) {
+  if (!ids.length || !fs.existsSync(fileFor(uid, 'cm'))) return;
+  const db = openDb(fileFor(uid, 'cm'), 'cm');
+  try {
+    const stmt = db.prepare('DELETE FROM app_access_log WHERE id = ?');
+    db.exec('BEGIN');
+    for (const id of ids) stmt.run(id);
     db.exec('COMMIT');
   } finally { db.close(); }
 }

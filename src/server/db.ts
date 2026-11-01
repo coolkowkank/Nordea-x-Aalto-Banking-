@@ -35,7 +35,7 @@ import type { UserProfile } from './arch/store/userStore.js';
 import {
   loadCmDb, putEntry, removeEntry, addHistoryEvent, loadHistory, deleteHistoryFor, listUndoRecords,
   loadShares, putShare, putUndoRecord, getUndoRecord as cmGetUndo, removeUndoRecord as cmRemoveUndo, deleteCmDb,
-  loadAppAccessLog, putAppAccessLog,
+  loadAppAccessLog, putAppAccessLog, deleteAppAccessLogRows,
 } from './arch/store/cmStore.js';
 import {
   loadNordeaDb, nordeaFileExists, saveNordeaDb, loadBalances, saveBalances,
@@ -636,6 +636,10 @@ class Database {
 
   public addAccessLogEntry(log: AccessLogEntry): AccessLogEntry {
     putAppAccessLog(log.userId, [{ id: log.id, at: log.timestamp, json: JSON.stringify(log) }]);
+    // Retention (the old store's policy, now per customer): keep the newest 200. Only NEW entries
+    // trim - the migration writes history verbatim and never truncates it.
+    const all = loadAppAccessLog<AccessLogEntry>(log.userId);
+    if (all.length > 200) deleteAppAccessLogRows(log.userId, all.slice(0, all.length - 200).map((x) => x.id));
     return log;
   }
 
