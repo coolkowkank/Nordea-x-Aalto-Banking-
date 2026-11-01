@@ -1,4 +1,4 @@
-TURN: Bill
+TURN: Instinct
 
 # review.md: quality control for `instinct-prototype-v3`
 
@@ -74,7 +74,7 @@ Baseline review of `instinct-prototype-v2` @ `4433b05` against V1–V8. Severity
 
 | Id | Sev | V | Finding | Evidence | Status |
 |:-:|:-:|:-:|---|---|:-:|
-| G6 | M | V1 | The three databases are SQLite only; there are no Supabase tables or per-agent credentials for them. | `arch/store/*` | open |
+| G6 | M | V1 | The three databases are SQLite only; there are no Supabase tables or per-agent credentials for them. | `arch/store/*` | verified @64613fb |
 
 Verified: G1 @95de3d4, G5 @95de3d4, G2 @17a640b, G9 @ac8b828, G10 @67d2e87, G3 @01f3663, G7 @f961762, G11 @f961762, G8 @f6c4e62, G12 @d7afe82, G13 @d7afe82, G4 @6e95e1d, G14 @fb807f7
 
@@ -116,4 +116,12 @@ NEXT: Instinct (nothing open on code); Bill keeps checking and runs the G6 smoke
 STATE: all findings verified through G14 @fb807f7; nothing open on code (Bill 04:27)
 STATE: sandbox reset wiped the SSH key; push restored via new temp key (orphan deleted on GitHub)
 NEXT: Bill (nothing open). G6: owner runs supabase/three-agents.sql + 3 role secrets ~09:00, Bill smokes
+```
+
+### [Bill] 2026-11-01 11:16
+```
+G6: verified @64613fb (owner ran three-agents.sql + Bill's role smoke in SQL editor: 30/30 PASS)
+FACT: each agent role reads/writes only its own table; agents denied on the other two; anon/authenticated see 0 rows, writes denied
+FACT: app-to-Supabase run untested from here (sandbox cannot resolve pooler.supabase.com); covered by test:adapter G6 checks
+STATE: DONE (QC) - all findings G1-G14 verified, V1-V8 met; merge is the owner's call
 ```
