@@ -46,7 +46,7 @@ This branch starts from `instinct-prototype-v2` @ `4433b05`. The v2 review is ke
 ---
 
 ## 🧠 Context memory
-*Joe, updated 2026-11-01 04:23.*
+*Joe, updated 2026-11-01 04:28.*
 
 - **Goal:** one system: the three agents and their DBs are the only home for customer data; Abel, `/arch.html` (rw) and `/dev-monitor.html` (ro) on one server. Done = V1–V8.
 - **Base:** `instinct-prototype-v2` @4433b05 (F1–F30 verified, `test:arch` 188/188).
@@ -54,10 +54,10 @@ This branch starts from `instinct-prototype-v2` @ `4433b05`. The v2 review is ke
 - **Owner, via Instinct (02:29):** all three agents LLM-driven (G4/V4 core); `/arch.html` agent messages bounded + scrollable (V5); on conflict Instinct follows Bill.
 - **OWNER (03:24): asleep, back 09:00.** Owner-only steps (e.g. running `three-agents.sql`) and OWNER-Q wait; keep working.
 - **OWNER (03:02):** line guard for Messages: verified @29eaf05 (`npm run check:review`, in test:arch). It checks width only; ≤ 8 lines is on the author.
-- **Verified:** G1, G5 @95de3d4; G2 @17a640b; G9 @ac8b828; G10 @67d2e87 (gateway `reviewed` flag kept as enforcement); G3 @01f3663; G7, G11 @f961762; G8 @f6c4e62; G12, G13 @d7afe82; G4 @6e95e1d (all three agents LLM-driven, own-DB tools).
-- **Now (Bill): QC G14 @fb807f7:** guard parses numeric values (thousands separator only before exactly 3 digits); '12.50' vs '1,250' pinned by test.
+- **Verified:** G1, G5 @95de3d4; G2 @17a640b; G9 @ac8b828; G10 @67d2e87; G3 @01f3663; G7, G11 @f961762; G8 @f6c4e62; G12, G13 @d7afe82; G4 @6e95e1d; G14 @fb807f7. V7 live: app, /arch.html, /dev-monitor.html on one server.
+- **Now:** nothing open on code. **Only G6:** Habibil (09:00) runs `supabase/three-agents.sql` + sets the 3 role secrets, then Bill runs the live pg+RLS smoke.
 - **G6:** code done @df3b637; real pg grants/RLS unsmoked, waits for Habibil (09:00): run `supabase/three-agents.sql`, set 3 role secrets.
-- **Next:** QC verdicts → G6 live smoke at 09:00 (owner) → 🏁.
+- **Next:** owner step at 09:00 → Bill G6 smoke → 🏁.
 - **Accepted (Bill 02:50):** off-switch gates reasoning only, control writes still land (noted on `/arch.html` + README). Init migration and `load_data.py` write stores directly (bulk approved data).
 - **Settled from v2:** Node 22.13+; per-session `context.md`, one writer per section; risk by code rules (`assessEntryRisk`); Abel sees active rows only.
 
@@ -75,11 +75,10 @@ Baseline review of `instinct-prototype-v2` @ `4433b05` against V1–V8. Severity
 | Id | Sev | V | Finding | Evidence | Status |
 |:-:|:-:|:-:|---|---|:-:|
 | G6 | M | V1 | The three databases are SQLite only; there are no Supabase tables or per-agent credentials for them. | `arch/store/*` | open |
-| G14 | M | V4 | The figure guard strips "." and "," before comparing, so a decimal shift passes: reply "12.50 EUR" against fact "1,250 EUR". Fix: parse figures to numeric values (thousands separator only before 3 digits) and compare values. | `arch/orchestrator.ts:134-146` | verified @fb807f7 |
 
-Verified: G1 @95de3d4, G5 @95de3d4, G2 @17a640b, G9 @ac8b828, G10 @67d2e87, G3 @01f3663, G7 @f961762, G11 @f961762, G8 @f6c4e62, G12 @d7afe82, G13 @d7afe82, G4 @6e95e1d
+Verified: G1 @95de3d4, G5 @95de3d4, G2 @17a640b, G9 @ac8b828, G10 @67d2e87, G3 @01f3663, G7 @f961762, G11 @f961762, G8 @f6c4e62, G12 @d7afe82, G13 @d7afe82, G4 @6e95e1d, G14 @fb807f7
 
-**Suggested order:** G14 → G6 smoke (owner, 09:00).
+**Suggested order:** G6 smoke (after owner step, 09:00).
 
 ---
 
