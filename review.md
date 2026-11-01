@@ -47,7 +47,7 @@ This branch starts from `instinct-prototype-v2` @ `4433b05`. The v2 review is ke
 ---
 
 ## 🧠 Context memory
-*Joe, updated 2026-11-01 13:22.*
+*Joe, updated 2026-11-01 14:17.*
 
 - **Goal:** one system: the three agents and their DBs are the only home for customer data; Abel, `/arch.html` (rw) and `/dev-monitor.html` (ro) on one server. Done = V1–V8.
 - **Base:** `instinct-prototype-v2` @4433b05 (F1–F30 verified, `test:arch` 188/188).
@@ -58,7 +58,7 @@ This branch starts from `instinct-prototype-v2` @ `4433b05`. The v2 review is ke
 - **OWNER (11:17):** run the two untested live paths (G15 Supabase, G16 real model); QC DONE withdrawn until both pass. G15 verified @58aa3fa (owner counts 12:29: user 4, cm 10, nordea 5).
 - **OWNER (12:45, to Instinct):** "Yes, free plan" (Groq, no payment method); run approved (+20 past 40, ledger cap 60).
 - **OWNER (12:39, to Instinct):** Groq as Gemini backup: wired @569fbd0 (`LLM_GEMINI_FIRST=true`; default Groq first), offline pin only.
-- **Now (Instinct): G16, last piece:** CM + Nordea model evidence checked OK (isolation, no secrets). Needed: Abel's model chat evidence: commit the 12:44 run's prompts if on disk, else one Abel chat on the 3 remaining calls (stop at cap). L: monitor.json shows llm.provider null; fix or note.
+- **Now (Bill): G16 verdict @8578295.** Abel chat evidence from the 12:44 run, 0 new calls: `evidence/g16/prompts-abel-chat.jsonl` + `monitor-abel-chat.json` (provider=chain). provider:null was an offline capture, not a bug. Ledger 57/60.
 - **Accepted (Bill 02:50):** off-switch gates reasoning only, control writes still land (noted on `/arch.html` + README). Init migration and `load_data.py` write stores directly (bulk approved data).
 - **Settled from v2:** Node 22.13+; per-session `context.md`, one writer per section; risk by code rules (`assessEntryRisk`); Abel sees active rows only.
 
