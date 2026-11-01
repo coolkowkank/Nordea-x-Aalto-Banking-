@@ -5,6 +5,7 @@ import {
   explainEntry, disputeEntry, setAgentOff, deleteDatabase, parkCabinet, listEntries, ArchError,
   appWrites,
 } from './orchestrator.js';
+import { hostedClearOutcome } from './store/common.js';
 import type { AgentId } from './types.js';
 
 /**
@@ -99,10 +100,17 @@ export function registerArchRoutes(app: Express) {
   // Separate controls: turn an agent off, disconnect the personal agent, delete one database.
   app.post('/api/arch/:uid/agents/:agent/off', h((req, res) => res.json({ agentsOff: setAgentOff(uid(req), req.params.agent as AgentId, true) })));
   app.post('/api/arch/:uid/agents/:agent/on', h((req, res) => res.json({ agentsOff: setAgentOff(uid(req), req.params.agent as AgentId, false) })));
-  app.delete('/api/arch/:uid/db/:which', h((req, res) => {
+  app.delete('/api/arch/:uid/db/:which', h(async (req, res) => {
     const which = String(req.params.which);
     if (!['user', 'cm', 'nordea'].includes(which)) { res.status(400).json({ error: 'Which database: user, cm or nordea.' }); return; }
     deleteDatabase(uid(req), which as 'user' | 'cm' | 'nordea');
-    res.json({ deleted: which });
+    // G25: never claim success while the hosted half failed - surface partial state + safe retry.
+    const hosted = await hostedClearOutcome(uid(req), which as 'user' | 'cm' | 'nordea');
+    if (typeof hosted === 'object') {
+      res.status(502).json({ deleted: which, local: 'deleted', hosted: 'clear-failed', error: hosted.failed,
+        retry: 'issue this DELETE again (or: npx tsx scripts/load_remote.ts clear <uid>)' });
+      return;
+    }
+    res.json({ deleted: which, hosted }); // hosted: 'cleared' | 'local-only'
   }));
 }

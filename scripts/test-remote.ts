@@ -262,6 +262,27 @@ check('with its own secret the CM store hydrates its table',
     !fs.existsSync(ff3('delme', 'cm')) && afterDelete.every((r) => r.user_id !== 'delme'), afterDelete);
 }
 
+// --- G25: a failed hosted clear is surfaced (never reported as success) and safely retryable. ---
+{
+  const { deleteDbFile: ddf, hostedClearOutcome, clearRemoteCustomer: crc } = await import('../src/server/arch/store/common.js');
+  await R.pushCustomer('user', URLS.user, 'flaky', [{
+    user_id: 'flaky', id: 'g1', table_name: 'goals',
+    data: { id: 'g1', title: 'Keep me', detail: '', created_at: '2026-11-01', doc: null },
+  }]);
+  fake.failAll = true;
+  ddf('flaky', 'user');
+  const out1 = await hostedClearOutcome('flaky', 'user');
+  const survived = (fake.tables.get('agent_user_records') ?? []).some((r) => r.user_id === 'flaky');
+  check('G25: a failed hosted clear is reported as failed (and the hosted rows survive)',
+    typeof out1 === 'object' && 'failed' in out1 && survived, out1);
+  fake.failAll = false;
+  await crc('user', 'flaky'); // the safe retry
+  const out2 = await hostedClearOutcome('flaky', 'user');
+  const gone = (fake.tables.get('agent_user_records') ?? []).every((r) => r.user_id !== 'flaky');
+  check('G25: the retry clears the hosted rows', gone, out2);
+  check('G25: local-only stores report local-only', (await hostedClearOutcome('nobody', 'bus')) === 'local-only');
+}
+
 console.log(`\n${passed} passed, ${failed} failed`);
 if (failed) { console.error('REMOTE TESTS FAILED'); process.exit(1); }
 console.log('All checks passed');

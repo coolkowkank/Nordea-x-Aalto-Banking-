@@ -232,12 +232,30 @@ export function deleteDbFile(uid: string, which: DbKind) {
     if (fs.existsSync(f)) fs.unlinkSync(f);
   }
   // G25: also clear this customer's hosted rows through the owning role (like load_remote
-  // clear <uid>) - otherwise the next startup hydrate restores the deleted data.
+  // clear <uid>) - otherwise the next startup hydrate restores the deleted data. The outcome
+  // is tracked: the delete route reports it instead of falsely claiming success.
   const url = REMOTE_SECRETS.get(which);
   if (url) {
-    clearRemoteCustomer(which, uid).catch((err) =>
-      console.error(`Hosted clear failed for ${which}:${uid}:`, err instanceof Error ? err.message : err));
+    const key = `${which}:${uid}`;
+    const p = clearRemoteCustomer(which, uid).then(
+      () => null as string | null,
+      (err) => String(err instanceof Error ? err.message : err));
+    hostedClears.set(key, p);
+    p.then((err) => { if (err) console.error(`Hosted clear failed for ${key}:`, err); });
   }
+}
+
+const hostedClears = new Map<string, Promise<string | null>>();
+
+/** G25: how the hosted half of a delete ended - 'cleared', 'local-only' (no remote), or a failure
+ *  the caller must surface. A failure is safe to retry: issue the delete (or clear) again. */
+export async function hostedClearOutcome(uid: string, which: DbKind): Promise<'cleared' | 'local-only' | { failed: string }> {
+  const key = `${which}:${uid}`;
+  const p = hostedClears.get(key);
+  if (!p) return REMOTE_SECRETS.has(which) ? 'cleared' : 'local-only';
+  hostedClears.delete(key);
+  const err = await p;
+  return err === null ? 'cleared' : { failed: err };
 }
 
 /** G25: explicit clear of one customer's hosted rows for one store (delete = local file + this). */
