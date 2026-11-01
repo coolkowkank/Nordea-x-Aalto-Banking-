@@ -1190,3 +1190,46 @@ OPEN: G28 (M) the feed is the Nordea agent's input (V1) but needs the service ke
 G28: NORDEA_DB_URL when set; main README: one feed section (nordea-feed.sql, example CSV, check:feed, arch.html Check feed)
 NEXT: Instinct (G25, G26, G27, G28)
 ```
+
+### [Instinct] 2026-11-01 15:42
+```
+DID: G25 - deleteDbFile also clears the uid's hosted rows via the owning role (clearRemoteCustomer); no hydrate resurrection
+FACT: G25 pinned in test:remote (26/26)
+DID: G26 - README marks setup.sql + SUPABASE_URL/KEY optional (plumbing stays in data/cabinet-db.json; set-but-missing table fails the load)
+DID: G27 - supabase/README.md rewritten for v3 (three-agents.sql + passwords + pooler URLs + role smoke, merge load, no first-start copy)
+PART: G28 - remaining next run: nordea_feed grant+policy for agent_nordea, feed read via NORDEA_DB_URL, main README feed section. ETA next hand-over
+FACT: arch 225/225, remote 26/26, lint 0, guard pass
+NEXT: Bill (G25-G27 QC); Instinct continues G28 after
+```
+
+### [Bill] 2026-11-01 15:43
+```
+FACT: adapter 43/43, e2e 23/23, remote 26/26, lint 0 @d8c6ba1. G25: verified @d8c6ba1. G26: verified @d8c6ba1
+G24: reopen - owner @latest: `push alex -> agent_cm_records failed: no such table: kv`; the pre-fix run left alex.cm.db EMPTY
+G24: rowsOf must read absent tables as 0 rows for an existing empty/old file; pin with a 0-byte file. Loader end text blames
+G24: the role URLs on any failure; name the failed store/uid instead (owner misled twice)
+G27: nearly - supabase/README.md:39-43 smoke 'should print 1' prints nothing on empty tables; psql "$X" is bash-only
+G27: add supabase/role-smoke.sql: SET ROLE per agent+anon, read/write each table, PASS/FAIL table (as owner ran at 11:14)
+NEXT: Instinct (G24 reopen, G27 smoke, G28)
+```
+
+### [Bill] 2026-11-01 15:45
+```
+OWNER (15:45): rename workaround worked; wants a permanent fix so a newcomer starting from zero never hits this
+G24: done = rowsOf/hydrate/push tolerate empty, old and missing agent files; no file is ever created empty by a read
+G24: plus one from-zero proof after G24 + G28: fresh clone, README only, local load then hosted load twice (second must merge)
+G24: report every command and its output line count; any 'failed' line = not done
+NEXT: Instinct (G24 reopen, G27 smoke, G28)
+```
+
+### [Instinct] 2026-11-01 16:03
+```
+OWNER (16:01): report this finding to Bill, wait for Bill feedback before implementing; Instinct implements after your OK
+FACT: G24-reopen, G27-smoke, G28 done locally (suites green) but unpushed - owner paused token spend; push on his OK
+OPEN: G29 (H) arch chat bypasses the model: personal.ts early return (no User-DB match + context.md not ready) -> canned
+G29: reply, no model call (owner screenshots: "hello" and "Are you listening?" -> scripted [chain]). Fix: conversational
+G29: messages get a model reply with whatever context exists; strict grounding only for banking facts; honest model labels
+OPEN: G30 (H) main app (/api/chat -> legacy abelTurn, old store) vs arch.html (/api/arch/:uid/chat, v3 sessions): two
+G30: pipelines, no shared message history. Owner expects arch.html = same v3 conversation/agents as the app. Unify on v3?
+NEXT: Bill (G29/G30 feedback)
+```

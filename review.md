@@ -47,7 +47,7 @@ This branch starts from `instinct-prototype-v2` @ `4433b05`. The v2 review is ke
 ---
 
 ## 🧠 Context memory
-*Joe, updated 2026-11-01 15:46.*
+*Joe, updated 2026-11-01 16:27.*
 
 - **Goal:** one system: the three agents and their DBs are the only home for customer data; Abel, `/arch.html` (rw) and `/dev-monitor.html` (ro) on one server. Done = V1–V8.
 - **Base:** `instinct-prototype-v2` @4433b05 (F1–F30 verified, `test:arch` 188/188).
@@ -62,7 +62,9 @@ This branch starts from `instinct-prototype-v2` @ `4433b05`. The v2 review is ke
 - **OWNER (14:43–14:45):** README must let a newcomer set up from scratch (Bill 14:47 list); mock = no-key test stand-in only, normal run uses Groq or Gemini.
 - **OWNER (15:02, 15:08):** guard extension verified as G23 @53dec36 (`.githooks/pre-commit`, enabled by `npm prepare`; Joe's messages skipped for TURN/NEXT). Monitor on by default (`DEV_MONITOR=0` hides).
 - **OWNER (15:37):** also review supabase/README.md, nordea-feed.sql, nordea-feed-example.csv (feed example applies cleanly).
-- **Now (Instinct): G24 reopened:** an existing EMPTY agent file (left by the pre-fix run) → 'no such table: kv'; read absent tables as 0 rows, pin with a 0-byte file; loader error must name the failed store/uid, not blame role URLs. **G27:** add `supabase/role-smoke.sql` (PASS/FAIL per role, as owner ran 11:14); README smoke is bash-only, prints nothing on empty tables. **G28** next. G25, G26 verified @d8c6ba1.
+- **OWNER (16:01):** token pause: Instinct reports findings, waits for Bill, implements only after the owner's OK. G24, G27, G28 done locally, unpushed.
+- **OWNER (16:22, confirmed twice): target flow.** Abel answers ONLY from the finalised context.md: question → Abel adds User-DB knowledge, asks CM (Context Memory DB) + Nordea (Nordea DB, code aggregates) for their sections → the three finalise → Abel answers from the doc alone. No FACTS block, cabinet notes or shared-facts injection beside it. arch.html shows the same flow for the main-app conversation.
+- **Now (Bill): check the owner flow.** Then Instinct: push G24/G27/G28, fix G29 (H: chat returns canned text before the model, personal.ts:143), post 5-line G30 plan (H: two Abels, app `abelTurn` vs arch personal agent → one pipeline). Owner's from-zero proof after G24 + G28 (Bill 15:45).
 - **Accepted (Bill 02:50):** off-switch gates reasoning only, control writes still land (noted on `/arch.html` + README). Init migration and `load_data.py` write stores directly (bulk approved data).
 - **Settled from v2:** Node 22.13+; per-session `context.md`, one writer per section; risk by code rules (`assessEntryRisk`); Abel sees active rows only.
 
@@ -87,56 +89,13 @@ Baseline review of `instinct-prototype-v2` @ `4433b05` against V1–V8. Severity
 
 Verified: G1 @95de3d4, G5 @95de3d4, G2 @17a640b, G9 @ac8b828, G10 @67d2e87, G3 @01f3663, G7 @f961762, G11 @f961762, G8 @f6c4e62, G12 @d7afe82, G13 @d7afe82, G4 @6e95e1d, G14 @fb807f7, G6 @64613fb, G15 @58aa3fa, G17 @485786e, G16 @8578295, G18 @6bae205, G19 @9550952, G21 @98ae872, G20 @b0134a3, G22 @b0134a3, G23 @53dec36, G25 @d8c6ba1, G26 @d8c6ba1
 
-**Suggested order:** G24 → G27 → G28 → merge is the owner's call.
+**Suggested order:** owner OK → push G24/G27/G28 + G29 → G30 plan → G30 → from-zero proof.
 
 ---
 
 ## Messages
 
-*82 earlier v3 messages are at the end of [`review-archive.md`](review-archive.md).*
-
-### [Instinct] 2026-11-01 15:42
-```
-DID: G25 - deleteDbFile also clears the uid's hosted rows via the owning role (clearRemoteCustomer); no hydrate resurrection
-FACT: G25 pinned in test:remote (26/26)
-DID: G26 - README marks setup.sql + SUPABASE_URL/KEY optional (plumbing stays in data/cabinet-db.json; set-but-missing table fails the load)
-DID: G27 - supabase/README.md rewritten for v3 (three-agents.sql + passwords + pooler URLs + role smoke, merge load, no first-start copy)
-PART: G28 - remaining next run: nordea_feed grant+policy for agent_nordea, feed read via NORDEA_DB_URL, main README feed section. ETA next hand-over
-FACT: arch 225/225, remote 26/26, lint 0, guard pass
-NEXT: Bill (G25-G27 QC); Instinct continues G28 after
-```
-
-### [Bill] 2026-11-01 15:43
-```
-FACT: adapter 43/43, e2e 23/23, remote 26/26, lint 0 @d8c6ba1. G25: verified @d8c6ba1. G26: verified @d8c6ba1
-G24: reopen - owner @latest: `push alex -> agent_cm_records failed: no such table: kv`; the pre-fix run left alex.cm.db EMPTY
-G24: rowsOf must read absent tables as 0 rows for an existing empty/old file; pin with a 0-byte file. Loader end text blames
-G24: the role URLs on any failure; name the failed store/uid instead (owner misled twice)
-G27: nearly - supabase/README.md:39-43 smoke 'should print 1' prints nothing on empty tables; psql "$X" is bash-only
-G27: add supabase/role-smoke.sql: SET ROLE per agent+anon, read/write each table, PASS/FAIL table (as owner ran at 11:14)
-NEXT: Instinct (G24 reopen, G27 smoke, G28)
-```
-
-### [Bill] 2026-11-01 15:45
-```
-OWNER (15:45): rename workaround worked; wants a permanent fix so a newcomer starting from zero never hits this
-G24: done = rowsOf/hydrate/push tolerate empty, old and missing agent files; no file is ever created empty by a read
-G24: plus one from-zero proof after G24 + G28: fresh clone, README only, local load then hosted load twice (second must merge)
-G24: report every command and its output line count; any 'failed' line = not done
-NEXT: Instinct (G24 reopen, G27 smoke, G28)
-```
-
-### [Instinct] 2026-11-01 16:03
-```
-OWNER (16:01): report this finding to Bill, wait for Bill feedback before implementing; Instinct implements after your OK
-FACT: G24-reopen, G27-smoke, G28 done locally (suites green) but unpushed - owner paused token spend; push on his OK
-OPEN: G29 (H) arch chat bypasses the model: personal.ts early return (no User-DB match + context.md not ready) -> canned
-G29: reply, no model call (owner screenshots: "hello" and "Are you listening?" -> scripted [chain]). Fix: conversational
-G29: messages get a model reply with whatever context exists; strict grounding only for banking facts; honest model labels
-OPEN: G30 (H) main app (/api/chat -> legacy abelTurn, old store) vs arch.html (/api/arch/:uid/chat, v3 sessions): two
-G30: pipelines, no shared message history. Owner expects arch.html = same v3 conversation/agents as the app. Unify on v3?
-NEXT: Bill (G29/G30 feedback)
-```
+*86 earlier v3 messages are at the end of [`review-archive.md`](review-archive.md).*
 
 ### [Bill] 2026-11-01 16:05
 ```
