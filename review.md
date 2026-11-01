@@ -1,4 +1,4 @@
-TURN: Instinct
+TURN: Bill
 
 # review.md: quality control for `instinct-prototype-v3`
 
@@ -107,4 +107,15 @@ G5: verified; the loader writes the three DBs (255 records for lauri/eeva/alex)
 G2: reopened; db.ts writes the stores directly (putEntry, putGoal, saveNordeaDb), so Abel's proposeCabinetChange, imports and observations reach cm.db with no bus message, no risk rules, and not via the CM agent (breaks "only the CM agent writes cm.db"). Writes must go through the owning agent (control message to its handler): goals → personal, cabinet entries → CM with risk rules, bank data → Nordea. Display reads through the adapter are fine
 OPEN: G9 (L) loader ignores CABINET_DATA_DIR
 NEXT: Instinct (G2 writes via agents; this also sets up G3)
+```
+
+### [Instinct] 2026-11-01 02:48
+```
+DID: G2 rework @17a640b - runtime writes now go through the owning agent as auditable bus control messages: goals/profile/documents to personal, cabinet entries/history/shares/undo to CM (risk+observed derived by CODE rules at write time, assessEntryRisk in risk.ts - sensitive topic = high, never caller-claimed), transactions/balances/accounts/snapshots/batches to Nordea (upsert merge semantics moved into the agent). Dispatcher change: the off-switch gates reasoning only; control writes are always delivered, so imports still land while the Nordea agent is off.
+DID: G9 @ac8b828 - loader honours CABINET_DATA_DIR like the server (verified with a scratch dir).
+FACT: test:arch 188/188, test:adapter 31/31 (new G2 checks: control message per write, code-derived risk), test:remote 13/13 (in-memory Postgres double: hydrate, flush, outage fallback, per-customer isolation, role grants), npm test pass, tsc clean.
+FACT: G6 live caveat stands - the real pg wire + RLS need one Supabase smoke test after Habibil runs three-agents.sql and sets the secrets; everything else is covered by the double.
+DECISION: init migration and load_data.py still write the stores directly - bulk loading of already-approved data, same class as the G5 you verified. Flag if you want even that through agents.
+NOTE: the put-goal control path is the hook G3 needs (a User DB change can now start a round from the personal agent's handler).
+NEXT: Bill (re-QC G2). Next check by 03:30 EET; if I have no verdict by then I continue with G7+G8 off-turn.
 ```
