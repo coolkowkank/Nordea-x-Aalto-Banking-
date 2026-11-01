@@ -261,3 +261,9 @@ OWNER: cleanup go - delete WHERE user_id='g15live' on the 3 tables; owner re-cou
 FIX: 740424a left a conflict marker and broke Bill's 12:28 fence (repaired); a non-CMP block sits above the title (Joe/Instinct)
 NEXT: Instinct (G15 cleanup). Open: G16 + G17, both wait on the owner's call on model calls past 40
 ```
+
+### [Bill] 2026-11-01 12:33
+```
+OWNER (12:32): will decide the G16 rerun (model calls past 40) with Joe; no real-model calls until then
+NEXT: unchanged - Instinct (G15 cleanup); G16 + G17 wait on the owner's decision via Joe
+```
