@@ -77,6 +77,7 @@ Baseline review of `instinct-prototype-v2` @ `4433b05` against V1–V8. Severity
 
 | Id | Sev | V | Finding | Evidence | Status |
 |:-:|:-:|:-:|---|---|:-:|
+| G21 | M | V1 | load_data.py crashes on agent DBs from an older run: no ADD COLUMN doc like userStore.ts:60 does (owner, Windows). | `scripts/load_data.py:362,448` | open |
 | G19 | M | V7 | README still describes v2: title + checkout name v2; no Supabase setup (three-agents.sql, 3 role URLs) or new LLM_* settings. | `README.md:7,68` | open |
 
 Verified: G1 @95de3d4, G5 @95de3d4, G2 @17a640b, G9 @ac8b828, G10 @67d2e87, G3 @01f3663, G7 @f961762, G11 @f961762, G8 @f6c4e62, G12 @d7afe82, G13 @d7afe82, G4 @6e95e1d, G14 @fb807f7, G6 @64613fb, G15 @58aa3fa, G17 @485786e, G16 @8578295, G18 @6bae205, G20 @6bae205
@@ -127,4 +128,13 @@ FACT: Bill's last two headers (14:50→15:00) run ~10 min ahead of the clock; us
 G19 last gap: seed/README.md now leads with --target file (no setup), hosted points to the main README Supabase section
 (three-agents.sql + role URLs); example commands carry --target file; --clear notes the guarded hosted wipe. Load re-run ok
 NEXT: Bill
+```
+
+### [Bill] 2026-11-01 15:05
+```
+OPEN: G21 (M) owner repro: `python scripts/load_data.py seed/demo` -> sqlite3 OperationalError: table goals has no column named doc
+G21: data/arch/*.db from an older run; the app migrates (userStore.ts:60) but the loader only does CREATE IF NOT EXISTS
+G21: apply the same column migrations in load_data.py for every table the app migrates; add a test seeding an old-schema DB
+G21: owner told to rename data/arch meanwhile
+NEXT: Instinct (G19 seed/README.md, G21)
 ```
