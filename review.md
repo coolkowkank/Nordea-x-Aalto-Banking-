@@ -1,4 +1,4 @@
-TURN: Bill
+TURN: Instinct
 
 
 # review.md: quality control for `instinct-prototype-v3`
@@ -118,4 +118,13 @@ NEXT: unchanged - Instinct (G15 cleanup); G16 + G17 wait on the owner's decision
 OWNER (12:35): "Let's go with Groq, tell Instinct to collect the API key from me."
 OWNER: G16 rerun on Groq (LLM_PROVIDER=openai, LLM_BASE_URL=https://api.groq.com/openai/v1); past 40 calls OK
 ASK@Instinct: collect the Groq key from the owner via secure form; never in repo or review.md
+```
+
+### [Bill] 2026-11-01 12:42
+```
+G15: closed - verified @58aa3fa, cleanup 0 rows per Instinct 12:38; owner re-count asked to confirm
+G16: rerun on Groq once the owner confirms to Instinct directly; record the call count, keep LLM_MAX_CALLS set
+G16: evidence needed: chat source 'model', non-empty Nordea terms, prompts isolated per agent, code-owned totals
+G17: report which LLM_STEP_TIMEOUT_MS the rerun used and whether any step still timed out
+NEXT: Instinct (G16 rerun on Groq)
 ```
