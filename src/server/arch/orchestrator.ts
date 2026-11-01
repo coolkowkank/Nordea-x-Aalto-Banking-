@@ -73,7 +73,7 @@ function saveSession(uid: string, session: ChatSession) { busKvSet(uid, 'chatSes
  * has nothing from the Context Memory agent for a follow-up, a top-up round adds rows to the
  * same document (never a fresh one).
  */
-export async function chat(uid: string, text: string, clientSessionId?: string): Promise<{ reply: string; used: string[]; sessionId: string }> {
+export async function chat(uid: string, text: string, clientSessionId?: string): Promise<{ reply: string; used: string[]; sessionId: string; source: 'model' | 'scripted' | 'scripted-error'; plan?: { cm: string; nordea: string; error?: string } }> {
   const parked = getCabinetParkedMirror(uid); // the personal agent's parked gate, no status ping
   const { session, isNew } = resolveSession(uid, clientSessionId);
   // F17: direct input (a typed goal) is saved BEFORE any round opens, so the session round's
@@ -88,18 +88,50 @@ export async function chat(uid: string, text: string, clientSessionId?: string):
       session.roundId = round.id;
     }
   }
-  if (begin.kind === 'direct') { saveSession(uid, { ...session, lastActivityAt: now() }); return { ...begin.direct!, sessionId: session.id }; }
+  if (begin.kind === 'direct') { saveSession(uid, { ...session, lastActivityAt: now() }); return { ...begin.direct!, sessionId: session.id, source: 'scripted' }; }
+  // The plan is only computed when a round will actually use it (a provider call per plan).
+  let planStatus: { cm: 'model' | 'scripted' | 'error'; nordea: 'model' | 'scripted' | 'error'; error?: string } | undefined;
+  if (!parked && isNew && !getOff(uid).some((a) => a === 'personal' || a === 'cm' || a === 'nordea')) {
+    const plan = await planRoundLlm(uid, text);
+    const round = runRound(uid, 'session', { question: text, sessionId: session.id, llm: plan });
+    session.roundId = round.id;
+    planStatus = plan?.status;
+  }
   let answer = finishChat(uid, begin);
   if (!parked && !isNew && answer.memoryHits === 0 && loadContext(uid)?.finalisedAt) {
     // The document lacks CM-sourced content for this follow-up: top it up, then answer again.
-    const round = runRound(uid, 'topup', { question: text, sessionId: session.id });
-    if (!session.roundId) session.roundId = round.id;
+    const plan = await planRoundLlm(uid, text);
+    const top = runRound(uid, 'topup', { question: text, sessionId: session.id, llm: plan });
+    planStatus = plan?.status ?? planStatus;
+    if (!session.roundId) session.roundId = top.id;
     begin = beginChat(uid, text, session.id);
-    if (begin.kind === 'direct') { saveSession(uid, { ...session, lastActivityAt: now() }); return { ...begin.direct!, sessionId: session.id }; }
+    if (begin.kind === 'direct') { saveSession(uid, { ...session, lastActivityAt: now() }); return { ...begin.direct!, sessionId: session.id, source: 'scripted' }; }
     answer = finishChat(uid, begin);
   }
+  // G4: the personal agent's model composes the reply from the parts code selected; the
+  // grounded template stays as fallback. Every figure in the model's reply must already
+  // exist in the selected facts, or the scripted reply stands (no invented numbers).
+  let source: 'model' | 'scripted' | 'scripted-error' = 'scripted';
+  if (!parked && answer.used.length && !getOff(uid).includes('personal')) {
+    const { llmComposeReply } = await import('./agents/personal.js');
+    const composed = await llmComposeReply(uid, text, answer.parts);
+    if (composed.plan && figuresGrounded(composed.plan, answer.factSources)) {
+      answer = { ...answer, reply: composed.plan };
+      source = 'model';
+    } else if (composed.status === 'error') source = 'scripted-error';
+    if (composed.status !== 'scripted' || source !== 'scripted') {
+      appendMessage(uid, { from: 'personal', to: 'app', type: 'inform', summary: `Chat reply: ${source === 'model' ? 'composed by the model' : source === 'scripted-error' ? 'scripted (provider error)' : 'scripted'}.`, payload: { llm: true, kind: 'chat-reply', source } });
+    }
+  }
   saveSession(uid, { ...session, lastActivityAt: now() });
-  return { reply: answer.reply, used: answer.used, sessionId: session.id };
+  return { reply: answer.reply, used: answer.used, sessionId: session.id, source, ...(planStatus ? { plan: planStatus } : {}) };
+}
+
+/** Every figure in the model's reply must come from the facts code selected. */
+function figuresGrounded(reply: string, factSources: string[]): boolean {
+  const facts = factSources.join(' ').toLowerCase();
+  const figures = reply.match(/\d[\d\s.,]*\d|\d/g) ?? [];
+  return figures.every((f) => facts.includes(f.trim().toLowerCase()));
 }
 
 /**
@@ -190,10 +222,15 @@ async function planRoundLlm(uid: string, question: string): Promise<NonNullable<
   if (!titles.length) return undefined;
   const { llmPlanRetrieval } = await import('./agents/cm.js');
   const { llmProposeMatchTerms } = await import('./agents/nordea.js');
-  const [goalTitles, terms] = await Promise.all([llmPlanRetrieval(uid, question, titles), llmProposeMatchTerms(uid, titles)]);
-  if (!goalTitles && !terms) return undefined;
-  appendMessage(uid, { from: 'cm', to: 'app', type: 'inform', summary: `LLM round plan: ${goalTitles ? goalTitles.length + '/' + titles.length + ' goals for fresh evidence' : 'scripted retrieval'}, ${terms ? Object.keys(terms).length + ' goal(s) with extra match terms' : 'scripted matching'}.`, payload: { llm: true } });
-  return { ...(goalTitles ? { goalTitles } : {}), ...(terms ? { terms } : {}) };
+  const [cmPlan, nordeaPlan] = await Promise.all([llmPlanRetrieval(uid, question, titles), llmProposeMatchTerms(uid, titles)]);
+  const status = {
+    cm: cmPlan.status, nordea: nordeaPlan.status,
+    ...(cmPlan.error || nordeaPlan.error ? { error: [cmPlan.error, nordeaPlan.error].filter(Boolean).join('; ') } : {}),
+  };
+  if (!cmPlan.plan && !nordeaPlan.plan && !status.error) return undefined; // fully scripted, nothing to record
+  const say = (s: 'model' | 'scripted' | 'error') => s === 'model' ? 'model' : s === 'error' ? 'scripted (provider error)' : 'scripted';
+  appendMessage(uid, { from: 'cm', to: 'app', type: 'inform', summary: `Round plan: cm ${say(cmPlan.status)}, nordea ${say(nordeaPlan.status)}.`, payload: { llm: true, status } });
+  return { ...(cmPlan.plan ? { goalTitles: cmPlan.plan } : {}), ...(nordeaPlan.plan ? { terms: nordeaPlan.plan } : {}), status };
 }
 
 export async function contribute(uid: string) {

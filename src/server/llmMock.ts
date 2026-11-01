@@ -34,6 +34,14 @@ export const mockProvider: LlmProvider = {
     }
     // G4/V4: the arch agents' planning tools get deterministic mock plans, so tests drive
     // the LLM path end to end (real providers answer the same tools live).
+    if (tools.some((t) => t.name === 'finishReply')) {
+      // The personal agent's reply composer: echo the most figure-bearing fact line, as a
+      // real model would paraphrase it. Figures stay byte-identical so the grounded-figure
+      // guard passes exactly as it must with a live model.
+      const facts = [...lastUserText(turns).matchAll(/^- (.+)$/gm)].map((m) => m[1]);
+      const withNum = facts.find((f) => /\d/.test(f)) ?? facts[0] ?? '';
+      return { calls: [call('finishReply', { reply: withNum ? `based on your records: ${withNum}.` : 'i do not have enough in your records to answer that yet.' })] };
+    }
     if (tools.some((t) => t.name === 'finishRetrievalPlan')) {
       const titles = (lastUserText(turns).match(/goal titles: (.+)$/mi)?.[1] ?? '').split(';').map((s) => s.trim()).filter(Boolean);
       const firstTurn = turns.find((x) => x.role === 'user');

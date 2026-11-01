@@ -552,9 +552,25 @@ check('G4: the CM model\'s retrieval plan rides the round (validated subset of s
 check('G4: the Nordea model\'s match terms are validated and recorded', (round53.llm?.terms?.['Save for a car'] ?? []).includes('wash'), JSON.stringify(round53.llm?.terms));
 check('G4: the LLM term catches the transaction - code still owns matching, totals and evidence', llm53.proposals.length === 1 && llm53.proposals[0].total === 30 && llm53.proposals[0].matched === 1, JSON.stringify(llm53.proposals));
 check('G4: the plan is auditable on the bus', S.loadBus(UID53).messages.some((m) => m.type === 'inform' && (m.payload as { llm?: boolean } | undefined)?.llm === true));
+LL.setProviderForTests(LM.mockProvider);
+const chat53 = await A.chat(UID53, 'how much did I spend on my car?', 'llm-sess-1');
+const doc53 = S.loadContext(UID53)!;
+const sessRound53 = R.loadRound(UID53, doc53.roundId ?? '')!;
+check('G4: a session round carries the LLM plan too', sessRound53.trigger === 'session' && (sessRound53.llm?.goalTitles ?? []).length >= 1, JSON.stringify(sessRound53.llm));
+check('G4: the round records which path each agent took', sessRound53.llm?.status?.cm === 'model' && sessRound53.llm?.status?.nordea === 'model', JSON.stringify(sessRound53.llm?.status));
+check('G4: the personal agent model composes the chat reply (truthful source)', chat53.source === 'model', chat53.source + ': ' + chat53.reply.slice(0, 80));
+await A.chat(UID53, 'tell me more about the car', 'llm-sess-1');
+const docTop53 = S.loadContext(UID53)!;
+check('G4: an unanswered follow-up tops up with an LLM-planned round', docTop53.roundId !== doc53.roundId && docTop53.trigger === 'topup' && R.loadRound(UID53, docTop53.roundId ?? '')?.llm?.status?.cm === 'model', docTop53.roundId + ' ' + docTop53.trigger);
+LL.setProviderForTests(null);
+
 LL.setProviderForTests({ ...LM.mockProvider, step: async () => { throw new Error('provider down'); } });
 const down53 = await A.contribute(UID53);
-check('G4: a failing provider falls back to the scripted path (round still runs)', R.loadRound(UID53, down53.round.id)?.llm === undefined, JSON.stringify(R.loadRound(UID53, down53.round.id)?.llm));
+const downRound53 = R.loadRound(UID53, down53.round.id);
+check('G4: a failing provider falls back to the scripted path (round still runs)', down53.proposals.length === 0 && downRound53?.llm?.goalTitles === undefined, JSON.stringify(downRound53?.llm));
+check('G4: the failure is recorded truthfully, not claimed as model output', downRound53?.llm?.status?.cm === 'error' && downRound53?.llm?.status?.nordea === 'error', JSON.stringify(downRound53?.llm?.status));
+const downChat53 = await A.chat(UID53, 'how much did I spend on my car?', 'llm-sess-2');
+check('G4: the chat reply says scripted when the provider failed', downChat53.source === 'scripted-error' && downChat53.plan?.cm === 'error', downChat53.source);
 LL.setProviderForTests(null);
 
 // --- F18: maintenance rounds merge into the open session's document - no row is dropped.

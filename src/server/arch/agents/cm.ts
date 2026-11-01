@@ -696,10 +696,10 @@ export function publishParkState(uid: string) {
  * PROPOSES which goals need fresh Nordea evidence. Code validates (subset, cap 3) before
  * the round uses it; null = scripted fallback (all goals).
  */
-export async function llmPlanRetrieval(uid: string, question: string, goalTitles: string[]): Promise<string[] | null> {
+export async function llmPlanRetrieval(uid: string, question: string, goalTitles: string[]): Promise<import('../llm.js').PlanOutcome<string[]>> {
   const { archLlmEnabled, runAgentReasoning, cleanTerms } = await import('../llm.js');
-  if (!archLlmEnabled() || !goalTitles.length) return null;
-  const out = await runAgentReasoning({
+  if (!archLlmEnabled() || !goalTitles.length) return { plan: null, status: 'scripted' };
+  const { result: out, error } = await runAgentReasoning({
     agent: 'cm',
     system: [
       'You are the Context Memory agent of a banking assistant. You own the cabinet (the shared context between the customer and Nordea).',
@@ -717,8 +717,9 @@ export async function llmPlanRetrieval(uid: string, question: string, goalTitles
       : { error: 'unknown tool' },
     finishTool: 'finishRetrievalPlan',
   });
-  if (!out) return null;
+  if (error) return { plan: null, status: 'error', error };
+  if (!out) return { plan: null, status: 'scripted' };
   const original = new Map(goalTitles.map((g) => [g.toLowerCase(), g]));
   const picked = cleanTerms(out.goalTitles, 3).map((g) => original.get(g)).filter((g): g is string => !!g);
-  return picked.length ? picked : null;
+  return picked.length ? { plan: picked, status: 'model' } : { plan: null, status: 'scripted' };
 }

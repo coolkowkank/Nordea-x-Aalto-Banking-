@@ -287,10 +287,10 @@ registerHandler('nordea', handleMessage);
  * title; code validates them and still does the matching, totals and evidence itself.
  * null = scripted fallback (title words + category hints only).
  */
-export async function llmProposeMatchTerms(uid: string, goalTitles: string[]): Promise<Record<string, string[]> | null> {
+export async function llmProposeMatchTerms(uid: string, goalTitles: string[]): Promise<import('../llm.js').PlanOutcome<Record<string, string[]>>> {
   const { archLlmEnabled, runAgentReasoning, cleanTerms } = await import('../llm.js');
-  if (!archLlmEnabled() || !goalTitles.length) return null;
-  const out = await runAgentReasoning({
+  if (!archLlmEnabled() || !goalTitles.length) return { plan: null, status: 'scripted' };
+  const { result: out, error } = await runAgentReasoning({
     agent: 'nordea',
     system: [
       'You are the Nordea agent of a banking assistant. You own the Nordea DB (accounts and transactions). You propose, you never decide.',
@@ -321,7 +321,8 @@ export async function llmProposeMatchTerms(uid: string, goalTitles: string[]): P
     },
     finishTool: 'finishMatchTerms',
   });
-  if (!out || typeof out.terms !== 'object' || !out.terms) return null;
+  if (error) return { plan: null, status: 'error', error };
+  if (!out || typeof out.terms !== 'object' || !out.terms) return { plan: null, status: 'scripted' };
   const terms: Record<string, string[]> = {};
   for (const title of goalTitles) {
     const raw = out.terms as Record<string, unknown>;
@@ -329,5 +330,5 @@ export async function llmProposeMatchTerms(uid: string, goalTitles: string[]): P
     const cleaned = cleanTerms(v, 6);
     if (cleaned.length) terms[title] = cleaned;
   }
-  return Object.keys(terms).length ? terms : null;
+  return Object.keys(terms).length ? { plan: terms, status: 'model' } : { plan: null, status: 'scripted' };
 }

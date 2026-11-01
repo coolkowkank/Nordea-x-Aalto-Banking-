@@ -88,7 +88,13 @@ export interface BuildRound {
   proposals: { messageId: string; title: string; detail: string; matched: number; total: number }[];
   staleFlags: StaleFlag[];
   /** G4/V4: the agents' LLM proposals for this round (validated by code before use). */
-  llm?: { goalTitles?: string[]; terms?: Record<string, string[]> };
+  llm?: {
+    goalTitles?: string[];
+    terms?: Record<string, string[]>;
+    /** Truthful per-agent path: 'model' = the model's validated proposal was used,
+     *  'scripted' = clean scripted fallback, 'error' = provider failed and code fell back. */
+    status?: { cm: 'model' | 'scripted' | 'error'; nordea: 'model' | 'scripted' | 'error'; error?: string };
+  };
   startedAt: string;
   closedAt?: string;
   note?: string;

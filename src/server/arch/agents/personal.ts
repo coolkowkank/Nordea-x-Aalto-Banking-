@@ -110,7 +110,7 @@ export function beginChat(uid: string, text: string, sessionId?: string): ChatBe
 }
 
 /** Second half: compose the answer - from the finished context.md (B1c) or the CM agent's reply. */
-export function finishChat(uid: string, begin: ChatBegin): { reply: string; used: string[]; memoryHits: number } {
+export function finishChat(uid: string, begin: ChatBegin): { reply: string; used: string[]; memoryHits: number; parts: string[]; factSources: string[] } {
   const trimmed = begin.question ?? '';
   const used = begin.used ?? [];
   const parts = begin.parts ?? [];
@@ -142,16 +142,44 @@ export function finishChat(uid: string, begin: ChatBegin): { reply: string; used
   // 3. Guardrail: the personal agent never touches the Nordea DB.
   const bankish = ['balance', 'account', 'spent', 'spend', 'transaction', 'salary', 'money', 'save', 'saving'].some((w) => trimmed.toLowerCase().includes(w));
   if (!parts.length) {
-    if (parked) return { reply: `I don't have enough in your User DB to answer that, and the cabinet is parked - reconnect it if you want me to use shared context again.`, used, memoryHits: 0 };
-    if (!docAvailable) return { reply: `I don't have enough in your User DB to answer that, and shared context is unavailable this session.`, used, memoryHits: 0 };
-    if (bankish) return { reply: `I don't have your bank data - as your personal agent I only read your User DB and shared context the Context Memory agent hands me. Nordea's agent can propose goal-related insights to the cabinet for your review.`, used, memoryHits: 0 };
-    return { reply: `I don't have enough context to answer that yet. All I have is what's in your User DB (${begin.goalCount ?? 0} goal${(begin.goalCount ?? 0) === 1 ? '' : 's'}) and the shared cabinet, which had nothing on this.`, used, memoryHits: 0 };
+    if (parked) return { reply: `I don't have enough in your User DB to answer that, and the cabinet is parked - reconnect it if you want me to use shared context again.`, used, memoryHits: 0, parts, factSources };
+    if (!docAvailable) return { reply: `I don't have enough in your User DB to answer that, and shared context is unavailable this session.`, used, memoryHits: 0, parts, factSources };
+    if (bankish) return { reply: `I don't have your bank data - as your personal agent I only read your User DB and shared context the Context Memory agent hands me. Nordea's agent can propose goal-related insights to the cabinet for your review.`, used, memoryHits: 0, parts, factSources };
+    return { reply: `I don't have enough context to answer that yet. All I have is what's in your User DB (${begin.goalCount ?? 0} goal${(begin.goalCount ?? 0) === 1 ? '' : 's'}) and the shared cabinet, which had nothing on this.`, used, memoryHits: 0, parts, factSources };
   }
   if (bankish && !used.includes('context-memory-db') && !used.includes('context-md')) parts.push(`For actual account figures, Nordea's agent works from the Nordea DB - I can't read it directly.`);
   const grounded = groundNumbers(parts.join(' '), factSources);
   // F16: when the only document belongs to another session, say so plainly (no old rows served).
   const suffix = !docAvailable ? ` Shared context is unavailable this session.` : '';
-  return { reply: grounded.reply + suffix, used, memoryHits: entryHits.length };
+  return { reply: grounded.reply + suffix, used, memoryHits: entryHits.length, parts, factSources };
+}
+
+/** G4/V4: the personal agent's model composes the chat reply from the parts code selected.
+ *  It sees ONLY those parts (its own DB hits + shared-context rows), never a database.
+ *  Code validates the reply afterwards: any figure not present in the facts drops the
+ *  reply back to the grounded scripted template. */
+export async function llmComposeReply(uid: string, question: string, parts: string[]): Promise<import('../llm.js').PlanOutcome<string>> {
+  const { archLlmEnabled, runAgentReasoning } = await import('../llm.js');
+  if (!archLlmEnabled() || !parts.length) return { plan: null, status: 'scripted' };
+  const { result: out, error } = await runAgentReasoning({
+    agent: 'personal',
+    system: [
+      'You are Abel, the customer\'s personal banking assistant agent. You answer the customer.',
+      'Use ONLY the facts listed below - they are the rows code selected from your User DB and the shared context. You never see a database.',
+      'Keep every amount and figure EXACTLY as written in the facts. Never invent, convert or recompute a number.',
+      'If the facts do not answer the question, say plainly what is missing.',
+      'Answer in one to three short sentences, then finishReply.',
+    ].join(' '),
+    prompt: `Question: ${question}\nFacts:\n- ${parts.join('\n- ')}`,
+    tools: [
+      { name: 'finishReply', description: 'Finish with the reply to the customer.', parameters: { type: 'object', properties: { reply: { type: 'string' } }, required: ['reply'] } },
+    ],
+    runTool: () => ({ error: 'unknown tool' }),
+    finishTool: 'finishReply',
+  });
+  if (error) return { plan: null, status: 'error', error };
+  const reply = typeof out?.reply === 'string' ? out.reply.trim() : '';
+  return reply.length >= 8 && reply.length <= 600 ? { plan: reply, status: 'model' } : { plan: null, status: 'scripted' };
 }
 
 // ---------- Agent-to-agent queries (transport for the external demo client) ----------
