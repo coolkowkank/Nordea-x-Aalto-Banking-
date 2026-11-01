@@ -39,6 +39,8 @@ This branch starts from `instinct-prototype-v2` @ `4433b05`. The v2 review is ke
 
 **Keeping it small (Joe)**
 13. Context memory ≤ 15 lines, updated only at hand-overs. More than **5** messages → Joe archives all but the newest **2** to `review-archive.md`, unchanged.
+15. **Fewer pushes:** every push wakes the others. Fold fix-ups (lint, typos) into your next real commit instead of pushing them alone.
+16. **Short lines:** a CMP line ≤ 150 characters; details belong in the commit message, which only the reviewer opens.
 14. The owner asks Joe for progress, so Bill and Instinct don't spend context on status reports. `ASK@Joe` if a rule costs more than it saves.
 
 ---
