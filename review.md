@@ -1,4 +1,4 @@
-TURN: Instinct
+TURN: Bill
 
 # review.md: quality control for `instinct-prototype-v3`
 
@@ -74,12 +74,12 @@ Baseline review of `instinct-prototype-v2` @ `4433b05` against V1–V8. Severity
 
 | Id | Sev | V | Finding | Evidence | Status |
 |:-:|:-:|:-:|---|---|:-:|
-| G3 | H | V3 | A User DB change starts no round: adding a goal only posts a note to the customer, so nothing reaches the CM or Nordea agent until the next contribution or session. | `agents/personal.ts` `addGoalDirect` (line 34) | open |
+| G3 | H | V3 | A User DB change starts no round: adding a goal only posts a note to the customer, so nothing reaches the CM or Nordea agent until the next contribution or session. | `agents/personal.ts` `addGoalDirect` (line 34) | landed @01f3663 |
 | G4 | H | V4 | All three agents are scripted (no LLM; v2's AC10 test pins that). | `scripts/test-arch.ts:705` | open |
 | G6 | M | V1 | The three databases are SQLite only; there are no Supabase tables or per-agent credentials for them. | `arch/store/*` | open |
-| G7 | M | V5 | `/arch.html` still has the simulated external-agent mode, "Connect (simulated)", the demo sync endpoint, no connection lines and no session view. | `public/arch.html:53`, `:64`, `:101`, `:121`; `routes.ts` sync | reopened @01f3663 |
-| G8 | M | V6 | The monitor's main panels are the legacy model (Nordea shown on `abel_records`, Collaborative context with "no own database"); the three databases sit in one compact panel. | `public/dev-monitor.html:93`, `:260–276` | open |
-| G11 | M | V8 | A changed Nordea observation queues, but the stored version stays reviewed, so Abel keeps the stale figure (v2 hid it until re-checked). Fix: hold the stored copy (reviewed=false) while its update waits. | `nordeaData.ts:411-414`; `agents/cm.ts` put-entry | open |
+| G7 | M | V5 | `/arch.html` still has the simulated external-agent mode, "Connect (simulated)", the demo sync endpoint, no connection lines and no session view. | `public/arch.html:53`, `:64`, `:101`, `:121`; `routes.ts` sync | rework landed @f961762 |
+| G8 | M | V6 | The monitor's main panels are the legacy model (Nordea shown on `abel_records`, Collaborative context with "no own database"); the three databases sit in one compact panel. | `public/dev-monitor.html:93`, `:260–276` | landed @f6c4e62 |
+| G11 | M | V8 | A changed Nordea observation queues, but the stored version stays reviewed, so Abel keeps the stale figure (v2 hid it until re-checked). Fix: hold the stored copy (reviewed=false) while its update waits. | `nordeaData.ts:411-414`; `agents/cm.ts` put-entry | landed @f961762 |
 
 Verified: G1 @95de3d4, G5 @95de3d4, G2 @17a640b, G9 @ac8b828, G10 @67d2e87
 
@@ -110,4 +110,13 @@ NEXT: Instinct (G7 goal edit+delete, G11, then G8 + G3 hand-over; not reviewed y
 ### [Joe] 2026-11-01 03:24
 ```
 OWNER (03:24): "I will only be available at 9 AM because I am going to sleep." Owner-only steps and OWNER-Q wait until 09:00.
+```
+
+### [Instinct] 2026-11-01 03:25
+```
+FACT: arch 200/200, adapter 43/43, e2e 19/19, bank+remote+lint+guard green @f961762
+G7: edit+delete landed @f961762 - update-goal control + routes, editable list; delete leaves Abel's knowledge; rides G3 round
+G11: fixed @f961762 - queued change holds stored copy reviewed=false (old figure kept); accept updates+re-reviews; reject stays held
+G6: code done @df3b637 - real pg grants/RLS unsmoked; needs Habibil: run supabase/three-agents.sql, set 3 role secrets
+NEXT: Bill (QC G7+G11 @f961762, G8 @f6c4e62, G3 @01f3663, V7 @913a728). Next check by 04:15 EET; then G4
 ```
