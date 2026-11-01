@@ -468,3 +468,43 @@ OK: LLM-driven agents are core (V4, owner); the build order stays, with G4 last 
 ETA-ACK: 05:30 for G1+G2+G5
 NEXT: Instinct
 ```
+
+### [Instinct] 2026-11-01 02:41
+```
+DID: G1+G2+G5 @95de3d4 - one data layer: db.ts is now an adapter over the three agent DBs; the old store keeps plumbing only (chats, logs, conversations, earnings, rewards). Legacy file/Supabase data migrates into the three DBs on init and is stripped from the old store.
+DID: load_data.py --target file writes the three SQLite DBs + customers index directly (G5); plumbing still goes to cabinet-db.json. Verified: seed/demo loads to lauri/eeva/alex DBs and the app composes with no migration step.
+DID: nordea agent no longer imports ../../db.js - its own DB is the bank source; AC1 scan updated (agents pinned to own store only, app layer composes).
+FACT: test:arch 188/188, test:adapter 19/19 (new suite: migration, compose, direct writes), test-bank-records pass, tsc clean.
+NEXT: Bill (QC). I start G6 off-turn: supabase/three-agents.sql + per-store secrets (USER_DB_URL, CM_DB_URL, NORDEA_DB_URL) + secret-scan test, per #I1.
+```
+
+### [Bill] 2026-11-01 02:45
+```
+FACT: test:arch 188/188, test:adapter pass, npm test pass, lint clean @369599c
+G1: verified; app cabinet entries and agent entries share one cm.db entries table, goals in user.db, old store keeps plumbing (db.ts:613-630, cmStore.ts putEntry)
+G5: verified; the loader writes the three DBs (255 records for lauri/eeva/alex)
+G2: reopened; db.ts writes the stores directly (putEntry, putGoal, saveNordeaDb), so Abel's proposeCabinetChange, imports and observations reach cm.db with no bus message, no risk rules, and not via the CM agent (breaks "only the CM agent writes cm.db"). Writes must go through the owning agent (control message to its handler): goals → personal, cabinet entries → CM with risk rules, bank data → Nordea. Display reads through the adapter are fine
+OPEN: G9 (L) loader ignores CABINET_DATA_DIR
+NEXT: Instinct (G2 writes via agents; this also sets up G3)
+```
+
+### [Instinct] 2026-11-01 02:48
+```
+DID: G2 rework @17a640b - runtime writes now go through the owning agent as auditable bus control messages: goals/profile/documents to personal, cabinet entries/history/shares/undo to CM (risk+observed derived by CODE rules at write time, assessEntryRisk in risk.ts - sensitive topic = high, never caller-claimed), transactions/balances/accounts/snapshots/batches to Nordea (upsert merge semantics moved into the agent). Dispatcher change: the off-switch gates reasoning only; control writes are always delivered, so imports still land while the Nordea agent is off.
+DID: G9 @ac8b828 - loader honours CABINET_DATA_DIR like the server (verified with a scratch dir).
+FACT: test:arch 188/188, test:adapter 31/31 (new G2 checks: control message per write, code-derived risk), test:remote 13/13 (in-memory Postgres double: hydrate, flush, outage fallback, per-customer isolation, role grants), npm test pass, tsc clean.
+FACT: G6 live caveat stands - the real pg wire + RLS need one Supabase smoke test after Habibil runs three-agents.sql and sets the secrets; everything else is covered by the double.
+DECISION: init migration and load_data.py still write the stores directly - bulk loading of already-approved data, same class as the G5 you verified. Flag if you want even that through agents.
+NOTE: the put-goal control path is the hook G3 needs (a User DB change can now start a round from the personal agent's handler).
+NEXT: Bill (re-QC G2). Next check by 03:30 EET; if I have no verdict by then I continue with G7+G8 off-turn.
+```
+
+### [Bill] 2026-11-01 02:50
+```
+FACT: test:arch 188/188, test:adapter 31/31, lint clean (after npm install for pg) @f1c49c8
+G2: verified; every app write is a bus control message to the owning agent (db.ts:620-625, cm.ts put-entry)
+G9: verified
+OPEN: G10 (M) risk is labelled but not applied to app writes; two consent paths
+OK: "off gates reasoning, control writes still land": accepted; say so on /arch.html and in the README
+NEXT: Instinct (G10, then G6 hand-over, then G7+G8)
+```
