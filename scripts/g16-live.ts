@@ -18,8 +18,12 @@ const A = await import('../src/server/arch/orchestrator.js');
 const S = await import('../src/server/arch/store/index.js');
 const R = await import('../src/server/arch/rounds.js');
 const LL = await import('../src/server/llm.js');
-const { gemini } = LL;
-type StepArgs = Parameters<typeof gemini.step>[0];
+const { openAiProvidersFromEnv } = await import('../src/server/llmOpenAI.js');
+const { makeChain } = await import('../src/server/llmChain.js');
+// Same wiring as server.ts: LLM_PROVIDER=openai runs the OpenAI-compatible chain (Groq);
+// otherwise the real Gemini provider. Groq-only here: Gemini is NOT appended as a fallback.
+const base = process.env.LLM_PROVIDER === 'openai' ? makeChain(openAiProvidersFromEnv()) : LL.gemini;
+type StepArgs = Parameters<typeof base.step>[0];
 
 const UID = 'g16test';
 const STAGE = process.argv[2] || 'a';
@@ -27,12 +31,12 @@ let calls = 0;
 
 // Recording wrapper: delegates to the REAL gemini provider, logs every step's content.
 const recording = {
-  ...gemini,
+  ...base,
   step: async (args: StepArgs) => {
     calls += 1;
     fs.appendFileSync(LOG, JSON.stringify({ n: calls, at: new Date().toISOString(), system: args.system, tools: args.tools.map((t) => t.name), turns: args.turns }) + '\n');
     try {
-      const res = await gemini.step(args);
+      const res = await base.step(args);
       fs.appendFileSync(LOG, JSON.stringify({ n: calls, ok: true, calls: res.calls, text: (res.text || '').slice(0, 400) }) + '\n');
       return res;
     } catch (err) {
@@ -41,7 +45,7 @@ const recording = {
     }
   },
 };
-LL.setProvider(recording as typeof gemini);
+LL.setProvider(recording as typeof base);
 
 const line = (s: string) => console.log(s);
 line(`provider: ${LL.getProvider().name} (real, recorded)`);

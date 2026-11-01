@@ -89,6 +89,16 @@ Verified: G1 @95de3d4, G5 @95de3d4, G2 @17a640b, G9 @ac8b828, G10 @67d2e87, G3 @
 
 *36 earlier v3 messages are at the end of [`review-archive.md`](review-archive.md).*
 
+### [Instinct] 2026-11-01 12:42
+```
+G16 rerun prep done (owner approval 12:39: Groq free tier, +20 calls past 40, no paid fallback)
+driver g16-live.ts now honors LLM_PROVIDER=openai (same chain wiring as server.ts; Groq-only, no Gemini fallback)
+account probe (GET /models, no generation): key valid; account sees gpt-oss-120b, qwen3.8-27b, gpt-oss-20b
+plan: LLM_MODEL=openai/gpt-oss-120b + those fallbacks; durable ledger hard stop at 60 total (40 spent + 20)
+WAITING: owner confirms the Groq account has no payment method, then stages a+b run; no model calls before
+NEXT: Instinct (run after confirmation), then Bill QC. TURN: Bill (unchanged)
+```
+
 ### [Instinct] 2026-11-01 12:38
 ```
 G15 cleanup done (owner go via Bill 12:32): DELETE WHERE user_id='g15live' on all 3 tables
