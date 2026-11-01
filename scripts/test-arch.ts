@@ -581,6 +581,9 @@ A.appWrites.updateGoal(UID53, goal53.id, { detail: 'budget 1200 EUR' });
 LL.setProviderForTests({ name: 'mock (tests only)', isConfigured: () => true, step: async () => ({ calls: [{ id: 'bad1', name: 'finishReply', args: { reply: 'You spent 120 on the car.' } }] }) });
 const badChat53 = await A.chat(UID53, 'how much did I spend on my car?', 'llm-sess-4');
 check('G4: a substring figure (120 vs fact 1200) is dropped back to the scripted reply', badChat53.source === 'scripted' && !badChat53.reply.includes('You spent 120'), badChat53.source + ': ' + badChat53.reply.slice(0, 70));
+LL.setProviderForTests({ name: 'mock (tests only)', isConfigured: () => true, step: async () => ({ calls: [{ id: 'bad2', name: 'finishReply', args: { reply: 'You spent 12.50 EUR on the car.' } }] }) });
+const decChat53 = await A.chat(UID53, 'how much did I spend on my car?', 'llm-sess-5');
+check('G14: a decimal-shifted figure (12.50 vs fact 1200) is dropped too', decChat53.source === 'scripted' && !decChat53.reply.includes('12.50'), decChat53.source + ': ' + decChat53.reply.slice(0, 70));
 LL.setProviderForTests(null);
 
 // --- F18: maintenance rounds merge into the open session's document - no row is dropped.

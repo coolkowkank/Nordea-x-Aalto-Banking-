@@ -129,16 +129,32 @@ export async function chat(uid: string, text: string, clientSessionId?: string):
   return { reply: answer.reply, used: answer.used, sessionId: session.id, source, ...(provider ? { provider } : {}), ...(planStatus ? { plan: planStatus } : {}) };
 }
 
-/** Every figure in the model's reply must come from the facts code selected. Whole-number
- *  comparison on separator-normalized tokens: '120' must NOT pass against a fact '1200'. */
-function figureTokens(s: string): string[] {
-  const out: string[] = [];
-  for (const m of s.matchAll(/\d(?:[\d\s.,]*\d)?/g)) out.push(m[0].replace(/[\s.,]/g, ''));
-  return out.filter((x) => x.length > 0);
+/** Every figure in the model's reply must come from the facts code selected. Figures are
+ *  parsed to numeric values: a separator is thousands only before exactly 3 digits,
+ *  otherwise it is a decimal point - so '120' fails against '1200' AND '12.50' fails
+ *  against '1,250' (G14), while '12 000' matches '12000'. */
+function parseFigures(s: string): number[] {
+  const out: number[] = [];
+  for (const m of s.matchAll(/\d(?:[\d\s.,]*\d)?/g)) {
+    const tok = m[0].replace(/\s/g, '');
+    let intPart = '', decPart = '', seenDecimal = false;
+    for (let i = 0; i < tok.length; i++) {
+      const c = tok[i];
+      if (c >= '0' && c <= '9') { if (seenDecimal) decPart += c; else intPart += c; continue; }
+      if ((c === '.' || c === ',') && !seenDecimal) {
+        const rest = tok.slice(i + 1);
+        if (/^\d{3}(\D|$)/.test(rest)) continue; // thousands separator: exactly 3 digits follow
+        seenDecimal = true; continue; // decimal separator
+      }
+    }
+    const n = Number(decPart ? `${intPart}.${decPart}` : intPart);
+    if (Number.isFinite(n)) out.push(n);
+  }
+  return out;
 }
 function figuresGrounded(reply: string, factSources: string[]): boolean {
-  const facts = new Set(figureTokens(factSources.join(' ')));
-  return figureTokens(reply).every((f) => facts.has(f));
+  const facts = parseFigures(factSources.join(' '));
+  return parseFigures(reply).every((n) => facts.some((f) => Math.abs(f - n) < 1e-9));
 }
 
 /**
