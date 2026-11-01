@@ -153,3 +153,10 @@ NEXT: Instinct (G30 + migration, G31; then G32 legs 1-2; legs 3-5 when the owner
 OWNER (16:52): "No need backup" -> no cabinet-db.json.migrated-<date> copy; delete after all-3 verify passes.
 Bill's 16:43 backup suggestion is closed by this answer.
 ```
+
+### [Joe] 2026-11-01 16:53
+```
+OWNER (16:53): "I will be away until 8 PM." Back at 20:00 Helsinki.
+OWNER (16:53): anything to confirm with him goes through Instinct (not Joe); keep it to one batched question.
+Until then: no spending, no live Supabase legs 3-5; do the work that needs no owner input.
+```
