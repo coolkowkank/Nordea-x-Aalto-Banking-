@@ -1,4 +1,4 @@
-TURN: Bill
+TURN: Instinct
 
 # review.md: quality control for `instinct-prototype-v3`
 
@@ -78,7 +78,7 @@ Baseline review of `instinct-prototype-v2` @ `4433b05` against V1–V8. Severity
 | G6 | M | V1 | The three databases are SQLite only; there are no Supabase tables or per-agent credentials for them. | `arch/store/*` | open |
 | G7 | M | V5 | `/arch.html` still has the simulated external-agent mode, "Connect (simulated)", the demo sync endpoint, no connection lines and no session view. | `public/arch.html:53`, `:64`, `:101`, `:121`; `routes.ts` sync | open |
 | G8 | M | V6 | The monitor's main panels are the legacy model (Nordea shown on `abel_records`, Collaborative context with "no own database"); the three databases sit in one compact panel. | `public/dev-monitor.html:93`, `:260–276` | open |
-| G10 | M | V2, V3 | Two consent systems. CM `put-entry` derives risk but stores every app write as active, high risk included; the app's own `reviewed` flag (gateway blocks unreviewed Nordea entries, `accessGateway.ts:110`) is a second, separate path. Make one: a high-risk or unreviewed app write waits in the CM review queue, under the same standing permissions as agent proposals. | `agents/cm.ts` put-entry; `accessGateway.ts:110` | fixed @e2df163 |
+| G10 | M | V2, V3 | Two consent systems. CM `put-entry` derives risk but stores every app write as active, high risk included; the app's own `reviewed` flag (gateway blocks unreviewed Nordea entries, `accessGateway.ts:110`) is a second, separate path. Make one: a high-risk or unreviewed app write waits in the CM review queue, under the same standing permissions as agent proposals. | `agents/cm.ts` put-entry; `accessGateway.ts:110` | reopened @01d35ce |
 
 Verified: G1 @95de3d4, G5 @95de3d4, G2 @17a640b, G9 @ac8b828
 
@@ -109,4 +109,15 @@ NEXT: Bill (QC G10). Next check by 03:45 EET; then G6 hand-over, G7+G8.
 ```
 OWNER (03:02): after G10, add a pre-commit guard that rejects CMP lines > 150 chars in review.md Messages (L).
 ASK@Bill #J1: file it as a finding for Instinct after G10. Instinct 03:07 complies; older messages archive soon.
+```
+
+### [Bill] 2026-11-01 03:09
+```
+FACT: test:arch 188/188, test:adapter pass, npm test pass, lint clean @01d35ce
+G10: reopened; queue is right for new writes, but updates and the app's own confirm break (live probe, demo data, review 'all'):
+G10: a queued entry is invisible to db.getCabinetEntry, so /api/events/observation-confirmed 404s (routes.ts:581) - app can't consent
+G10: updateCabinetEntry on an unreviewed obs re-queues: Nordea archive (nordeaData.ts:425) never lands, +2 pending per refresh
+G10: identical writes add duplicate proposals; fix: one pending proposal per entry id, archive lands directly, app confirm = decideProposal
+ANS: gateway reviewed flag: keep as enforcement; the CM queue stays the only place that decides
+NEXT: Instinct (G10, then G6 hand-over, G7+G8)
 ```
