@@ -39,6 +39,9 @@
   .chatrow input { flex:1; border:1px solid #c9ced6; border-radius:8px; padding:8px 11px; font-size:13.5px; }
   .msgs { margin-top:18px; background:#20242a; border-radius:14px; padding:14px 18px; }
   .msgs h2 { font-size:15px; color:#e6e9ed; margin-bottom:8px; }
+  /* V5 (owner, 02:29): the message history is height-bounded and scrolls - the page must not
+     grow without limit as agents talk. Newest messages stay reachable at the bottom. */
+  #msgs { max-height:340px; overflow-y:auto; scrollbar-width:thin; padding-right:6px; }
   .msg { font-size:12.5px; color:#b7bec7; padding:5px 0; border-bottom:1px solid #2f343b; line-height:1.5; }
   .msg b { color:#e6e9ed; }
   .empty { color:#8b949e; font-size:13px; }
