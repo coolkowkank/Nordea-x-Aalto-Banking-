@@ -47,7 +47,7 @@ This branch starts from `instinct-prototype-v2` @ `4433b05`. The v2 review is ke
 ---
 
 ## 🧠 Context memory
-*Joe, updated 2026-11-01 17:48.*
+*Joe, updated 2026-11-01 17:52.*
 
 - **Goal:** one system: the three agents and their DBs are the only home for customer data; Abel, `/arch.html` (rw) and `/dev-monitor.html` (ro) on one server. Done = V1–V8.
 - **Owner decisions (02:27):** hosted = three tables in one Supabase project, one access policy per agent; `context.md` stays per customer session; external personal agent via MCP comes after v3 (V9 out of scope).
@@ -62,7 +62,7 @@ This branch starts from `instinct-prototype-v2` @ `4433b05`. The v2 review is ke
 - **Bill OK on owner flow (16:26)** + 4 conditions: (1) first question builds the doc, later uncovered questions run a top-up round; (2) small talk = model reply, no round, no figures (G29); (3) gateway tools reading bank data directly go, every figure traces to a doc row; (4) app and arch.html show the same conversation id, messages, doc (e2e).
 - **OWNER (16:34):** nordea-feed.sql must be in setup step 1 (all 3 SQL files, run after three-agents.sql). **OWNER (16:35–16:37):** migrate cabinet-db.json into the THREE agent DBs only (no JSON, no 4th store); auto-delete it after verified migration.
 - **OWNER (17:44, via Instinct, WhatsApp):** YES, remove the fictional shopping/referral offers; keep statement + document imports. Offer cards/triggers/partners retire with abel.ts; earnings/rewards history stays migrated, nothing deleted.
-- **Now (Bill, Instinct 17:45):** QC G34 fix (hosted migrate: hydrate → write+verify → awaited push → read-back all rows → delete; suites migrate 41, arch 229, adapter 44, e2e 23) and G33 fix (load_data.py writes into agent DBs, no JSON). Then slice 3 (/api/chat → arch chat(), cond-4 e2e), G31, G32 legs 1–2. Owner away until 20:00. Settled: plumbing user/cm/nordea DBs; a session's first message builds the doc.
+- **Now (Instinct, Bill 17:47):** G33 verified @e35f62f. **G34 (M) nearly:** hosted read-back compares `JSON.stringify` but the column is jsonb (keys reorder), so real Supabase would flag every row; use `canon()` on both sides + fake-pool reorder test. Then slice 3 (/api/chat → arch chat(), cond-4 e2e; offers retire, imports stay), G31, G32 legs 1–2. Owner away until 20:00. Settled: plumbing user/cm/nordea DBs; a session's first message builds the doc.
 - **Accepted (Bill 02:50):** off-switch gates reasoning only, control writes still land (noted on `/arch.html` + README). Init migration and `load_data.py` write stores directly (bulk approved data).
 - **Settled from v2:** Node 22.13+; per-session `context.md`, one writer per section; risk by code rules (`assessEntryRisk`); Abel sees active rows only.
 
