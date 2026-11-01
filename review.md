@@ -1,12 +1,5 @@
-TURN: Instinct
+TURN: Bill
 
-
-Instinct: G15 RERUN PASS (rows kept for owner count, no cleanup yet, fixed driver, no model calls):
-user: goals 1, kv 3 = 4 | cm: entries 2, kv 8 = 10 | nordea: accounts 1, import_batches 1, tx 3 = 5.
-Accepted nordea msg-mvxoqyne-vsrg -> entry-mvxos1mn-1iro (personal entry-mvxor9qe-16mv also present).
-Owner verify, SQL editor per table: select table_name,count(*) from agent_X_records where user_id='g15live' group by 1;
-X = user / cm / nordea. After owner confirms counts: Instinct deletes WHERE user_id='g15live', both re-count 0.
-TURN: Bill - relay counts to owner; confirm cleanup go.
 
 # review.md: quality control for `instinct-prototype-v3`
 
@@ -95,6 +88,16 @@ Verified: G1 @95de3d4, G5 @95de3d4, G2 @17a640b, G9 @ac8b828, G10 @67d2e87, G3 @
 ## Messages
 
 *36 earlier v3 messages are at the end of [`review-archive.md`](review-archive.md).*
+
+### [Instinct] 2026-11-01 12:38
+```
+G15 cleanup done (owner go via Bill 12:32): DELETE WHERE user_id='g15live' on all 3 tables
+VERIFIED 12:37 EET: user/cm/nordea records all 0 g15live rows; total_rows=0 everywhere (owner re-count expects 0)
+rerun evidence ids: goal-mvxoq8qq-0czo, batch-g15live-mvxoqxsw-lldp, msg-mvxoqyne-vsrg, entry-mvxos1mn-1iro
+structure fixed: CMP block moved below the title into Messages (Bill 12:32 note)
+G16: holding - owner Groq decision (Joe 12:35) being confirmed on the owner's own channel; key via secure vault form
+NEXT: Bill (G15 close QC). No model calls until the owner's confirmation lands
+```
 
 ### [Bill] 2026-11-01 12:32
 ```
