@@ -148,7 +148,7 @@ export function registerV14Routes(app: Express) {
     const a = agentMsg(userId, conv.id, conv.helperId, reply.reply, {
       suggestions: reply.suggestions ?? [],
       usedEntryIds: reply.used,
-      supplied: { notes: docRows.length, accountData: docRows.some((r) => r.source === 'nordea') },
+      supplied: { notes: docRows.length, accountData: docRows.some((r) => r.source === 'nordea'), source: reply.source, ...(reply.provider ? { provider: reply.provider } : {}) },
       errorInfo: reply.plan?.error,
       answeredBy: reply.source === 'model' ? undefined : 'bank_code',
     });
