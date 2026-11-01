@@ -238,6 +238,30 @@ check('with its own secret the CM store hydrates its table',
   check('G24: an existing (empty) local file stays authoritative - replace allowed', wipeAllowed);
 }
 
+// --- G25: deleting a customer's database also clears that uid's hosted rows. ---
+{
+  const { deleteDbFile, clearRemoteCustomer, fileFor: ff3 } = await import('../src/server/arch/store/common.js');
+  await R.pushCustomer('cm', URLS.cm, 'delme', [{
+    user_id: 'delme', id: 'e1', table_name: 'entries',
+    data: { id: 'e1', title: 'Hosted entry', detail: '', goal_ids: '[]', proposed_by: 'user', status: 'active', created_at: '2026-11-01' },
+  }]);
+  // the explicit helper clears the hosted rows for that uid only
+  await clearRemoteCustomer('cm', 'delme');
+  const afterClear = fake.tables.get('agent_cm_records') ?? [];
+  check('G25: clearRemoteCustomer removes that uid\'s hosted rows', afterClear.every((r) => r.user_id !== 'delme'), afterClear);
+  // the delete path (local file unlink) triggers the hosted clear too
+  await R.pushCustomer('cm', URLS.cm, 'delme', [{
+    user_id: 'delme', id: 'e2', table_name: 'entries',
+    data: { id: 'e2', title: 'Back again', detail: '', goal_ids: '[]', proposed_by: 'user', status: 'active', created_at: '2026-11-01' },
+  }]);
+  fs.writeFileSync(ff3('delme', 'cm'), ''); // local file exists so the unlink path runs
+  deleteDbFile('delme', 'cm');
+  await sleep(200); // the hosted clear is fire-and-forget like the write flush
+  const afterDelete = fake.tables.get('agent_cm_records') ?? [];
+  check('G25: deleteDbFile also clears the hosted rows (no hydrate resurrection)',
+    !fs.existsSync(ff3('delme', 'cm')) && afterDelete.every((r) => r.user_id !== 'delme'), afterDelete);
+}
+
 console.log(`\n${passed} passed, ${failed} failed`);
 if (failed) { console.error('REMOTE TESTS FAILED'); process.exit(1); }
 console.log('All checks passed');

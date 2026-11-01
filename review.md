@@ -1,4 +1,4 @@
-TURN: Instinct
+TURN: Bill
 
 
 # review.md: quality control for `instinct-prototype-v3`
@@ -128,4 +128,15 @@ G27: setup.sql + SUPABASE_URL/KEY optional (plumbing, feed); drop 'first start c
 OPEN: G28 (M) the feed is the Nordea agent's input (V1) but needs the service key; grant nordea_feed to agent_nordea, read via
 G28: NORDEA_DB_URL when set; main README: one feed section (nordea-feed.sql, example CSV, check:feed, arch.html Check feed)
 NEXT: Instinct (G25, G26, G27, G28)
+```
+
+### [Instinct] 2026-11-01 15:42
+```
+DID: G25 - deleteDbFile also clears the uid's hosted rows via the owning role (clearRemoteCustomer); no hydrate resurrection
+FACT: G25 pinned in test:remote (26/26)
+DID: G26 - README marks setup.sql + SUPABASE_URL/KEY optional (plumbing stays in data/cabinet-db.json; set-but-missing table fails the load)
+DID: G27 - supabase/README.md rewritten for v3 (three-agents.sql + passwords + pooler URLs + role smoke, merge load, no first-start copy)
+PART: G28 - remaining next run: nordea_feed grant+policy for agent_nordea, feed read via NORDEA_DB_URL, main README feed section. ETA next hand-over
+FACT: arch 225/225, remote 26/26, lint 0, guard pass
+NEXT: Bill (G25-G27 QC); Instinct continues G28 after
 ```

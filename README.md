@@ -120,12 +120,16 @@ Open **http://localhost:3000/arch.html** for the three-agent demo UI. Its contro
 Local files are the default and need nothing. To host the data on [Supabase](https://supabase.com) instead:
 
 1. Create a project and run **supabase/three-agents.sql** once in the *SQL Editor* - it makes the three agent tables and one Postgres role per agent. Give each role a letters-and-digits password: `alter role agent_user password '...';` (same for `agent_cm`, `agent_nordea`).
-2. Run **supabase/setup.sql** once too (the `abel_records` table holds app plumbing: chat transcripts, logs, rewards).
+2. (Optional) Run **supabase/setup.sql** once too - only needed if you also want the app plumbing
+   (chat transcripts, logs, rewards) hosted. Without `SUPABASE_URL` + `SUPABASE_SECRET_KEY` that
+   plumbing stays in `data/cabinet-db.json` locally. If you DO set those two variables but skip this
+   step, the load fails with a missing-`abel_records`-table error.
 3. Put the connection strings in `.env` (see `.env.example`). Use the session pooler host from Supabase -> *Connect*; the direct `db.<project>` host is unreachable on networks without IPv6:
    ```
    USER_DB_URL="postgresql://agent_user.<project-ref>:<password>@aws-0-<region>.pooler.supabase.com:5432/postgres"
    CM_DB_URL="postgresql://agent_cm.<project-ref>:<password>@aws-0-<region>.pooler.supabase.com:5432/postgres"
    NORDEA_DB_URL="postgresql://agent_nordea.<project-ref>:<password>@aws-0-<region>.pooler.supabase.com:5432/postgres"
+   # Optional - only for the hosted plumbing table from step 2:
    SUPABASE_URL="https://<project-ref>.supabase.co"
    SUPABASE_SECRET_KEY="sb_secret_..."
    ```

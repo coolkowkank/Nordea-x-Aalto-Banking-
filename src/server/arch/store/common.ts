@@ -231,6 +231,21 @@ export function deleteDbFile(uid: string, which: DbKind) {
   for (const f of [fileFor(uid, which), legacyFileFor(uid, which), `${legacyFileFor(uid, which)}.migrated`]) {
     if (fs.existsSync(f)) fs.unlinkSync(f);
   }
+  // G25: also clear this customer's hosted rows through the owning role (like load_remote
+  // clear <uid>) - otherwise the next startup hydrate restores the deleted data.
+  const url = REMOTE_SECRETS.get(which);
+  if (url) {
+    clearRemoteCustomer(which, uid).catch((err) =>
+      console.error(`Hosted clear failed for ${which}:${uid}:`, err instanceof Error ? err.message : err));
+  }
+}
+
+/** G25: explicit clear of one customer's hosted rows for one store (delete = local file + this). */
+export async function clearRemoteCustomer(which: DbKind, uid: string): Promise<void> {
+  const url = REMOTE_SECRETS.get(which);
+  if (!url) return;
+  const { pushCustomer } = await import('./remote.js');
+  await pushCustomer(which, url, uid, []);
 }
 
 /**
