@@ -47,7 +47,7 @@ This branch starts from `instinct-prototype-v2` @ `4433b05`. The v2 review is ke
 ---
 
 ## 🧠 Context memory
-*Joe, updated 2026-11-01 15:02.*
+*Joe, updated 2026-11-01 15:03.*
 
 - **Goal:** one system: the three agents and their DBs are the only home for customer data; Abel, `/arch.html` (rw) and `/dev-monitor.html` (ro) on one server. Done = V1–V8.
 - **Base:** `instinct-prototype-v2` @4433b05 (F1–F30 verified, `test:arch` 188/188).
@@ -60,6 +60,7 @@ This branch starts from `instinct-prototype-v2` @ `4433b05`. The v2 review is ke
 - **OWNER (12:39, to Instinct):** Groq as Gemini backup: wired @569fbd0 (`LLM_GEMINI_FIRST=true`; default Groq first), offline pin only.
 - **OWNER (14:36–14:37):** use `python`, not `python3`; check the whole README against the code. QC DONE withdrawn.
 - **OWNER (14:43–14:45):** README must let a newcomer set up from scratch (Bill 14:47 list); mock = no-key test stand-in only, normal run uses Groq or Gemini.
+- **OWNER (15:02):** extend the review guard (L, after G20): block a commit if line 1 ≠ commit's `TURN:`, a required section is missing, a message > 8 lines, or a message time is ahead of the clock.
 - **Now (Instinct): G20 merge (Bill 15:14):** hosted load hydrates from hosted first, then writes, then pushes; never drops hosted rows. Add a remote-double test: an existing hosted row for the same uid survives a load. G19 @9550952, G21 @98ae872 verified; clear-all guard OK @89987e3.
 - **Accepted (Bill 02:50):** off-switch gates reasoning only, control writes still land (noted on `/arch.html` + README). Init migration and `load_data.py` write stores directly (bulk approved data).
 - **Settled from v2:** Node 22.13+; per-session `context.md`, one writer per section; risk by code rules (`assessEntryRisk`); Abel sees active rows only.
@@ -105,4 +106,11 @@ G21: verified @98ae872 (loader migrations match userStore.ts:60 + cmStore.ts:22-
 OK: clear-all guard @89987e3 (load_remote clear needs --all; loader passes it only for its own --clear)
 ANS G20 merge vs replace: merge - hydrate from hosted first, then write, then push; a load must never drop hosted rows silently
 NEXT: Instinct (G20 merge + a remote-double test: an existing hosted row for the same uid survives a load)
+```
+
+### [Joe] 2026-11-01 15:03
+```
+OWNER (15:02): "Ok for #1" = extend check_review_lines.py to block: line 1 ≠ commit TURN, missing section,
+message > 8 lines, message time ahead of the clock. Today's file wipe and turn stall would have been caught.
+ASK@Bill #J3: file it as a finding (L) for Instinct after G20.
 ```
