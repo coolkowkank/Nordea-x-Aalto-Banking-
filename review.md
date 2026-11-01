@@ -47,18 +47,17 @@ This branch starts from `instinct-prototype-v2` @ `4433b05`. The v2 review is ke
 ---
 
 ## 🧠 Context memory
-*Joe, updated 2026-11-01 12:42.*
+*Joe, updated 2026-11-01 12:47.*
 
 - **Goal:** one system: the three agents and their DBs are the only home for customer data; Abel, `/arch.html` (rw) and `/dev-monitor.html` (ro) on one server. Done = V1–V8.
 - **Base:** `instinct-prototype-v2` @4433b05 (F1–F30 verified, `test:arch` 188/188).
 - **Owner decisions (02:27):** hosted = three tables in one Supabase project, one access policy per agent; `context.md` stays per customer session; external personal agent via MCP comes after v3 (V9 out of scope).
 - **Owner, via Instinct (02:29):** all three agents LLM-driven (G4/V4 core); `/arch.html` agent messages bounded + scrollable (V5); on conflict Instinct follows Bill.
-- **OWNER (03:24): asleep, back 09:00.** Owner-only steps (e.g. running `three-agents.sql`) and OWNER-Q wait; keep working.
 - **OWNER (03:02):** line guard for Messages: verified @29eaf05 (`npm run check:review`, in test:arch). It checks width only; ≤ 8 lines is on the author.
 - **Verified:** G1–G14 all (see Verified line); G6 @64613fb: owner ran `three-agents.sql`, role smoke 30/30 PASS, each agent role reaches only its own table, anon sees 0 rows. App-to-Supabase run untested from sandbox (DNS); covered by test:adapter.
 - **OWNER (11:17):** run the two untested live paths (G15 Supabase, G16 real model); QC DONE withdrawn until both pass. G15 verified @58aa3fa (owner counts 12:29: user 4, cm 10, nordea 5).
-- **G6:** code done @df3b637; real pg grants/RLS unsmoked, waits for Habibil (09:00): run `supabase/three-agents.sql`, set 3 role secrets.
-- **Now (Instinct): G16 rerun on Groq** once the owner confirms directly; keep LLM_MAX_CALLS set, record call count. Evidence: chat source 'model', non-empty Nordea terms, per-agent prompt isolation, code-owned totals. **G17:** report LLM_STEP_TIMEOUT_MS used + any timeouts. G15 closed.
+- **OWNER (12:45, to Instinct):** "Yes, free plan" (Groq, no payment method); run approved (+20 past 40, ledger cap 60).
+- **Now (Bill): QC G16 + G17 @79c9878.** Groq gpt-oss-120b, 13 calls (ledger 53/60): chat source=model with code-owned totals; nordea terms non-empty; cm fell back to scripted (truthful); prompts isolated. G17: 15000 ms / 4 steps, 0 timeouts, 0 429s.
 - **Accepted (Bill 02:50):** off-switch gates reasoning only, control writes still land (noted on `/arch.html` + README). Init migration and `load_data.py` write stores directly (bulk approved data).
 - **Settled from v2:** Node 22.13+; per-session `context.md`, one writer per section; risk by code rules (`assessEntryRisk`); Abel sees active rows only.
 
@@ -87,14 +86,7 @@ Verified: G1 @95de3d4, G5 @95de3d4, G2 @17a640b, G9 @ac8b828, G10 @67d2e87, G3 @
 
 ## Messages
 
-*36 earlier v3 messages are at the end of [`review-archive.md`](review-archive.md).*
-
-### [Instinct] 2026-11-01 12:46
-```
-UPDATE (owner, via Instinct 12:45): Groq account confirmed free plan - his verbatim reply to the safety question: "Yes, free plan"
-recorded as the owner's answer, not an independently verified billing state; rerun behaved free-tier (13 calls, 0 errors/429s)
-NEXT: unchanged - Bill QC on the G16 evidence @79c9878
-```
+*43 earlier v3 messages are at the end of [`review-archive.md`](review-archive.md).*
 
 ### [Instinct] 2026-11-01 12:45
 ```
@@ -108,60 +100,9 @@ G17: LLM_STEP_TIMEOUT_MS=15000, LLM_AGENT_MAX_STEPS=4: zero timeouts, zero 429s 
 NEXT: Bill QC. Evidence local: prompts.jsonl + monitor.json (driver CABINET_DATA_DIR), bus 76 msgs, ledger /home/sandbox
 ```
 
-### [Instinct] 2026-11-01 12:43
+### [Instinct] 2026-11-01 12:46
 ```
-UPDATE (owner, via Instinct 12:42): Groq API key received 12:40 via the secure vault form - never in chat or repo
-account probe already OK (GET /models only, no generation); driver + cap plan @571e398
-STILL WAITING before model calls: owner confirms the Groq account has no payment method (free plan only)
-NEXT: unchanged - Instinct runs G16 stages a+b, then Bill QC per the 12:42 evidence list
-```
-
-### [Instinct] 2026-11-01 12:42
-```
-G16 rerun prep done (owner approval 12:39: Groq free tier, +20 calls past 40, no paid fallback)
-driver g16-live.ts now honors LLM_PROVIDER=openai (same chain wiring as server.ts; Groq-only, no Gemini fallback)
-account probe (GET /models, no generation): key valid; account sees gpt-oss-120b, qwen3.8-27b, gpt-oss-20b
-plan: LLM_MODEL=openai/gpt-oss-120b + those fallbacks; durable ledger hard stop at 60 total (40 spent + 20)
-WAITING: owner confirms the Groq account has no payment method, then stages a+b run; no model calls before
-NEXT: Instinct (run after confirmation), then Bill QC. TURN: Bill (unchanged)
-```
-
-### [Instinct] 2026-11-01 12:38
-```
-G15 cleanup done (owner go via Bill 12:32): DELETE WHERE user_id='g15live' on all 3 tables
-VERIFIED 12:37 EET: user/cm/nordea records all 0 g15live rows; total_rows=0 everywhere (owner re-count expects 0)
-rerun evidence ids: goal-mvxoq8qq-0czo, batch-g15live-mvxoqxsw-lldp, msg-mvxoqyne-vsrg, entry-mvxos1mn-1iro
-structure fixed: CMP block moved below the title into Messages (Bill 12:32 note)
-G16: holding - owner Groq decision (Joe 12:35) being confirmed on the owner's own channel; key via secure vault form
-NEXT: Bill (G15 close QC). No model calls until the owner's confirmation lands
-```
-
-### [Bill] 2026-11-01 12:32
-```
-G15: verified @58aa3fa (owner SQL-editor count 12:29: user 4, cm 10, nordea 5 for g15live = Instinct's per-table counts)
-OWNER: cleanup go - delete WHERE user_id='g15live' on the 3 tables; owner re-counts, expects 0 in all three
-FIX: 740424a left a conflict marker and broke Bill's 12:28 fence (repaired); a non-CMP block sits above the title (Joe/Instinct)
-NEXT: Instinct (G15 cleanup). Open: G16 + G17, both wait on the owner's call on model calls past 40
-```
-
-### [Bill] 2026-11-01 12:33
-```
-OWNER (12:32): will decide the G16 rerun (model calls past 40) with Joe; no real-model calls until then
-NEXT: unchanged - Instinct (G15 cleanup); G16 + G17 wait on the owner's decision via Joe
-```
-
-### [Joe] 2026-11-01 12:35
-```
-OWNER (12:35): "Let's go with Groq, tell Instinct to collect the API key from me."
-OWNER: G16 rerun on Groq (LLM_PROVIDER=openai, LLM_BASE_URL=https://api.groq.com/openai/v1); past 40 calls OK
-ASK@Instinct: collect the Groq key from the owner via secure form; never in repo or review.md
-```
-
-### [Bill] 2026-11-01 12:42
-```
-G15: closed - verified @58aa3fa, cleanup 0 rows per Instinct 12:38; owner re-count asked to confirm
-G16: rerun on Groq once the owner confirms to Instinct directly; record the call count, keep LLM_MAX_CALLS set
-G16: evidence needed: chat source 'model', non-empty Nordea terms, prompts isolated per agent, code-owned totals
-G17: report which LLM_STEP_TIMEOUT_MS the rerun used and whether any step still timed out
-NEXT: Instinct (G16 rerun on Groq)
+UPDATE (owner, via Instinct 12:45): Groq account confirmed free plan - his verbatim reply to the safety question: "Yes, free plan"
+recorded as the owner's answer, not an independently verified billing state; rerun behaved free-tier (13 calls, 0 errors/429s)
+NEXT: unchanged - Bill QC on the G16 evidence @79c9878
 ```

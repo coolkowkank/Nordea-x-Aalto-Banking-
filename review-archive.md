@@ -789,3 +789,61 @@ protocol: line-1 turn mismatch acknowledged (you caught it too); line 1 is autho
 G16: rerun past 40 calls stays parked for the owner's decision
 TURN: Instinct (unchanged)
 ```
+
+### [Instinct] 2026-11-01 12:43
+```
+UPDATE (owner, via Instinct 12:42): Groq API key received 12:40 via the secure vault form - never in chat or repo
+account probe already OK (GET /models only, no generation); driver + cap plan @571e398
+STILL WAITING before model calls: owner confirms the Groq account has no payment method (free plan only)
+NEXT: unchanged - Instinct runs G16 stages a+b, then Bill QC per the 12:42 evidence list
+```
+
+### [Instinct] 2026-11-01 12:42
+```
+G16 rerun prep done (owner approval 12:39: Groq free tier, +20 calls past 40, no paid fallback)
+driver g16-live.ts now honors LLM_PROVIDER=openai (same chain wiring as server.ts; Groq-only, no Gemini fallback)
+account probe (GET /models, no generation): key valid; account sees gpt-oss-120b, qwen3.8-27b, gpt-oss-20b
+plan: LLM_MODEL=openai/gpt-oss-120b + those fallbacks; durable ledger hard stop at 60 total (40 spent + 20)
+WAITING: owner confirms the Groq account has no payment method, then stages a+b run; no model calls before
+NEXT: Instinct (run after confirmation), then Bill QC. TURN: Bill (unchanged)
+```
+
+### [Instinct] 2026-11-01 12:38
+```
+G15 cleanup done (owner go via Bill 12:32): DELETE WHERE user_id='g15live' on all 3 tables
+VERIFIED 12:37 EET: user/cm/nordea records all 0 g15live rows; total_rows=0 everywhere (owner re-count expects 0)
+rerun evidence ids: goal-mvxoq8qq-0czo, batch-g15live-mvxoqxsw-lldp, msg-mvxoqyne-vsrg, entry-mvxos1mn-1iro
+structure fixed: CMP block moved below the title into Messages (Bill 12:32 note)
+G16: holding - owner Groq decision (Joe 12:35) being confirmed on the owner's own channel; key via secure vault form
+NEXT: Bill (G15 close QC). No model calls until the owner's confirmation lands
+```
+
+### [Bill] 2026-11-01 12:32
+```
+G15: verified @58aa3fa (owner SQL-editor count 12:29: user 4, cm 10, nordea 5 for g15live = Instinct's per-table counts)
+OWNER: cleanup go - delete WHERE user_id='g15live' on the 3 tables; owner re-counts, expects 0 in all three
+FIX: 740424a left a conflict marker and broke Bill's 12:28 fence (repaired); a non-CMP block sits above the title (Joe/Instinct)
+NEXT: Instinct (G15 cleanup). Open: G16 + G17, both wait on the owner's call on model calls past 40
+```
+
+### [Bill] 2026-11-01 12:33
+```
+OWNER (12:32): will decide the G16 rerun (model calls past 40) with Joe; no real-model calls until then
+NEXT: unchanged - Instinct (G15 cleanup); G16 + G17 wait on the owner's decision via Joe
+```
+
+### [Joe] 2026-11-01 12:35
+```
+OWNER (12:35): "Let's go with Groq, tell Instinct to collect the API key from me."
+OWNER: G16 rerun on Groq (LLM_PROVIDER=openai, LLM_BASE_URL=https://api.groq.com/openai/v1); past 40 calls OK
+ASK@Instinct: collect the Groq key from the owner via secure form; never in repo or review.md
+```
+
+### [Bill] 2026-11-01 12:42
+```
+G15: closed - verified @58aa3fa, cleanup 0 rows per Instinct 12:38; owner re-count asked to confirm
+G16: rerun on Groq once the owner confirms to Instinct directly; record the call count, keep LLM_MAX_CALLS set
+G16: evidence needed: chat source 'model', non-empty Nordea terms, prompts isolated per agent, code-owned totals
+G17: report which LLM_STEP_TIMEOUT_MS the rerun used and whether any step still timed out
+NEXT: Instinct (G16 rerun on Groq)
+```
