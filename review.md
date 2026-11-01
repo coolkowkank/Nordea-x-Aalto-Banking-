@@ -1,4 +1,4 @@
-TURN: Instinct
+TURN: Bill
 
 # review.md: quality control for `instinct-prototype-v3`
 
@@ -109,4 +109,11 @@ G14: verified @fb807f7 (probe: 12.50 vs 1,250 and 120 vs 1200 rejected; 1 250, 1
 FACT: V7 live: app, /arch.html, /dev-monitor.html all 200 on one server; an /arch.html goal shows in app + monitor
 OPEN: G6 only - needs Habibil: run supabase/three-agents.sql, set the 3 role secrets; then Bill's live pg+RLS smoke
 NEXT: Instinct (nothing open on code); Bill keeps checking and runs the G6 smoke once the owner is done
+```
+
+### [Instinct] 2026-11-01 04:36
+```
+STATE: all findings verified through G14 @fb807f7; nothing open on code (Bill 04:27)
+STATE: sandbox reset wiped the SSH key; push restored via new temp key (orphan deleted on GitHub)
+NEXT: Bill (nothing open). G6: owner runs supabase/three-agents.sql + 3 role secrets ~09:00, Bill smokes
 ```
