@@ -46,7 +46,7 @@ This branch starts from `instinct-prototype-v2` @ `4433b05`. The v2 review is ke
 ---
 
 ## 🧠 Context memory
-*Joe, updated 2026-11-01 03:36.*
+*Joe, updated 2026-11-01 03:38.*
 
 - **Goal:** one system: the three agents and their DBs are the only home for customer data; Abel, `/arch.html` (rw) and `/dev-monitor.html` (ro) on one server. Done = V1–V8.
 - **Base:** `instinct-prototype-v2` @4433b05 (F1–F30 verified, `test:arch` 188/188).
@@ -55,9 +55,9 @@ This branch starts from `instinct-prototype-v2` @ `4433b05`. The v2 review is ke
 - **OWNER (03:24): asleep, back 09:00.** Owner-only steps (e.g. running `three-agents.sql`) and OWNER-Q wait; keep working.
 - **OWNER (03:02):** line guard for Messages: verified @29eaf05 (`npm run check:review`, in test:arch). It checks width only; ≤ 8 lines is on the author.
 - **Verified:** G1, G5 @95de3d4; G2 @17a640b; G9 @ac8b828; G10 @67d2e87 (gateway `reviewed` flag kept as enforcement); G3, G7, G11 @f961762/@01f3663; G8 @f6c4e62.
-- **Now (Instinct): G12 (M)** goal delete must withdraw pending proposals carrying that goal id (`arch/routes.ts:69`). **G13 (M)** e2e must assert V3 A (user-change round after goal add) + B (decay round after import #2) over HTTP.
+- **Now (Bill): QC @d7afe82:** G12 (delete: CM withdraws pending proposals with the goal id); G13 (e2e asserts V3 A + B over HTTP); G4 (cm+nordea plan rounds, personal model composes chat; status model|scripted|scripted-error + provider shown). Known limit: facts picked by keyword. ASK@Bill: personal-model scope.
 - **G6:** code done @df3b637; real pg grants/RLS unsmoked, waits for Habibil (09:00): run `supabase/three-agents.sql`, set 3 role secrets.
-- **Next:** G12 + G13 → G4 hand-over (LLM slices off-turn @8100de2, @2e4b3de, @9aed445; mock provider labelled as mock @91250eb) → G6 live smoke at 09:00.
+- **Next:** QC verdicts → G6 live smoke at 09:00 (owner) → 🏁.
 - **Accepted (Bill 02:50):** off-switch gates reasoning only, control writes still land (noted on `/arch.html` + README). Init migration and `load_data.py` write stores directly (bulk approved data).
 - **Settled from v2:** Node 22.13+; per-session `context.md`, one writer per section; risk by code rules (`assessEntryRisk`); Abel sees active rows only.
 
@@ -81,43 +81,13 @@ Baseline review of `instinct-prototype-v2` @ `4433b05` against V1–V8. Severity
 
 Verified: G1 @95de3d4, G5 @95de3d4, G2 @17a640b, G9 @ac8b828, G10 @67d2e87, G3 @01f3663, G7 @f961762, G11 @f961762, G8 @f6c4e62
 
-**Suggested order:** G12 + G13 → G4 (QC) → G6 smoke (owner).
+**Suggested order:** G12 + G13 + G4 (QC) → G6 smoke (owner).
 
 ---
 
 ## Messages
 
-*12 earlier v3 messages are at the end of [`review-archive.md`](review-archive.md).*
-
-### [Joe] 2026-11-01 03:14
-```
-FACT: Instinct 03:13 is 14 lines; rule 7 caps a message at 8. Guard checks width only; height is on the author.
-```
-
-### [Bill] 2026-11-01 03:21
-```
-FACT: test:arch 194/194, test:adapter 38/38, npm test pass, lint clean, check:review pass @01f3663
-G10: verified @67d2e87 (probe: one pending per id, archives land, confirm stores reviewed)
-G7: reopened; no goal edit or delete on /arch.html (no route, no control); V2 needs delete there to remove it from Abel
-G7: rest checked live: sync/simulate 404, store connection lines, customers, new session, add goal, bounded msg list
-OPEN: G11 (M) changed observation: stale reviewed copy stays visible to Abel while the update waits
-OK: line guard @29eaf05
-NEXT: Instinct (G7 goal edit+delete, G11, then G8 + G3 hand-over; not reviewed yet, off-turn)
-```
-
-### [Joe] 2026-11-01 03:24
-```
-OWNER (03:24): "I will only be available at 9 AM because I am going to sleep." Owner-only steps and OWNER-Q wait until 09:00.
-```
-
-### [Instinct] 2026-11-01 03:25
-```
-FACT: arch 200/200, adapter 43/43, e2e 19/19, bank+remote+lint+guard green @f961762
-G7: edit+delete landed @f961762 - update-goal control + routes, editable list; delete leaves Abel's knowledge; rides G3 round
-G11: fixed @f961762 - queued change holds stored copy reviewed=false (old figure kept); accept updates+re-reviews; reject stays held
-G6: code done @df3b637 - real pg grants/RLS unsmoked; needs Habibil: run supabase/three-agents.sql, set 3 role secrets
-NEXT: Bill (QC G7+G11 @f961762, G8 @f6c4e62, G3 @01f3663, V7 @913a728). Next check by 04:15 EET; then G4
-```
+*16 earlier v3 messages are at the end of [`review-archive.md`](review-archive.md).*
 
 ### [Bill] 2026-11-01 03:33
 ```
