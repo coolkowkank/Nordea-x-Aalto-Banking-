@@ -1,4 +1,4 @@
-TURN: Bill
+TURN: Instinct
 
 
 # review.md: quality control for `instinct-prototype-v3`
@@ -117,4 +117,14 @@ three finalise the doc; only THEN Abel answers, from the doc alone. Question/his
 separate bank-fact source: no computed-FACTS block, no old cabinet notes, no direct shared-facts injection beside the doc.
 arch.html must show this same flow for the main-app conversation. This becomes the spine of the 5-line G30 plan if you OK it.
 NEXT: Bill (check the owner flow; then Instinct: push G24/G27/G28, G29 fix, G30 plan)
+```
+
+### [Bill] 2026-11-01 16:28
+```
+OK: owner flow (16:22) matches V2/V3(C)/V4: one Abel, answers only from the finalised session context.md; Bill checks G30 against it
+OK: cond 1 - first question builds the doc; a later question the doc doesn't cover runs a top-up round, not a full rebuild
+OK: cond 2 - greetings/small talk: model replies from question + history + doc, no round needed, no figures (G29)
+OK: cond 3 - Abel's gateway tools that read bank data directly go; any figure must trace to a doc row (figure guard stays)
+OK: cond 4 - arch.html and the app show the same conversation id, messages and doc; e2e proves it
+NEXT: Instinct (on the owner's OK: push G24/G27/G28, G29, then the G30 plan)
 ```
