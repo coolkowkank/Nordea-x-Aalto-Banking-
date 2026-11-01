@@ -1,4 +1,4 @@
-TURN: Bill
+TURN: Instinct
 
 # review.md: quality control for `instinct-prototype-v3`
 
@@ -74,13 +74,14 @@ Baseline review of `instinct-prototype-v2` @ `4433b05` against V1–V8. Severity
 
 | Id | Sev | V | Finding | Evidence | Status |
 |:-:|:-:|:-:|---|---|:-:|
-| G2 | H | V2 | The app's screens read and write the old store directly (78 `db.*` calls in `routes.ts`); Abel reads its cabinet from `abel_records` through the gateway, not from `cm.db`. | `src/server/routes.ts`; `abel.ts` (`readCabinetThroughGateway`) | reopened @95de3d4: writes bypass the agents (see 02:45) |
+| G2 | H | V2 | The app's screens read and write the old store directly (78 `db.*` calls in `routes.ts`); Abel reads its cabinet from `abel_records` through the gateway, not from `cm.db`. | `src/server/routes.ts`; `abel.ts` (`readCabinetThroughGateway`) | verified @17a640b (routing); consent → G10 |
 | G3 | H | V3 | A User DB change starts no round: adding a goal only posts a note to the customer, so nothing reaches the CM or Nordea agent until the next contribution or session. | `agents/personal.ts` `addGoalDirect` (line 34) | open |
 | G4 | H | V4 | All three agents are scripted (no LLM; v2's AC10 test pins that). | `scripts/test-arch.ts:705` | open |
 | G6 | M | V1 | The three databases are SQLite only; there are no Supabase tables or per-agent credentials for them. | `arch/store/*` | open |
 | G7 | M | V5 | `/arch.html` still has the simulated external-agent mode, "Connect (simulated)", the demo sync endpoint, no connection lines and no session view. | `public/arch.html:53`, `:64`, `:101`, `:121`; `routes.ts` sync | open |
 | G8 | M | V6 | The monitor's main panels are the legacy model (Nordea shown on `abel_records`, Collaborative context with "no own database"); the three databases sit in one compact panel. | `public/dev-monitor.html:93`, `:260–276` | open |
-| G9 | L | V1 | `load_data.py --target file` ignores `CABINET_DATA_DIR` and always writes `data/arch/` (the server honours it), so a scratch or test data dir can't be loaded. | `scripts/load_data.py` | open |
+| G9 | L | V1 | `load_data.py --target file` ignores `CABINET_DATA_DIR` and always writes `data/arch/` (the server honours it), so a scratch or test data dir can't be loaded. | `scripts/load_data.py` | verified @ac8b828 |
+| G10 | M | V2, V3 | Two consent systems. CM `put-entry` derives risk but stores every app write as active, high risk included; the app's own `reviewed` flag (gateway blocks unreviewed Nordea entries, `accessGateway.ts:110`) is a second, separate path. Make one: a high-risk or unreviewed app write waits in the CM review queue, under the same standing permissions as agent proposals. | `agents/cm.ts` put-entry; `accessGateway.ts:110` | open |
 
 Verified: G1 @95de3d4, G5 @95de3d4
 
@@ -120,4 +121,14 @@ FACT: G6 live caveat stands - the real pg wire + RLS need one Supabase smoke tes
 DECISION: init migration and load_data.py still write the stores directly - bulk loading of already-approved data, same class as the G5 you verified. Flag if you want even that through agents.
 NOTE: the put-goal control path is the hook G3 needs (a User DB change can now start a round from the personal agent's handler).
 NEXT: Bill (re-QC G2). Next check by 03:30 EET; if I have no verdict by then I continue with G7+G8 off-turn.
+```
+
+### [Bill] 2026-11-01 02:55
+```
+FACT: test:arch 188/188, test:adapter 31/31, lint clean (after npm install for pg) @f1c49c8
+G2: verified; every app write is a bus control message to the owning agent (db.ts:620-625, cm.ts put-entry)
+G9: verified
+OPEN: G10 (M) risk is labelled but not applied to app writes; two consent paths
+OK: "off gates reasoning, control writes still land": accepted; say so on /arch.html and in the README
+NEXT: Instinct (G10, then G6 hand-over, then G7+G8)
 ```
