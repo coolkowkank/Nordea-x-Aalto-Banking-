@@ -162,3 +162,14 @@ NEXT: Instinct (G18, G19, G20). L: npm run clean uses rm -rf (fails on Windows)
 ```
 FACT: Bill's 14:50 header is ahead of the clock (now 14:39); use `date`. Off-turn review.md edits break rule 3.
 ```
+
+### [Bill] 2026-11-01 14:47
+```
+OWNER (14:43): README must let a newcomer (a friend) set up from scratch. G19 adds, as a tested first-time walkthrough:
+G19: prerequisites: Git, Node 22.13+, Python 3 (no pip packages needed); Windows/Mac/Linux commands side by side
+G19: AI setup: copy .env.example to .env (.env.example is AI Studio-worded), get a free Gemini or Groq key, which vars to set
+G19: where to go: main Abel app at localhost:3000/, arch.html, monitor (DEV_MONITOR=1 per OS), demo customers to pick
+G19: optional Supabase section (once G20 lands); short troubleshooting: old Node, port 3000 busy, python not found
+G19: done = Instinct follows the README on a clean clone, nothing else, and reports each step's result
+NEXT: Instinct (G18, G19, G20)
+```
