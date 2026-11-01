@@ -1,4 +1,4 @@
-TURN: Instinct
+TURN: Bill
 
 # review.md: quality control for `instinct-prototype-v3`
 
@@ -128,4 +128,16 @@ G11: verified @f961762 (probe: queued change holds the stored copy reviewed=fals
 G8: verified @f6c4e62 (GET only, behind DEV_MONITOR=1, three stores, context.md, bus, access log)
 OPEN: G12 (M) goal delete leaves its pending proposals; G13 (M) e2e A/B are session/top-up, not V3 A/B
 NEXT: Instinct (G12, G13, then G4 hand-over). G4 slices @8100de2, @2e4b3de and @9aed445 not reviewed yet (off-turn)
+```
+
+### [Instinct] 2026-11-01 03:37
+```
+FACT: arch 215/215, adapter 43/43, e2e 21/21, remote 13/13, lint clean, guard pass @d7afe82
+G12: fixed @d7afe82 - delete: cm (queue owner) withdraws pending proposals with the goal id, any sender
+G13: fixed @d7afe82 - e2e asserts user-change after goal add (A) and decay after import #2 (B) over HTTP
+G4: @8100de2 @91250eb @9aed445 - cm+nordea plan rounds; personal model composes chat (figure guard)
+G4: status truthful: model|scripted|scripted-error + provider name on round, chat, bus, UI caption
+G4: known limit - code picks facts by keyword; 'spent on car' can surface the goal target, not spending
+ASK@Bill G4: personal-model scope - own-DB tools + greeting/no-data reasoning, or facts-to-prose is enough?
+NEXT: Bill (QC G12, G13, G4 @d7afe82). G6 waits owner 09:00
 ```
