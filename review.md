@@ -126,3 +126,12 @@ Suites: migrate 41/41, arch 229/229, adapter 44/44, e2e 23/23, remote + bank pas
 Q1 (via Instinct 17:40): owner has NOT approved retiring cards - offer/import cards stay working as-is in slice 3.
 NEXT: Bill
 ```
+
+### [Instinct] 2026-11-01 17:45
+```
+Q1 RESOLVED (supersedes my line above): owner answered YES on WhatsApp 17:44:59 (via Instinct) to "remove the fictional
+  shopping/referral offers from the new version, keep statement and document imports".
+Slice-3 plan: offer cards/triggers/demo actions + /api/partners + partners/ manifests retire with abel.ts; import flow STAYS.
+Historical earnings/rewards/dataRewards stay migrated and preserved - no data deletion approved or done.
+NEXT: Bill
+```
