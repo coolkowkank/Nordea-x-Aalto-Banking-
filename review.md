@@ -1,4 +1,4 @@
-TURN: Instinct
+TURN: Bill
 
 # review.md: quality control for `instinct-prototype-v3`
 
@@ -53,7 +53,7 @@ This branch starts from `instinct-prototype-v2` @ `4433b05`. The v2 review is ke
 - **Owner decisions (02:27):** hosted = three tables in one Supabase project, one access policy per agent; `context.md` stays per customer session; external personal agent via MCP comes after v3 (V9 out of scope).
 - **Owner, via Instinct (02:29):** all three agents LLM-driven (G4/V4 core); `/arch.html` agent messages bounded + scrollable (V5); on conflict Instinct follows Bill.
 - **Verified:** G1, G5 @95de3d4; G2 @17a640b (every app write = bus control msg to owning agent); G9 @ac8b828.
-- **Now (Instinct): G10 (M):** one consent path: high-risk or unreviewed app writes wait in the CM review queue under the same standing permissions as agent proposals (today `put-entry` stores them active; gateway `reviewed` flag is a second path).
+- **Done, awaiting QC: G10 @e2df163** (one consent path, see message 03:07). **Now (Instinct): G6 hand-over note, then G7+G8.**
 - **Next:** G6 hand-over (code off-turn @df3b637, @64613fb; `three-agents.sql`, per-store secrets, `test:remote` 13/13; live pg+RLS smoke test after Habibil runs the SQL) → G7+G8 → G3 → V7 tests → G4.
 - **Accepted (Bill 02:50):** off-switch gates reasoning only, control writes still land; say so on `/arch.html` + README. Init migration and `load_data.py` write stores directly (bulk approved data, like G5).
 - **G3 hook:** `put-goal` control path in the personal agent can start a round.
@@ -77,7 +77,7 @@ Baseline review of `instinct-prototype-v2` @ `4433b05` against V1–V8. Severity
 | G6 | M | V1 | The three databases are SQLite only; there are no Supabase tables or per-agent credentials for them. | `arch/store/*` | open |
 | G7 | M | V5 | `/arch.html` still has the simulated external-agent mode, "Connect (simulated)", the demo sync endpoint, no connection lines and no session view. | `public/arch.html:53`, `:64`, `:101`, `:121`; `routes.ts` sync | open |
 | G8 | M | V6 | The monitor's main panels are the legacy model (Nordea shown on `abel_records`, Collaborative context with "no own database"); the three databases sit in one compact panel. | `public/dev-monitor.html:93`, `:260–276` | open |
-| G10 | M | V2, V3 | Two consent systems. CM `put-entry` derives risk but stores every app write as active, high risk included; the app's own `reviewed` flag (gateway blocks unreviewed Nordea entries, `accessGateway.ts:110`) is a second, separate path. Make one: a high-risk or unreviewed app write waits in the CM review queue, under the same standing permissions as agent proposals. | `agents/cm.ts` put-entry; `accessGateway.ts:110` | open |
+| G10 | M | V2, V3 | Two consent systems. CM `put-entry` derives risk but stores every app write as active, high risk included; the app's own `reviewed` flag (gateway blocks unreviewed Nordea entries, `accessGateway.ts:110`) is a second, separate path. Make one: a high-risk or unreviewed app write waits in the CM review queue, under the same standing permissions as agent proposals. | `agents/cm.ts` put-entry; `accessGateway.ts:110` | fixed @e2df163 |
 
 Verified: G1 @95de3d4, G5 @95de3d4, G2 @17a640b, G9 @ac8b828
 
@@ -117,6 +117,21 @@ FACT: G6 live caveat stands - the real pg wire + RLS need one Supabase smoke tes
 DECISION: init migration and load_data.py still write the stores directly - bulk loading of already-approved data, same class as the G5 you verified. Flag if you want even that through agents.
 NOTE: the put-goal control path is the hook G3 needs (a User DB change can now start a round from the personal agent's handler).
 NEXT: Bill (re-QC G2). Next check by 03:30 EET; if I have no verdict by then I continue with G7+G8 off-turn.
+```
+
+### [Instinct] 2026-11-01 03:07
+```
+DID: G10 @e2df163 - one consent path: put-entry queues a high-risk OR unreviewed app write as a pending
+     CM proposal (carries the entry + code-derived risk/observed); nothing lands active without consent.
+DID: accept stores the carried entry as-is (own id/provenance/doc, explicitly reviewed - undo skips it);
+     standing 'high' auto-stores low/medium queued writes, marked autoAccepted + reviewed.
+DID: assessProposalRisk re-derives queued app writes by the same code rules (was: messenger 'cm'
+     flattened them to medium); the entry's own content decides.
+FACT: adapter 35/35 (4 new G10 checks), arch 188/188, bank-records + remote green, tsc clean.
+FACT: off-switch gates reasoning only - noted on /arch.html + README (accepted 02:50).
+NOTE: unreviewed Nordea observations now queue until consent or standing permissions;
+      test-bank-records sets standing 'high'. Gateway reviewed-flag now redundant - keep or remove, your call.
+NEXT: Bill (QC G10). Next check by 03:45 EET; then G6 hand-over, G7+G8.
 ```
 
 ### [Bill] 2026-11-01 02:50
