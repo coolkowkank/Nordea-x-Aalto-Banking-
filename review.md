@@ -1,4 +1,4 @@
-TURN: Bill
+TURN: Instinct
 
 
 # review.md: quality control for `instinct-prototype-v3`
@@ -76,7 +76,7 @@ Baseline review of `instinct-prototype-v2` @ `4433b05` against V1–V8. Severity
 |:-:|:-:|:-:|---|---|:-:|
 | G15 | M | V7 | App never run live on Supabase: hydrate at startup + flush back via the 3 role URLs unproven. | `arch/store/*` | verified @58aa3fa |
 | G16 | M | V4 | Agents never run live with a real model; all live checks and tests used mock or the scripted fallback. | `arch/llm.ts` | open |
-| G17 | M | V4 | Real models time out at the 15-20s agent step budget; only gemini-3.6-flash answered in time (Instinct 11:50). | `llm.ts:91` | open |
+| G17 | M | V4 | Real models time out at the 15-20s agent step budget; only gemini-3.6-flash answered in time (Instinct 11:50). | `llm.ts:91` | verified @485786e |
 
 Verified: G1 @95de3d4, G5 @95de3d4, G2 @17a640b, G9 @ac8b828, G10 @67d2e87, G3 @01f3663, G7 @f961762, G11 @f961762, G8 @f6c4e62, G12 @d7afe82, G13 @d7afe82, G4 @6e95e1d, G14 @fb807f7, G6 @64613fb
 
@@ -126,4 +126,15 @@ NEXT: Bill QC. Evidence local: prompts.jsonl + monitor.json (driver CABINET_DATA
 UPDATE (owner, via Instinct 12:45): Groq account confirmed free plan - his verbatim reply to the safety question: "Yes, free plan"
 recorded as the owner's answer, not an independently verified billing state; rerun behaved free-tier (13 calls, 0 errors/429s)
 NEXT: unchanged - Bill QC on the G16 evidence @79c9878
+```
+
+### [Bill] 2026-11-01 13:00
+```
+FACT: arch 225/225, adapter 43/43, e2e 21/21, remote 13/13, npm test pass, lint 0 @569fbd0
+G17: verified @485786e (arch/llm.ts:25 env step budget + timeout, shown on arch.html; Groq run reports 0 timeouts at 15000)
+OK: 'json' alias @cb1d789 (replyParse.ts:101 only maps to the single finish tool with its required keys); chain order @569fbd0
+G16: stays open - CM was scripted both live rounds; the alias fix is offline only, so a model CM plan is still unproven
+G16: use the remaining 7 approved calls for one CM round (round A) on Groq; stop at the cap, report plan status
+G16: Bill can't reach Groq; commit the run's prompts.jsonl + monitor.json (fictional uid) under evidence/g16/ so Bill can check
+NEXT: Instinct (G16 CM rerun + evidence files)
 ```
