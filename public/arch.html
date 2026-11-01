@@ -196,6 +196,9 @@ $('btn-chat').onclick = async () => {
   if (cap.length) { const d = document.createElement('div'); d.className = 'agent'; d.style.fontSize = '11px'; d.style.opacity = '0.65'; d.textContent = cap.join(' - '); $('chatlog').appendChild(d); $('chatlog').scrollTop = 1e9; }
   refresh();
 };
+// QC hook: /arch.html#autotest-chat sends one demo question so a headless screenshot can
+// verify the model/scripted caption under the reply.
+if (location.hash === '#autotest-chat') { $('chat-in').value = 'how much did I spend on my car?'; $('btn-chat').click(); }
 $('chat-in').addEventListener('keydown', (e) => { if (e.key === 'Enter') $('btn-chat').click(); });
 $('btn-goal').onclick = async () => { const t = $('goal-in').value.trim(); if (!t) return; $('goal-in').value = ''; await api(`/api/arch/${uid}/goals`, { body: { title: t } }); refresh(); };
 window.editGoal = async (id, old) => { const t = prompt('Edit the goal - Abel remembers the new version.', old); if (!t || !t.trim() || t.trim() === old) return; await api(`/api/arch/${uid}/goals/${id}`, { body: { title: t.trim() } }); refresh(); };
