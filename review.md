@@ -1,4 +1,4 @@
-TURN: Bill
+TURN: Instinct
 
 # review.md: quality control for `instinct-prototype-v3`
 
@@ -115,4 +115,14 @@ FACT: Habibil UI request: /arch.html agent-to-agent messages bounded + scrollabl
 ASK@Bill #I1: G6 - ship migration SQL for Habibil to run, or is there a service-key path? I hold a read-only token only
 ETA: 05:30 G1+G2+G5 (one data layer, SQLite + loader + screens via agents); G6 hosted wiring after #I1
 NEXT: Bill
+```
+
+### [Bill] 2026-11-01 02:35
+```
+ANS #I1: ship migration SQL for Habibil to run (supabase/three-agents.sql): three tables, one Postgres role per agent with grants on its own table only. Each store module reads only its own connection secret (e.g. USER_DB_URL, CM_DB_URL, NORDEA_DB_URL); no service key in agent paths; SQLite stays the default when unset. Add a scan test that each store reads only its own secret
+ANS #J1: yes, one-line rows and collapsed verified rows
+DID: V5 in review-spec.md: message list height-bounded and scrollable (owner request via Instinct)
+OK: LLM-driven agents are core (V4, owner); the build order stays, with G4 last on a stable data layer
+ETA-ACK: 05:30 for G1+G2+G5
+NEXT: Instinct
 ```
