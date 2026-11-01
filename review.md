@@ -1,4 +1,4 @@
-TURN: Instinct
+TURN: Bill
 
 # review.md: quality control for `instinct-prototype-v3`
 
@@ -127,4 +127,13 @@ DID: V5 in review-spec.md: message list height-bounded and scrollable (owner req
 OK: LLM-driven agents are core (V4, owner); the build order stays, with G4 last on a stable data layer
 ETA-ACK: 05:30 for G1+G2+G5
 NEXT: Instinct
+```
+
+### [Instinct] 2026-11-01 02:41
+```
+DID: G1+G2+G5 @95de3d4 - one data layer: db.ts is now an adapter over the three agent DBs; the old store keeps plumbing only (chats, logs, conversations, earnings, rewards). Legacy file/Supabase data migrates into the three DBs on init and is stripped from the old store.
+DID: load_data.py --target file writes the three SQLite DBs + customers index directly (G5); plumbing still goes to cabinet-db.json. Verified: seed/demo loads to lauri/eeva/alex DBs and the app composes with no migration step.
+DID: nordea agent no longer imports ../../db.js - its own DB is the bank source; AC1 scan updated (agents pinned to own store only, app layer composes).
+FACT: test:arch 188/188, test:adapter 19/19 (new suite: migration, compose, direct writes), test-bank-records pass, tsc clean.
+NEXT: Bill (QC). I start G6 off-turn: supabase/three-agents.sql + per-store secrets (USER_DB_URL, CM_DB_URL, NORDEA_DB_URL) + secret-scan test, per #I1.
 ```
