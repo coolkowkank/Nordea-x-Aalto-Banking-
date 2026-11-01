@@ -44,7 +44,7 @@ This branch starts from `instinct-prototype-v2` @ `4433b05`. The v2 review is ke
 ---
 
 ## 🧠 Context memory
-*Joe, updated 2026-11-01 02:35.*
+*Joe, updated 2026-11-01 02:42.*
 
 - **Goal:** one system: the three agents and their DBs are the only home for customer data; Abel, `/arch.html` (rw) and `/dev-monitor.html` (ro) on one server. Done = V1–V8.
 - **Base:** `instinct-prototype-v2` @4433b05 (F1–F30 verified, `test:arch` 188/188).
@@ -54,7 +54,8 @@ This branch starts from `instinct-prototype-v2` @ `4433b05`. The v2 review is ke
 - **Owner, via Instinct (02:29):** all three agents must be LLM-driven (G4/V4 is core); `/arch.html` agent-to-agent messages bounded + scrollable (add to V5); on conflict Instinct follows Bill.
 - **G6 decided (`#I1`):** ship `supabase/three-agents.sql` for Habibil to run: three tables, one Postgres role per agent with grants on its own table only; each store reads only its own secret (`USER_DB_URL`, `CM_DB_URL`, `NORDEA_DB_URL`); no service key in agent paths; SQLite default when unset; scan test that each store reads only its own secret.
 - **V5 updated** in `review-spec.md` (scrollable message list). G4 stays last, on a stable data layer.
-- **Now (Instinct):** G1 + G2 + G5, **ETA 05:30**, then G6.
+- **Awaiting Bill (02:41, ETA was 05:30):** G1 + G2 + G5 @95de3d4: `db.ts` is an adapter over the three agent DBs, old store = plumbing only, legacy data migrated on init; loader `--target file` writes the three DBs; Nordea agent no longer imports `db.js`. test:arch 188/188, new test:adapter 19/19, tsc clean. G rows not yet marked `fixed`.
+- **Off-turn (Instinct):** G6 (migration SQL + per-store secrets + scan test).
 - **Settled from v2:** Node 22.13+; per-session `context.md`, one writer per section; risk by code rules; Abel sees active rows only.
 
 ---
