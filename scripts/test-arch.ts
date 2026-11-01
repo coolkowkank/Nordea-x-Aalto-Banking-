@@ -677,6 +677,20 @@ const decChat53 = await A.chat(UID53, 'how much did I spend on my car?', 'llm-se
 check('G14: a decimal-shifted figure (12.50 vs fact 1200) is dropped too', decChat53.source === 'scripted' && !decChat53.reply.includes('12.50'), decChat53.source + ': ' + decChat53.reply.slice(0, 70));
 LL.setProviderForTests(null);
 
+// --- G29: no User-DB/context hit must NOT bypass the model (Bill 16:05: no parts -> still a model reply).
+{
+  LL.setProviderForTests({ name: 'mock (tests only)', isConfigured: () => true, step: async () => ({ calls: [{ id: 'g29a', name: 'finishReply', args: { reply: 'I am here and listening - ask me anything about your money.' } }] }) });
+  const small = await A.chat(UID53, 'are you listening?', 'llm-sess-6');
+  check('G29: a conversational no-hit message still gets a model-composed reply', small.source === 'model' && small.reply.includes('listening'), small.source + ': ' + small.reply.slice(0, 80));
+  check('G29: the composed reply honestly reports no store rows were used', small.used.length === 0, JSON.stringify(small.used));
+  LL.setProviderForTests({ name: 'mock (tests only)', isConfigured: () => true, step: async () => ({ calls: [{ id: 'g29b', name: 'finishReply', args: { reply: 'You spent 999 EUR on snacks.' } }] }) });
+  const invented = await A.chat(UID53, 'what is up?', 'llm-sess-7');
+  check('G29: figure guard unchanged - an unsourced figure drops to the scripted reply (no number without a source)', invented.source === 'scripted' && !invented.reply.includes('999'), invented.source + ': ' + invented.reply.slice(0, 70));
+  LL.setProviderForTests(null);
+  const noModel = await A.chat(UID53, 'anyone there?', 'llm-sess-8');
+  check('G29: with no provider the honest scripted fallback still answers', noModel.source === 'scripted' && noModel.reply.length > 0, noModel.source);
+}
+
 // --- F18: maintenance rounds merge into the open session's document - no row is dropped.
 const UID17 = 'mergeround';
 A.addGoalDirect(UID17, 'Save for a car');

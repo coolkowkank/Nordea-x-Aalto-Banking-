@@ -113,7 +113,10 @@ export async function chat(uid: string, text: string, clientSessionId?: string):
   // grounded template stays as fallback. Every figure in the model's reply must already
   // exist in the selected facts, or the scripted reply stands (no invented numbers).
   let source: 'model' | 'scripted' | 'scripted-error' = 'scripted';
-  if (!parked && answer.used.length && !getOff(uid).includes('personal')) {
+  // G29: no User-DB/context hit must NOT bypass the model - it still composes the reply from
+  // whatever it has (its own User DB via tools + the session document); the figure guard below
+  // is unchanged, so without sourced facts any invented number drops it back to the scripted text.
+  if (!parked && !getOff(uid).includes('personal')) {
     const { llmComposeReply } = await import('./agents/personal.js');
     const composed = await llmComposeReply(uid, text, answer.parts);
     if (composed.plan && figuresGrounded(composed.plan, [...answer.factSources, ...(composed.seenFacts ?? [])])) {

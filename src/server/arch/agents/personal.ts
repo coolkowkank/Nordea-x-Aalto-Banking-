@@ -160,7 +160,7 @@ export function finishChat(uid: string, begin: ChatBegin): { reply: string; used
  *  reply back to the grounded scripted template. */
 export async function llmComposeReply(uid: string, question: string, parts: string[]): Promise<import('../llm.js').PlanOutcome<string> & { seenFacts: string[] }> {
   const { archLlmEnabled, runAgentReasoning } = await import('../llm.js');
-  if (!archLlmEnabled() || !parts.length) return { plan: null, status: 'scripted', seenFacts: [] };
+  if (!archLlmEnabled()) return { plan: null, status: 'scripted', seenFacts: [] }; // G29: empty parts still compose
   // V4: the personal model reads its OWN User DB through tools (goals, personal facts) -
   // never another agent's store. Code still pre-selects rows into the prompt and checks
   // every figure in the answer against what the model could have seen (seenFacts).
@@ -174,7 +174,7 @@ export async function llmComposeReply(uid: string, question: string, parts: stri
       'If the available facts do not answer the question, say plainly what is missing.',
       'Answer in one to three short sentences, then finishReply.',
     ].join(' '),
-    prompt: `Question: ${question}\nFacts:\n- ${parts.join('\n- ')}`,
+    prompt: `Question: ${question}\nFacts:\n${parts.length ? '- ' + parts.join('\n- ') : '(no rows of your User DB or the shared context matched this message - listMyGoals/listMyFacts may still help; if nothing answers it, say plainly what is missing)'}`,
     tools: [
       { name: 'listMyGoals', description: 'List the goals in your own User DB: title, detail, target amount and date.', parameters: { type: 'object', properties: {} } },
       { name: 'listMyFacts', description: 'List the personal facts in your own User DB.', parameters: { type: 'object', properties: {} } },

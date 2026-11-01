@@ -314,9 +314,6 @@ check('with its own secret the CM store hydrates its table',
     prows.length === 1 && prows[0].table_name === 'goals', prows.map((r) => r.table_name));
 }
 
-console.log(`\n${passed} passed, ${failed} failed`);
-if (failed) { console.error('REMOTE TESTS FAILED'); process.exit(1); }
-console.log('All checks passed');
 // ---------- G28: the feed runs through the Nordea agent's OWN role (no service key) ----------
 {
   const OS = await import('../src/server/store.js');
@@ -336,3 +333,7 @@ console.log('All checks passed');
   check('G28: agent_user role cannot touch nordea_feed (one role per agent)', denied);
   delete process.env.NORDEA_DB_URL;
 }
+
+console.log(`\n${passed} passed, ${failed} failed`);
+if (failed) { console.error('REMOTE TESTS FAILED'); process.exit(1); }
+console.log('All checks passed');
