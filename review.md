@@ -1,4 +1,4 @@
-TURN: Bill
+TURN: Instinct
 
 # review.md: quality control for `instinct-prototype-v3`
 
@@ -74,12 +74,14 @@ Baseline review of `instinct-prototype-v2` @ `4433b05` against V1–V8. Severity
 
 | Id | Sev | V | Finding | Evidence | Status |
 |:-:|:-:|:-:|---|---|:-:|
-| G3 | H | V3 | A User DB change starts no round: adding a goal only posts a note to the customer, so nothing reaches the CM or Nordea agent until the next contribution or session. | `agents/personal.ts` `addGoalDirect` (line 34) | landed @01f3663 |
+| G3 | H | V3 | A User DB change starts no round: adding a goal only posts a note to the customer, so nothing reaches the CM or Nordea agent until the next contribution or session. | `agents/personal.ts` `addGoalDirect` (line 34) | verified @01f3663 |
 | G4 | H | V4 | All three agents are scripted (no LLM; v2's AC10 test pins that). | `scripts/test-arch.ts:705` | open |
 | G6 | M | V1 | The three databases are SQLite only; there are no Supabase tables or per-agent credentials for them. | `arch/store/*` | open |
-| G7 | M | V5 | `/arch.html` still has the simulated external-agent mode, "Connect (simulated)", the demo sync endpoint, no connection lines and no session view. | `public/arch.html:53`, `:64`, `:101`, `:121`; `routes.ts` sync | rework landed @f961762 |
-| G8 | M | V6 | The monitor's main panels are the legacy model (Nordea shown on `abel_records`, Collaborative context with "no own database"); the three databases sit in one compact panel. | `public/dev-monitor.html:93`, `:260–276` | landed @f6c4e62 |
-| G11 | M | V8 | A changed Nordea observation queues, but the stored version stays reviewed, so Abel keeps the stale figure (v2 hid it until re-checked). Fix: hold the stored copy (reviewed=false) while its update waits. | `nordeaData.ts:411-414`; `agents/cm.ts` put-entry | landed @f961762 |
+| G7 | M | V5 | `/arch.html` still has the simulated external-agent mode, "Connect (simulated)", the demo sync endpoint, no connection lines and no session view. | `public/arch.html:53`, `:64`, `:101`, `:121`; `routes.ts` sync | verified @f961762 |
+| G8 | M | V6 | The monitor's main panels are the legacy model (Nordea shown on `abel_records`, Collaborative context with "no own database"); the three databases sit in one compact panel. | `public/dev-monitor.html:93`, `:260–276` | verified @f6c4e62 |
+| G11 | M | V8 | A changed Nordea observation queues, but the stored version stays reviewed, so Abel keeps the stale figure (v2 hid it until re-checked). Fix: hold the stored copy (reviewed=false) while its update waits. | `nordeaData.ts:411-414`; `agents/cm.ts` put-entry | verified @f961762 |
+| G12 | M | V3 | Deleting a goal leaves its pending "Customer goal" proposals in review, so accepting one stores an entry for a goal that no longer exists. Fix: the delete withdraws pending proposals carrying that goal id. | `arch/routes.ts:69`; live probe (eeva) | open |
+| G13 | M | V7 | The e2e "round A/B" checks run the session and top-up rounds (situation C), not V3 A (User DB change) and B (Nordea DB change). Fix: assert a user-change round after the goal add and a decay round after import #2, over HTTP. | `scripts/test-e2e.ts:116-122` | open |
 
 Verified: G1 @95de3d4, G5 @95de3d4, G2 @17a640b, G9 @ac8b828, G10 @67d2e87
 
@@ -119,4 +121,15 @@ G7: edit+delete landed @f961762 - update-goal control + routes, editable list; d
 G11: fixed @f961762 - queued change holds stored copy reviewed=false (old figure kept); accept updates+re-reviews; reject stays held
 G6: code done @df3b637 - real pg grants/RLS unsmoked; needs Habibil: run supabase/three-agents.sql, set 3 role secrets
 NEXT: Bill (QC G7+G11 @f961762, G8 @f6c4e62, G3 @01f3663, V7 @913a728). Next check by 04:15 EET; then G4
+```
+
+### [Bill] 2026-11-01 03:33
+```
+FACT: arch 207/207, adapter 43/43, e2e 19/19, remote 13/13, npm test pass, lint clean, guard pass @8100de2
+G3: verified @01f3663 (live: goal add runs user-change round, personal->cm inform, cm->nordea query, open session doc topped up)
+G7: verified @f961762 (live: edit+delete land in app, /arch.html and monitor; Abel's goal facts follow the User DB)
+G11: verified @f961762 (probe: queued change holds the stored copy reviewed=false)
+G8: verified @f6c4e62 (GET only, behind DEV_MONITOR=1, three stores, context.md, bus, access log)
+OPEN: G12 (M) goal delete leaves its pending proposals; G13 (M) e2e A/B are session/top-up, not V3 A/B
+NEXT: Instinct (G12, G13, then G4 hand-over). G4 slices @8100de2, @2e4b3de and @9aed445 not reviewed yet (off-turn)
 ```
