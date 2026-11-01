@@ -22,6 +22,12 @@ await db.init();
 
 const USER = 'lauri';
 
+// G10: one consent path - unreviewed bank observations wait in the CM review queue unless
+// the customer has set standing permissions. Set them (only HIGH risk waits) so the import's
+// medium-risk observations store automatically, logged and disputable (AC7/AC9).
+const A = await import('../src/server/arch/orchestrator.js');
+A.setStandingPermissions(USER, 'high');
+
 // Salary rows that trigger a "salary changed" observation in the demo window (demo today = 2026-10-23).
 const salaryRows = [] as any[];
 for (let m = 1; m <= 10; m++) {

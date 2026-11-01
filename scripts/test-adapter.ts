@@ -19,6 +19,7 @@ writeDemoDb(DIR);
 const { db } = await import('../src/server/db.js');
 await db.init();
 const S = await import('../src/server/arch/store/index.js');
+const A = await import('../src/server/arch/orchestrator.js');
 
 let passed = 0;
 let failed = 0;
@@ -74,8 +75,31 @@ check('the CM agent wrote the entry and derived risk+observed by code rules (cus
   routed?.risk === 'low' && routed?.observed === 'observed', { risk: routed?.risk, observed: routed?.observed });
 
 db.addCabinetEntry({ id: 'g2-routed-2', userId: 'lauri', type: 'fact', title: 'Note about therapy appointments', detail: 'mentioned in chat', source: 'customer', status: 'active', private: false, readableBy: { abel: true, offers: false }, provenance: { channel: 'app' }, reviewed: true, createdAt: '2026-11-01T00:00:00Z', updatedAt: '2026-11-01T00:00:00Z' });
-check('a sensitive-topic write is derived HIGH risk by the CM agent (code rules, F21)',
-  S.loadCmDb('lauri').entries.find((e) => e.id === 'g2-routed-2')?.risk === 'high');
+
+// --- G10: ONE consent path. A high-risk OR unreviewed app write waits in the CM review
+// queue under the same standing permissions as agent proposals - it does not store directly.
+const queued2 = S.loadBus('lauri').messages.find((m) => m.type === 'propose' && m.to === 'user'
+  && (m.payload as { entry?: { id?: string } })?.entry?.id === 'g2-routed-2');
+check('a sensitive-topic write waits in the CM review queue with code-derived HIGH risk (G10, F21)',
+  !!queued2 && queued2.status === 'pending' && (queued2.payload as { risk?: string })?.risk === 'high'
+  && !S.loadCmDb('lauri').entries.some((e) => e.id === 'g2-routed-2' && e.status === 'active'));
+
+db.addCabinetEntry({ id: 'g2-routed-4', userId: 'lauri', type: 'preference', title: 'G2 unreviewed preference', detail: 'from an unreviewed import', source: 'customer', status: 'active', private: false, readableBy: { abel: true, offers: true }, provenance: { channel: 'app' }, reviewed: false, createdAt: '2026-11-01T00:00:00Z', updatedAt: '2026-11-01T00:00:00Z' });
+check('an UNREVIEWED low-risk write also queues (G10: no second consent flag)',
+  !S.loadCmDb('lauri').entries.some((e) => e.id === 'g2-routed-4')
+  && S.loadBus('lauri').messages.some((m) => m.type === 'propose' && m.status === 'pending' && (m.payload as { entry?: { id?: string } })?.entry?.id === 'g2-routed-4'));
+
+A.setStandingPermissions('lauri', 'high');
+const stored4 = S.loadCmDb('lauri').entries.find((e) => e.id === 'g2-routed-4');
+check('standing permissions (high) auto-store the queued low-risk write, marked autoAccepted + reviewed',
+  !!stored4 && stored4.autoAccepted === true && stored4.doc?.reviewed === true && stored4.risk === 'low');
+check('the high-risk write still waits under standing permissions (only explicit consent stores it)',
+  !S.loadCmDb('lauri').entries.some((e) => e.id === 'g2-routed-2'));
+
+A.decideProposal('lauri', queued2!.id, true);
+const stored2 = S.loadCmDb('lauri').entries.find((e) => e.id === 'g2-routed-2');
+check('accepting the queued write stores it as explicitly reviewed (not autoAccepted, so undo skips it)',
+  !!stored2 && stored2.doc?.reviewed === true && !stored2.autoAccepted && stored2.risk === 'high');
 
 db.addCabinetEntry({ id: 'g2-routed-3', userId: 'lauri', type: 'goal', title: 'G2 routed goal', detail: '', source: 'customer', status: 'active', private: false, readableBy: { abel: true, offers: true }, provenance: { channel: 'app' }, reviewed: true, createdAt: '2026-11-01T00:00:00Z', updatedAt: '2026-11-01T00:00:00Z' });
 check('a goal write arrives at the PERSONAL agent as a control message and lands in the User DB',

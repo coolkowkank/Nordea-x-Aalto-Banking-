@@ -126,12 +126,16 @@ function autoStoreRoundProposals(uid: string, roundId?: string) {
   for (const proposal of pending) {
     const risk = assessProposalRisk(proposal);
     if (risk === 'high') continue; // high risk always waits for the customer
-    const p = (proposal.payload ?? {}) as { goalIds?: string[]; detail?: string; transactionIds?: string[]; transactionIdsHash?: string; total?: number; observed?: 'observed' | 'inferred' };
-    if (cm.entries.some((e) => e.status === 'active' && norm(e.title) === norm(proposal.summary))) {
+    const p = (proposal.payload ?? {}) as { goalIds?: string[]; detail?: string; transactionIds?: string[]; transactionIdsHash?: string; total?: number; observed?: 'observed' | 'inferred'; appWrite?: boolean; entry?: ArchEntry };
+    if (!p.appWrite && cm.entries.some((e) => e.status === 'active' && norm(e.title) === norm(proposal.summary))) {
       updateMessage(uid, proposal.id, { status: 'accepted' }); // dedupe: keep the existing entry
       continue;
     }
-    const entry: ArchEntry = {
+    // G10: an app write carries its full entry - store it as-is (own id, provenance,
+    // doc), now accepted under the customer's standing permissions.
+    const entry: ArchEntry = p.appWrite && p.entry
+      ? { ...p.entry, doc: p.entry.doc ? { ...p.entry.doc, reviewed: true } : p.entry.doc, viaMessageId: proposal.id, risk, autoAccepted: true, status: 'active' }
+      : {
       id: newId('entry'),
       title: proposal.summary,
       detail: p.detail ?? '',
@@ -145,7 +149,8 @@ function autoStoreRoundProposals(uid: string, roundId?: string) {
       status: 'active',
       createdAt: now(),
     };
-    cm.entries.push(entry); // only the CM agent writes the Context Memory DB
+    const autoIdx = p.appWrite ? cm.entries.findIndex((e) => e.id === entry.id) : -1;
+    if (autoIdx >= 0) cm.entries[autoIdx] = entry; else cm.entries.push(entry); // only the CM agent writes the Context Memory DB
     changed = true;
     updateMessage(uid, proposal.id, { status: 'accepted' });
     appendMessage(uid, { from: 'cm', to: 'user', type: 'inform', summary: `Stored automatically under your standing permissions (${risk} risk): "${entry.title}". You can explain, dispute or delete it anytime.` });
@@ -424,8 +429,25 @@ function handleMessage(uid: string, msg: AgentMessage) {
     // Risk and observed are derived by code rules here, never taken from the caller (AC7/F20).
     if (control === 'put-entry') {
       const inEntry = payload.entry as ArchEntry;
-      const doc = (inEntry.doc ?? {}) as { source?: string };
+      const doc = (inEntry.doc ?? {}) as { source?: string; reviewed?: boolean };
       const { risk, observed } = assessEntryRisk({ title: inEntry.title, detail: inEntry.detail, source: doc.source, evidence: inEntry.evidence });
+      // G10: ONE consent path. A high-risk or unreviewed app write waits in the CM review
+      // queue exactly like an agent proposal, under the same standing permissions (AC7) -
+      // nothing reaches the cabinet active without the customer's consent somewhere.
+      if (risk === 'high' || doc.reviewed === false) {
+        const proposal = appendMessage(uid, {
+          from: 'cm', to: 'user', type: 'propose', status: 'pending',
+          summary: inEntry.title,
+          payload: { detail: inEntry.detail, goalIds: inEntry.goalIds, appWrite: true, entry: { ...inEntry, risk, observed }, risk, observed },
+        });
+        autoStoreRoundProposals(uid); // standing permissions ('high') auto-store low/medium
+        const stored = loadCmDb(uid).entries.some((e) => e.id === inEntry.id && e.viaMessageId === proposal.id);
+        appendMessage(uid, { from: 'cm', to: 'app', type: 'reply', summary: stored
+          ? `Context Memory agent stored "${inEntry.title}" under the customer's standing permissions (${risk} risk).`
+          : `"${inEntry.title}" waits in merge review (${risk} risk${doc.reviewed === false ? ', unreviewed' : ''}) - one consent path.`, payload: { inReplyTo: msg.id, ok: stored, queued: !stored, messageId: proposal.id, risk, observed } });
+        updateMessage(uid, msg.id, { status: 'answered' });
+        return;
+      }
       putEntry(uid, { ...inEntry, risk, observed });
       appendMessage(uid, { from: 'cm', to: 'app', type: 'reply', summary: `Context Memory agent stored "${inEntry.title}" (risk: ${risk}, ${observed}).`, payload: { inReplyTo: msg.id, ok: true, risk, observed } });
       updateMessage(uid, msg.id, { status: 'answered' });
@@ -494,8 +516,12 @@ function handleMessage(uid: string, msg: AgentMessage) {
         return;
       }
       updateMessage(uid, messageId, { status: 'accepted' });
-      const p = (proposal.payload ?? {}) as { goalIds?: string[]; detail?: string; transactionIds?: string[]; transactionIdsHash?: string; total?: number; observed?: 'observed' | 'inferred' };
-      const entry: ArchEntry = {
+      const p = (proposal.payload ?? {}) as { goalIds?: string[]; detail?: string; transactionIds?: string[]; transactionIdsHash?: string; total?: number; observed?: 'observed' | 'inferred'; appWrite?: boolean; entry?: ArchEntry };
+      // G10: an app write accepted from the queue lands as its carried entry (own id,
+      // provenance, doc), explicitly reviewed - not autoAccepted, so per-entry undo skips it.
+      const entry: ArchEntry = p.appWrite && p.entry
+        ? { ...p.entry, doc: p.entry.doc ? { ...p.entry.doc, reviewed: true } : p.entry.doc, viaMessageId: proposal.id, status: 'active' }
+        : {
         id: newId('entry'),
         title: proposal.summary,
         detail: p.detail ?? '',
@@ -508,7 +534,8 @@ function handleMessage(uid: string, msg: AgentMessage) {
         status: 'active',
         createdAt: now(),
       };
-      cm.entries.push(entry); // only the CM agent writes the Context Memory DB
+      const revIdx = p.appWrite ? cm.entries.findIndex((e) => e.id === entry.id) : -1;
+      if (revIdx >= 0) cm.entries[revIdx] = entry; else cm.entries.push(entry); // only the CM agent writes the Context Memory DB
       saveCmDb(cm);
       appendMessage(uid, { from: 'cm', to: 'user', type: 'inform', summary: `Context Memory agent added "${entry.title}" to the cabinet after your approval.` });
       appendMessage(uid, { from: 'cm', to: 'app', type: 'reply', summary: 'Proposal accepted into the cabinet.', payload: { inReplyTo: msg.id, entry } });

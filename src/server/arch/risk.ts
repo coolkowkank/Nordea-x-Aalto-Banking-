@@ -20,7 +20,10 @@ export function deriveObserved(proposal: AgentMessage): 'observed' | 'inferred' 
 }
 
 export function assessProposalRisk(proposal: AgentMessage): Risk {
-  const p = (proposal.payload ?? {}) as { detail?: string; forOffers?: boolean; shareBeyond?: boolean };
+  const p = (proposal.payload ?? {}) as { detail?: string; forOffers?: boolean; shareBeyond?: boolean; appWrite?: boolean; entry?: { title?: string; detail?: string; doc?: { source?: string }; evidence?: { transactionIds?: string[] } | null } };
+  // G10: a queued app write is re-derived by the same code rules as at write time -
+  // the CM agent is only the messenger, the entry's own content decides.
+  if (p.appWrite && p.entry) return assessEntryRisk({ title: p.entry.title ?? proposal.summary, detail: p.entry.detail ?? p.detail ?? '', source: p.entry.doc?.source, evidence: p.entry.evidence }).risk;
   if (p.forOffers === true || p.shareBeyond === true) return 'high'; // offers, or shared beyond the three agents
   if (deriveObserved(proposal) === 'inferred') return 'high'; // an inference about the customer (F20: derived, not self-labelled)
   if (isSensitiveTopic(`${proposal.summary} ${p.detail ?? ''}`)) return 'high'; // a sensitive topic (F21: shared word-bounded list)

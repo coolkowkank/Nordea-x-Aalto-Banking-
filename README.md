@@ -131,7 +131,7 @@ Open **http://localhost:3000/arch.html** for the three-agent demo UI. The develo
 | 💬 | **Explain** | Every cabinet item answers "why do you know this?" with its source and the message that proposed it. |
 | ✋ | **Dispute** | The customer can mark an item wrong; from then on it is filtered out of the context Abel receives, so its figures fail Abel's grounding check. The stored document keeps the `[disputed]` mark and the history. |
 | ↩️ | **Undo** | Automatically stored items can be undone per entry; manually reviewed items are disputed instead, so provenance survives. |
-| ⏸️ | **Park and agent switches** | Parking the cabinet or switching an agent off silences that part of the pipeline without deleting anything. |
+| ⏸️ | **Park and agent switches** | Parking the cabinet or switching an agent off silences that part of the pipeline without deleting anything. An off switch gates the agent's **reasoning** only - control writes from the app still land in its database. |
 
 #### 💬 Abel, inside the architecture
 
