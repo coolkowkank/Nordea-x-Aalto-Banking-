@@ -1,20 +1,20 @@
 // Read-only developer monitoring surface: the three agent stores, their connection
 // lines, the session context.md, the message bus and the access log (V6/G8).
-// It only READS state. It never changes data, and it is off unless DEV_MONITOR=1.
+// It only READS state. It never changes data, and it is on by default (DEV_MONITOR=0 turns it off).
 import type { Express, Request, Response } from 'express';
 import { db } from './db.js';
 import { feedStatus } from './nordeaFeed.js';
 import { archState } from './arch/orchestrator.js';
 
-// The monitor shows everything, private cards included, so it stays behind DEV_MONITOR=1
-// (a laptop tool; never set on the hosted app). Read per request: .env loads after imports.
-const enabled = () => process.env.DEV_MONITOR === '1';
+// G22: on by default. The monitor shows everything, private cards included, so set
+// DEV_MONITOR=0 on any hosted or shared deployment. Read per request: .env loads after imports.
+const enabled = () => process.env.DEV_MONITOR !== '0';
 
 export function registerDevMonitor(app: Express) {
   // Registered before the static files, so the page itself is hidden too when the monitor is off.
   app.get(['/dev-monitor.html', '/api/dev/monitor'], (_req: Request, res: Response, next) => {
     if (enabled()) return next();
-    res.status(404).json({ error: 'The developer monitor is off. Set DEV_MONITOR=1 to turn it on.', code: 'MONITOR_OFF' });
+    res.status(404).json({ error: 'The developer monitor is off (DEV_MONITOR=0).', code: 'MONITOR_OFF' });
   });
 
   app.get('/api/dev/monitor', (req: Request, res: Response) => {

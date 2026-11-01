@@ -162,6 +162,68 @@ check('with its own secret the CM store hydrates its table',
   check('G20 merge: the loaded record lands hosted too', after.includes('g-load'), after);
 }
 
+// --- G20 reopen pins: a failed pull must stop the loader; an old-schema file must hydrate. ---
+{
+  const { hydrateAgentStoresDetailed } = await import('../src/server/arch/store/common.js');
+
+  // (a) failing pull: hydrate reports the failed store and leaves the hosted rows untouched.
+  fake.failAll = true;
+  const hostedBefore = JSON.stringify(fake.tables.get('agent_user_records') ?? []);
+  const res = await hydrateAgentStoresDetailed();
+  fake.failAll = false;
+  check('G20: a failed pull is reported as failed (not swallowed)', res.failed.includes('user'), res);
+  check('G20: a failed pull leaves hosted rows untouched',
+    JSON.stringify(fake.tables.get('agent_user_records') ?? []) === hostedBefore);
+
+  // (b) the loader itself stops: a hydrate against an unreachable remote exits non-zero.
+  const { spawnSync } = await import('node:child_process');
+  const run = spawnSync('npx', ['tsx', 'scripts/load_remote.ts', 'hydrate'], {
+    cwd: process.cwd(),
+    env: {
+      ...process.env,
+      CABINET_DATA_DIR: path.join(DIR, 'subproc'),
+      AGENT_USER_DB_URL: 'postgres://u:p@aws-0-eu-west-1.pooler.supabase.com:6543/postgres',
+    },
+    timeout: 60000,
+  });
+  check('G20: the data loader exits non-zero when the pull fails', run.status === 1,
+    { status: run.status, stderr: String(run.stderr).slice(-300) });
+
+  // (c) old-schema local file (no doc column on goals) hydrates without an INSERT failure.
+  const { DatabaseSync } = await import('node:sqlite');
+  const { fileFor: ff, rowsOf: ro } = await import('../src/server/arch/store/common.js');
+  const oldFile = ff('oldsch', 'user');
+  const odb = new DatabaseSync(oldFile);
+  odb.exec('CREATE TABLE goals (id TEXT PRIMARY KEY, title TEXT NOT NULL, detail TEXT NOT NULL, created_at TEXT NOT NULL)');
+  odb.close();
+  fake.tables.set('agent_user_records', [{
+    user_id: 'oldsch', id: 'g1', table_name: 'goals',
+    data: { id: 'g1', title: 'Hosted goal', detail: 'remote only', created_at: '2026-11-01', doc: null },
+  }]);
+  const res2 = await hydrateAgentStoresDetailed();
+  const merged = ro(ff('oldsch', 'user'), 'user').filter((r) => r.table_name === 'goals').map((r) => r.data.id);
+  check('G20: an old-schema local file hydrates the hosted rows', res2.failed.length === 0 && merged.includes('g1'),
+    { failed: res2.failed, merged });
+}
+
+// --- G24: a customer with no local cm.db pushes 0 rows without creating the file or crashing. ---
+{
+  const { rowsOf: ro2, fileFor: ff2 } = await import('../src/server/arch/store/common.js');
+  const fs2 = await import('node:fs');
+  fake.tables.set('agent_cm_records', [{
+    user_id: 'nocm', id: 'c1', table_name: 'entries',
+    data: { id: 'c1', title: 'Old hosted entry', detail: '', goal_ids: '[]', proposed_by: 'user', status: 'active', created_at: '2026-11-01' },
+  }]);
+  const missing = ff2('nocm', 'cm');
+  const rows = ro2(missing, 'cm'); // must not throw and must not create the file
+  check('G24: rowsOf on a missing file returns 0 rows and creates nothing', rows.length === 0 && !fs2.existsSync(missing));
+  await R.pushCustomer('cm', URLS.cm, 'nocm', rows.map((r) => ({ user_id: 'nocm', ...r })));
+  const hosted = fake.tables.get('agent_cm_records') ?? [];
+  check('G24: the push still replaces that uid\'s hosted rows (0 local = hosted cleared)',
+    hosted.filter((r) => r.user_id === 'nocm').length === 0, hosted);
+  check('G24: the push created no local file', !fs2.existsSync(missing));
+}
+
 console.log(`\n${passed} passed, ${failed} failed`);
 if (failed) { console.error('REMOTE TESTS FAILED'); process.exit(1); }
 console.log('All checks passed');

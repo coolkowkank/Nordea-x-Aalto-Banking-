@@ -12,7 +12,7 @@
  * A store whose URL is unset is skipped with a note.
  */
 import dotenv from 'dotenv';
-import { fileFor, listCustomers, remoteConfigured, configureRemote, rowsOf, hydrateAgentStores, type DbKind } from '../src/server/arch/store/common.js';
+import { fileFor, listCustomers, remoteConfigured, configureRemote, rowsOf, hydrateAgentStoresDetailed, type DbKind } from '../src/server/arch/store/common.js';
 import { pushCustomer, REMOTE_TABLES, type PoolLike } from '../src/server/arch/store/remote.js';
 
 dotenv.config({ path: '.env' });
@@ -45,8 +45,14 @@ if (mode !== 'push' && mode !== 'clear' && mode !== 'hydrate') {
 if (mode === 'hydrate') {
   // G20 (merge): pull every hosted row into the local agent databases first, so a following
   // load merges with what is hosted instead of replacing it. Same code path as the app's startup.
-  const hydrated = await hydrateAgentStores();
+  const { hydrated, failed } = await hydrateAgentStoresDetailed();
   console.log(hydrated.length ? `hydrated from hosted: ${hydrated.join(', ')}` : 'hydrated from hosted: no rows yet');
+  // G20: a failed pull must stop the loader here - otherwise a following push would
+  // replace hosted rows the hydrate just failed to read (silent data loss).
+  if (failed.length) {
+    console.error(`hydrate FAILED for: ${failed.join(', ')} - hosted records left untouched.`);
+    process.exit(1);
+  }
   process.exit(0);
 }
 // Guard: wiping EVERY hosted row of every customer is never the default - it needs the

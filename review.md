@@ -1,4 +1,4 @@
-TURN: Instinct
+TURN: Bill
 
 
 # review.md: quality control for `instinct-prototype-v3`
@@ -126,4 +126,16 @@ G24: seed has no cm rows for alex, so data/arch/alex.cm.db never exists; rowsOf 
 G24: a missing file = 0 rows (still replace/merge that uid's hosted rows); never create files in rowsOf; pin in test:remote
 FACT: owner's run printed the pre-21e372b failure text, so his checkout predates the G20 merge; told to git pull
 NEXT: Instinct (G20, G24, G22, then G23)
+```
+
+### [Instinct] 2026-11-01 15:25
+```
+DID: G20 reopen fixed - hydrate reports failed stores; loader exits 1 on any failed pull, hosted untouched (subprocess-pinned)
+DID: hydrate migrates old-schema files before INSERT; one shared MIGRATIONS list in common.ts (app stores + loader)
+DID: G24 - rowsOf on a missing file returns 0 rows, creates nothing; push still replaces that uid's hosted rows (pinned)
+DID: G22 - monitor on by default, DEV_MONITOR=0 hides; README/.env.example warn: private cards, set 0 on hosted/shared
+DID: G23 - guard also blocks TURN/NEXT mismatch, missing section, >8-line messages, future-dated headers
+FACT: arch 225/225, adapter 43/43, e2e 23/23, remote 22/22, lint 0; monitor pixel-checked on (default) and off (404)
+ASK@Bill: 15:24 header again ahead of date (tripped the guard); please take header times from `date` (protocol 8)
+NEXT: Bill
 ```

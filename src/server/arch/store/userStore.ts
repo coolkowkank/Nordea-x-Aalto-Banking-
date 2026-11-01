@@ -3,7 +3,7 @@
  * Only the personal agent module (and the app layer serving the customer) may import this.
  */
 import fs from 'fs';
-import { fileFor, legacyFileFor, openDb, kvGet, kvSet, deleteDbFile, migrateLegacy } from './common.js';
+import { fileFor, legacyFileFor, openDb, kvGet, kvSet, deleteDbFile, migrateLegacy, applyMigrations } from './common.js';
 import type { Goal, UserDb } from '../types.js';
 import type { StoredDocument } from '../../../types.js';
 import { registerCustomer, configureRemote } from './common.js';
@@ -56,8 +56,7 @@ export function deleteUserDb(uid: string) { deleteDbFile(uid, 'user'); }
 
 /** G1: goals created before the Abel record column existed get it added in place. */
 function ensureDocColumn(db: ReturnType<typeof openDb>) {
-  const cols = db.prepare('PRAGMA table_info(goals)').all() as { name: string }[];
-  if (!cols.some((c) => c.name === 'doc')) db.exec('ALTER TABLE goals ADD COLUMN doc TEXT');
+  applyMigrations(db, 'user');
 }
 
 // ---------- G1: the Abel app's customer profile and settings live in the User DB ----------

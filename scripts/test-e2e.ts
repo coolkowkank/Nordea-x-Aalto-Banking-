@@ -1,6 +1,6 @@
 /**
  * V7 end-to-end: proof the app, /arch.html and /dev-monitor.html are ONE machine.
- * Boots the real server (mock LLM, DEV_MONITOR=1) over a throwaway data dir seeded from
+ * Boots the real server (mock LLM; the monitor stays at its default - ON) over a throwaway data dir seeded from
  * seed/demo, then drives the exact HTTP routes the three pages use:
  *   1. a goal given to the personal agent's chat appears in the arch state and the monitor
  *   2. a review decision on /arch.html changes what the agent's chat answers from
@@ -60,7 +60,7 @@ if (seed.status !== 0) { console.error(seed.stdout, seed.stderr); process.exit(1
 }
 
 const server = spawn('npx', ['tsx', 'server.ts'], {
-  env: { ...process.env, CABINET_DATA_DIR: DIR, LLM_PROVIDER: 'mock', DEV_MONITOR: '1', PORT: String(PORT) },
+  env: { ...process.env, CABINET_DATA_DIR: DIR, LLM_PROVIDER: 'mock', PORT: String(PORT) }, // G22: monitor on by default
   stdio: ['ignore', 'pipe', 'pipe'],
   detached: true, // own process group, so the whole server tree can be signalled at the end
 });
@@ -176,6 +176,30 @@ try {
   check('V7: no arch code reaches across to the old store', archLeaks.length === 0, archLeaks);
 } finally {
   try { process.kill(-server.pid!, 'SIGTERM'); } catch { server.kill('SIGTERM'); }
+}
+
+// G22: DEV_MONITOR=0 turns the monitor off (it is on by default, proven by the checks above).
+{
+  const PORT2 = PORT + 1000;
+  const off = spawn('npx', ['tsx', 'server.ts'], {
+    env: { ...process.env, CABINET_DATA_DIR: DIR, LLM_PROVIDER: 'mock', DEV_MONITOR: '0', PORT: String(PORT2) },
+    stdio: ['ignore', 'pipe', 'pipe'],
+    detached: true,
+  });
+  try {
+    const deadline = Date.now() + 30000;
+    for (;;) {
+      try { const r = await fetch(`http://127.0.0.1:${PORT2}/api/arch/customers`); if (r.ok) break; } catch { /* not up yet */ }
+      if (Date.now() > deadline) throw new Error('DEV_MONITOR=0 server did not start');
+      await sleep(300);
+    }
+    const mon = await fetch(`http://127.0.0.1:${PORT2}/api/dev/monitor?userId=${UID}`);
+    const page = await fetch(`http://127.0.0.1:${PORT2}/dev-monitor.html`);
+    check('G22: DEV_MONITOR=0 hides the monitor API (404)', mon.status === 404, mon.status);
+    check('G22: DEV_MONITOR=0 hides the monitor page (404)', page.status === 404, page.status);
+  } finally {
+    try { process.kill(-off.pid!, 'SIGTERM'); } catch { off.kill('SIGTERM'); }
+  }
 }
 
 console.log(`\n${passed} passed, ${failed} failed`);

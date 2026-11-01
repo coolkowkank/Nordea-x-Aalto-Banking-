@@ -3,26 +3,18 @@
  * Only the Context Memory agent module (and the app layer serving the customer) may import this.
  */
 import fs from 'fs';
-import { fileFor, openDb, kvGet, kvSet, deleteDbFile, migrateLegacy } from './common.js';
+import { fileFor, openDb, kvGet, kvSet, deleteDbFile, migrateLegacy, applyMigrations } from './common.js';
 import type { ArchEntry, CmDb } from '../types.js';
 import type { EntryEvent, Share, UndoRecord } from '../../../types.js';
 import { registerCustomer, configureRemote } from './common.js';
 
-// G6: this store reads ONLY its own hosted secret (one Postgres role per agent). Unset = local SQLite.
 configureRemote('cm', process.env.CM_DB_URL);
 
 const emptyCm = (userId: string): CmDb => ({ userId, entries: [] });
 
-/** F5: observed/inferred provenance landed after the first schema - add the column to old DBs. */
-function ensureColumn(db: ReturnType<typeof openDb>, name: string, ddl: string) {
-  const cols = db.prepare('PRAGMA table_info(entries)').all() as { name: string }[];
-  if (!cols.some((c) => c.name === name)) db.exec(`ALTER TABLE entries ADD COLUMN ${ddl}`);
-}
+/** F5: observed/inferred provenance landed after the first schema - add the columns to old DBs. */
 function ensureColumns(db: ReturnType<typeof openDb>) {
-  ensureColumn(db, 'observed', 'observed TEXT');
-  ensureColumn(db, 'risk', 'risk TEXT');
-  ensureColumn(db, 'auto_accepted', 'auto_accepted INTEGER');
-  ensureColumn(db, 'doc', 'doc TEXT'); // G1: the full Abel CabinetEntry record, when there is one
+  applyMigrations(db, 'cm');
 }
 
 export function loadCmDb(uid: string): CmDb {

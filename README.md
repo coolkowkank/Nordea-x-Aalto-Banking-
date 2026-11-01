@@ -88,7 +88,7 @@ LLM_PROVIDER=mock npm run dev        # bash (Mac/Linux)
 |---|---|
 | **http://localhost:3000/** | The main Abel app (the banking UI from `main`) |
 | **http://localhost:3000/arch.html** | The three-agent demo: pick a demo customer (`alex`, `eeva` or `lauri`) in the Customer picker, add a goal, chat |
-| **http://localhost:3000/dev-monitor.html** | Read-only developer monitor - only when started with `DEV_MONITOR=1` (same per-OS form as `LLM_PROVIDER` above) |
+| **http://localhost:3000/dev-monitor.html** | Read-only developer monitor - on by default; set `DEV_MONITOR=0` to turn it off (same per-OS form as `LLM_PROVIDER` above) |
 
 **Real AI answers (the normal run).** Copy `.env.example` to `.env` and add one free key, then restart without `LLM_PROVIDER=mock`. (`.env.example` is worded for the hosted AI Studio deployment; locally the same variable names go in `.env`, which git ignores.)
 
@@ -101,7 +101,7 @@ LLM_PROVIDER=mock npm run dev        # bash (Mac/Linux)
 - Port 3000 already in use: stop the other app, or run on another port - `PORT=3001 npm run dev` (bash), `$env:PORT=3001; npm run dev` (PowerShell), `set PORT=3001 && npm run dev` (cmd).
 - `python` is not recognized / command not found: use `python3`; if neither exists, install Python 3 from [python.org](https://www.python.org) (no packages needed). The npm test scripts try both names automatically (via `scripts/run_python.mjs`).
 
-Open **http://localhost:3000/arch.html** for the three-agent demo UI. Its controls: pick a customer in the **Customer** picker; chat (answered from the session's document); **New session** starts a fresh session whose next question rebuilds `context.md`; **Add goal** plus each goal's **edit**/**delete** manage the User DB goals; **Upload bank file** imports a JSON/CSV statement through the airlock; **Check feed** applies new rows of the Nordea feed CSV; the agent **off/on** switches pause one agent's reasoning; **Park** silences the whole cabinet; **Permissions** set the standing review level; **Contribute** runs a Nordea round; and the review and airlock queues take accept/reject decisions. The developer monitor at **http://localhost:3000/dev-monitor.html** is off unless you start with `DEV_MONITOR=1` (it shows private cards, so it is a laptop-only tool). Without `LLM_PROVIDER=mock`, Abel uses Gemini (`GEMINI_API_KEY`) or an OpenAI-compatible provider, as on `main`.
+Open **http://localhost:3000/arch.html** for the three-agent demo UI. Its controls: pick a customer in the **Customer** picker; chat (answered from the session's document); **New session** starts a fresh session whose next question rebuilds `context.md`; **Add goal** plus each goal's **edit**/**delete** manage the User DB goals; **Upload bank file** imports a JSON/CSV statement through the airlock; **Check feed** applies new rows of the Nordea feed CSV; the agent **off/on** switches pause one agent's reasoning; **Park** silences the whole cabinet; **Permissions** set the standing review level; **Contribute** runs a Nordea round; and the review and airlock queues take accept/reject decisions. The developer monitor at **http://localhost:3000/dev-monitor.html** is on by default - set `DEV_MONITOR=0` to turn it off. It shows private cards, so always set `DEV_MONITOR=0` on a hosted or shared deployment. Without `LLM_PROVIDER=mock`, Abel uses Gemini (`GEMINI_API_KEY`) or an OpenAI-compatible provider, as on `main`.
 
 ### Settings worth knowing
 
@@ -224,7 +224,7 @@ App-level routes the demo surfaces use (`src/server/routes.ts`, `src/server/devM
 
 | Route | Purpose |
 |---|---|
-| `GET /api/dev/monitor` | The developer monitor's read-only view (only with `DEV_MONITOR=1`) |
+| `GET /api/dev/monitor` | The developer monitor's read-only view (on by default; `DEV_MONITOR=0` turns it off) |
 | `GET` · `POST /api/nordea-data` · `POST /api/nordea-data/check` | The Nordea feed: inspect, apply, and check for new rows (the **Check feed** button) |
 | `POST /api/import` | Import a bank file through the airlock (the **Upload bank file** button) |
 

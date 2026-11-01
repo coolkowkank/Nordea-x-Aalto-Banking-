@@ -63,6 +63,28 @@ const TABLE_IDS: Record<DbKind, Record<string, string>> = {
 };
 
 /**
+ * G21/G20: column migrations for database files left by older versions. The single list the
+ * app (userStore/cmStore), the hydrate below and (mirrored in Python) scripts/load_data.py use.
+ */
+const MIGRATIONS: Partial<Record<DbKind, { table: string; col: string; ddl: string }[]>> = {
+  user: [{ table: 'goals', col: 'doc', ddl: 'doc TEXT' }],
+  cm: [
+    { table: 'entries', col: 'observed', ddl: 'observed TEXT' },
+    { table: 'entries', col: 'risk', ddl: 'risk TEXT' },
+    { table: 'entries', col: 'auto_accepted', ddl: 'auto_accepted INTEGER' },
+    { table: 'entries', col: 'doc', ddl: 'doc TEXT' },
+  ],
+};
+
+/** Add each missing migration column in place (no-op on a current file). */
+export function applyMigrations(db: DatabaseSync, kind: DbKind) {
+  for (const m of MIGRATIONS[kind] ?? []) {
+    const cols = db.prepare(`PRAGMA table_info(${m.table})`).all() as { name: string }[];
+    if (!cols.some((c) => c.name === m.col)) db.exec(`ALTER TABLE ${m.table} ADD COLUMN ${m.ddl}`);
+  }
+}
+
+/**
  * G6: per-store hosted secret, configured by the owning store module and ONLY by it
  * (each store module passes only its own env var - pinned by a source-scan test).
  * common.ts itself never names an env var.
@@ -103,6 +125,9 @@ const flushChains = new Map<string, Promise<void>>();
 /** Serialize every row of every table of one local database file for its hosted table.
  *  Exported for scripts/load_remote.ts (the hosted data loader, G20). */
 export function rowsOf(file: string, kind: DbKind): { table_name: string; id: string; data: Record<string, unknown> }[] {
+  // G24: a missing file means zero rows (a push still replaces/merges that uid's hosted rows);
+  // never create a file here - opening a missing path would, and the SELECT would fail on it.
+  if (!fs.existsSync(file)) return [];
   const db = new DatabaseSync(file);
   try {
     const out: { table_name: string; id: string; data: Record<string, unknown> }[] = [];
@@ -136,8 +161,18 @@ function scheduleFlush(file: string, kind: DbKind) {
  * The remote tables are the source of truth when configured: each customer's local rows
  * for that kind are replaced by the remote ones. Runs before the app serves requests.
  */
+/** G20: hydrate with per-store failure reporting (the hosted data loader must stop on a failed pull). */
+export async function hydrateAgentStoresDetailed(): Promise<{ hydrated: string[]; failed: string[] }> {
+  return hydrateDetailed();
+}
+
 export async function hydrateAgentStores(): Promise<string[]> {
+  return (await hydrateDetailed()).hydrated;
+}
+
+async function hydrateDetailed(): Promise<{ hydrated: string[]; failed: string[] }> {
   const hydrated: string[] = [];
+  const failed: string[] = [];
   for (const [kind, url] of REMOTE_SECRETS) {
     if (kind === 'bus') continue; // the bus is transient agent messaging, local by design
     try {
@@ -155,6 +190,7 @@ export async function hydrateAgentStores(): Promise<string[]> {
         const db = new DatabaseSync(file);
         try {
           db.exec(SCHEMAS[kind]);
+          applyMigrations(db, kind); // G20: an old-schema local file must hydrate too
           db.exec('BEGIN');
           for (const table of Object.keys(TABLE_IDS[kind])) db.prepare(`DELETE FROM ${table}`).run();
           for (const r of list) {
@@ -172,9 +208,10 @@ export async function hydrateAgentStores(): Promise<string[]> {
     } catch (err) {
       // A failed remote must not stop the app: keep working on the local files.
       console.error(`Remote hydrate failed for ${kind}:`, err instanceof Error ? err.message : err);
+      failed.push(kind);
     }
   }
-  return hydrated;
+  return { hydrated, failed };
 }
 
 
