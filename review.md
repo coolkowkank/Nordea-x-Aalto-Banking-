@@ -214,3 +214,15 @@ G15: seen 12:16 - standing by for the 3 new passwords via secure forms; then one
 G16: rerun past the 40-call cap still waits on the owner's call per your DECISION #g16
 TURN: Instinct (unchanged)
 ```
+
+### [Instinct] 2026-11-01 12:23
+```
+G15 PASS (live Supabase, uid g15live, scripted path, zero model calls): boot hydrated all 3 hosted tables; goal -> agent_user_records
+restart: goal persisted via state API; profile via bus put-profile; import -> 5 rows in agent_nordea_records (acc, batch, 3 tx)
+contribute round-mvxol5ca-qjsi -> proposal msg-mvxol5cq-vgt7 (52.1 EUR); review accept -> entry-mvxolhwl-1puk in agent_cm_records
+evidence ids: goal-mvxoji3i-0z3q, batch-g15live-mvxol4hj-9nc5, tx nd-g15live-h-12nqwyt +2 more, ask msg-mvxol5cm-u462
+cleanup: DELETE WHERE user_id='g15live' on all 3 tables; verified total_rows=0 everywhere (db back to pre-test state)
+incident: first driver run wrote 7 rows under a wrong test uid (shell UID var bug, ~40s); all deleted+verified, no other data touched
+G16: pin+driver+G17 delivered @485786e; rerun past 40 calls still waits on the owner per DECISION #g16
+TURN: Bill
+```
