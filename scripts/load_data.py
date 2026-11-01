@@ -26,7 +26,7 @@ Examples:
   python scripts/load_data.py seed/demo --dry-run             # show what would be loaded
 
 Needs SUPABASE_URL and SUPABASE_SECRET_KEY (read from the environment, .env or .env.local), and
-supabase/setup.sql run once. Without Supabase use --target file to write data/cabinet-db.json instead.
+supabase/setup.sql run once. Without Supabase use --target file to write the three agent databases (data/arch/*.db) instead;\napp plumbing (chat transcripts, logs, rewards) still goes to data/cabinet-db.json.
 Afterwards it asks the running app to read the data again (POST /api/admin/reload), so no restart is needed.
 """
 from __future__ import annotations
@@ -37,6 +37,7 @@ import hashlib
 import json
 import os
 import re
+import sqlite3
 import sys
 import urllib.error
 import urllib.parse
@@ -51,7 +52,12 @@ LOCAL_FILE = ROOT / "data" / "cabinet-db.json"
 KINDS = [
     "users", "cabinetEntries", "transactions", "messages", "accessLog", "topicLog", "undoRecords",
     "conversations", "earnings", "shares", "documents", "entryHistory", "dataRewards",
+    "balanceSnapshots", "importBatches", "bankAccounts",
 ]
+# Customer data lives in the three agent databases (G1); the old store keeps only app plumbing.
+CUSTOMER_KINDS = {"users", "cabinetEntries", "transactions", "undoRecords", "shares", "documents",
+                  "entryHistory", "balanceSnapshots", "importBatches", "bankAccounts"}
+PLUMBING_KINDS = ["messages", "accessLog", "topicLog", "conversations", "earnings", "dataRewards"]
 # "cabinet_entries", "CabinetEntries", "cabinet-entries" -> "cabinetEntries"
 _KIND_BY_KEY = {re.sub(r"[^a-z]", "", k.lower()): k for k in KINDS}
 
@@ -338,17 +344,169 @@ class Supabase:
 
 # ---------------------------------------------------------------- local file (no Supabase)
 
+ARCH_DIR = ROOT / "data" / "arch"
+
+_SCHEMAS = {
+    "user": """CREATE TABLE IF NOT EXISTS kv (k TEXT PRIMARY KEY, v TEXT NOT NULL);
+      CREATE TABLE IF NOT EXISTS goals (id TEXT PRIMARY KEY, title TEXT NOT NULL, detail TEXT NOT NULL, created_at TEXT NOT NULL, doc TEXT);
+      CREATE TABLE IF NOT EXISTS personal_facts (id TEXT PRIMARY KEY, source TEXT NOT NULL, text TEXT NOT NULL, at TEXT NOT NULL, via_airlock_id TEXT NOT NULL);
+      CREATE TABLE IF NOT EXISTS documents (id TEXT PRIMARY KEY, json TEXT NOT NULL);""",
+    "cm": """CREATE TABLE IF NOT EXISTS kv (k TEXT PRIMARY KEY, v TEXT NOT NULL);
+      CREATE TABLE IF NOT EXISTS entries (id TEXT PRIMARY KEY, title TEXT NOT NULL, detail TEXT NOT NULL, goal_ids TEXT NOT NULL,
+        proposed_by TEXT NOT NULL, via_message_id TEXT, evidence TEXT, status TEXT NOT NULL,
+        dispute_reason TEXT, created_at TEXT NOT NULL, observed TEXT, risk TEXT, auto_accepted INTEGER, doc TEXT);
+      CREATE TABLE IF NOT EXISTS history (id TEXT PRIMARY KEY, entry_id TEXT NOT NULL, at TEXT NOT NULL, json TEXT NOT NULL);
+      CREATE TABLE IF NOT EXISTS shares (id TEXT PRIMARY KEY, json TEXT NOT NULL);
+      CREATE TABLE IF NOT EXISTS undo (token TEXT PRIMARY KEY, at TEXT NOT NULL, json TEXT NOT NULL);""",
+    "nordea": """CREATE TABLE IF NOT EXISTS kv (k TEXT PRIMARY KEY, v TEXT NOT NULL);
+      CREATE TABLE IF NOT EXISTS accounts (id TEXT PRIMARY KEY, json TEXT NOT NULL);
+      CREATE TABLE IF NOT EXISTS transactions (id TEXT PRIMARY KEY, date TEXT NOT NULL, category TEXT NOT NULL, amount REAL NOT NULL,
+        account TEXT NOT NULL, description TEXT, json TEXT NOT NULL);
+      CREATE INDEX IF NOT EXISTS idx_transactions_category ON transactions(category);
+      CREATE INDEX IF NOT EXISTS idx_transactions_date ON transactions(date);
+      CREATE TABLE IF NOT EXISTS balance_snapshots (id TEXT PRIMARY KEY, account_key TEXT NOT NULL, at TEXT NOT NULL, json TEXT NOT NULL);
+      CREATE TABLE IF NOT EXISTS import_batches (id TEXT PRIMARY KEY, at TEXT NOT NULL, json TEXT NOT NULL);""",
+}
+
+
+def _db_file(uid: str, which: str) -> Path:
+    safe = re.sub(r"[^a-z0-9_-]", "_", str(uid), flags=re.I)
+    return ARCH_DIR / f"{safe}.{which}.db"
+
+
+def _open_db(uid: str, which: str) -> sqlite3.Connection:
+    ARCH_DIR.mkdir(parents=True, exist_ok=True)
+    con = sqlite3.connect(_db_file(uid, which))
+    con.executescript(_SCHEMAS[which])
+    return con
+
+
+def _kv_set(con: sqlite3.Connection, k: str, v) -> None:
+    con.execute("INSERT INTO kv (k, v) VALUES (?, ?) ON CONFLICT(k) DO UPDATE SET v = excluded.v",
+                (k, json.dumps(v, ensure_ascii=False)))
+
+
+def _index_read() -> list[str]:
+    f = ARCH_DIR / "customers.json"
+    return json.loads(f.read_text(encoding="utf-8")) if f.exists() else []
+
+
+def _index_write(uids: list[str]) -> None:
+    ARCH_DIR.mkdir(parents=True, exist_ok=True)
+    (ARCH_DIR / "customers.json").write_text(json.dumps(sorted(set(uids)), indent=2), encoding="utf-8")
+
+
+def _register(uid: str) -> None:
+    _index_write(_index_read() + [uid])
+
+
+def _empty_plumbing() -> dict:
+    return {**{k: [] for k in PLUMBING_KINDS}, "rewards": {}}
+
+
 class LocalFile:
+    """G5: customer records go straight into the three agent databases (one SQLite file per
+    customer per database, the same files the app and the arch screens use); app plumbing
+    (chat transcripts, logs, conversations, earnings, rewards) stays in data/cabinet-db.json."""
+
     def __init__(self) -> None:
         self.state = json.loads(LOCAL_FILE.read_text(encoding="utf-8")) if LOCAL_FILE.exists() else {}
-        self.state.setdefault("users", {})
-        for k in KINDS[1:]:
+        for k in PLUMBING_KINDS:
             self.state.setdefault(k, [])
+        self.state.setdefault("rewards", {})
+
+    # ---- customer records -> the owning agent's database
+    def _upsert_customer(self, row: dict) -> None:
+        kind, rid, data = row["kind"], row["id"], row["data"]
+        uid = str(row.get("user_id") or rid)
+        _register(uid)
+        if kind == "users":
+            profile = {k: v for k, v in data.items() if k not in ("id", "points", "pointsSpent", "redeemed", "accounts")}
+            with _open_db(uid, "user") as con:
+                _kv_set(con, "profile", profile)
+            if data.get("accounts"):
+                with _open_db(uid, "nordea") as con:
+                    _kv_set(con, "balances", data["accounts"])
+            self.state["rewards"][uid] = {"points": data.get("points", 0),
+                                          **({"pointsSpent": data["pointsSpent"]} if "pointsSpent" in data else {}),
+                                          **({"redeemed": data["redeemed"]} if "redeemed" in data else {})}
+            return
+        if kind == "cabinetEntries":
+            if data.get("type") == "goal":
+                with _open_db(uid, "user") as con:
+                    con.execute("INSERT INTO goals (id, title, detail, created_at, doc) VALUES (?,?,?,?,?) "
+                                "ON CONFLICT(id) DO UPDATE SET title=excluded.title, detail=excluded.detail, doc=excluded.doc",
+                                (rid, data.get("title", ""), data.get("detail", ""), data.get("createdAt", NOW),
+                                 json.dumps(data, ensure_ascii=False)))
+            else:
+                ev = data.get("evidence")
+                evidence = json.dumps({"transactionIds": ev.get("transactionIds"),
+                                       "transactionIdsHash": ev.get("inputsHash")}, ensure_ascii=False) if ev else None
+                with _open_db(uid, "cm") as con:
+                    con.execute("INSERT INTO entries (id, title, detail, goal_ids, proposed_by, via_message_id, evidence, "
+                                "status, dispute_reason, created_at, observed, risk, auto_accepted, doc) "
+                                "VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?) "
+                                "ON CONFLICT(id) DO UPDATE SET title=excluded.title, detail=excluded.detail, "
+                                "status=excluded.status, doc=excluded.doc",
+                                (rid, data.get("title", ""), data.get("detail", ""), "[]",
+                                 "nordea" if data.get("source") == "nordea" else "user", None, evidence,
+                                 data.get("status", "active"), None, data.get("createdAt", NOW), None, None, None,
+                                 json.dumps(data, ensure_ascii=False)))
+            return
+        if kind == "transactions":
+            with _open_db(uid, "nordea") as con:
+                con.execute("INSERT INTO transactions (id, date, category, amount, account, description, json) "
+                            "VALUES (?,?,?,?,?,?,?) ON CONFLICT(id) DO UPDATE SET date=excluded.date, "
+                            "category=excluded.category, amount=excluded.amount, account=excluded.account, "
+                            "description=excluded.description, json=excluded.json",
+                            (rid, data.get("date", ""), data.get("category", "other"), data.get("amount", 0),
+                             data.get("account", "current"), data.get("description"), json.dumps(data, ensure_ascii=False)))
+            return
+        if kind == "entryHistory":
+            with _open_db(uid, "cm") as con:
+                con.execute("INSERT INTO history (id, entry_id, at, json) VALUES (?,?,?,?) "
+                            "ON CONFLICT(id) DO UPDATE SET json=excluded.json",
+                            (rid, data.get("entryId", ""), data.get("at", NOW), json.dumps(data, ensure_ascii=False)))
+            return
+        if kind == "shares":
+            with _open_db(uid, "cm") as con:
+                con.execute("INSERT INTO shares (id, json) VALUES (?,?) ON CONFLICT(id) DO UPDATE SET json=excluded.json",
+                            (rid, json.dumps(data, ensure_ascii=False)))
+            return
+        if kind == "undoRecords":
+            token = data.get("undoToken") or rid
+            with _open_db(uid, "cm") as con:
+                con.execute("INSERT INTO undo (token, at, json) VALUES (?,?,?) ON CONFLICT(token) DO UPDATE SET json=excluded.json",
+                            (token, data.get("at", NOW), json.dumps(data, ensure_ascii=False)))
+            return
+        if kind == "documents":
+            with _open_db(uid, "user") as con:
+                con.execute("INSERT INTO documents (id, json) VALUES (?,?) ON CONFLICT(id) DO UPDATE SET json=excluded.json",
+                            (rid, json.dumps(data, ensure_ascii=False)))
+            return
+        if kind == "bankAccounts":
+            with _open_db(uid, "nordea") as con:
+                con.execute("INSERT INTO accounts (id, json) VALUES (?,?) ON CONFLICT(id) DO UPDATE SET json=excluded.json",
+                            (rid, json.dumps(data, ensure_ascii=False)))
+            return
+        if kind == "balanceSnapshots":
+            with _open_db(uid, "nordea") as con:
+                con.execute("INSERT INTO balance_snapshots (id, account_key, at, json) VALUES (?,?,?,?) "
+                            "ON CONFLICT(id) DO UPDATE SET json=excluded.json",
+                            (rid, data.get("accountKey", ""), data.get("at", NOW), json.dumps(data, ensure_ascii=False)))
+            return
+        if kind == "importBatches":
+            with _open_db(uid, "nordea") as con:
+                con.execute("INSERT INTO import_batches (id, at, json) VALUES (?,?,?) "
+                            "ON CONFLICT(id) DO UPDATE SET json=excluded.json",
+                            (rid, data.get("at", NOW), json.dumps(data, ensure_ascii=False)))
+            return
+        sys.exit(f"internal: {kind} is not a customer kind")
 
     def upsert(self, rows: list[dict]) -> None:
         for r in rows:
-            if r["kind"] == "users":
-                self.state["users"][r["id"]] = r["data"]
+            if r["kind"] in CUSTOMER_KINDS:
+                self._upsert_customer(r)
                 continue
             lst = self.state[r["kind"]]
             at = next((i for i, x in enumerate(lst) if key_of(r["kind"], x) == r["id"]), None)
@@ -358,12 +516,72 @@ class LocalFile:
                 lst[at] = r["data"]
         self.save()
 
+    # ---- deletes
+    def _delete_customer(self, kind: str, user_id: str | None) -> None:
+        uids = [user_id] if user_id else _index_read()
+        for uid in uids:
+            if kind == "users":
+                for which, table in (("user", "kv"), ("nordea", "kv")):
+                    f = _db_file(uid, which)
+                    if f.exists():
+                        with sqlite3.connect(f) as con:
+                            con.execute("DELETE FROM kv WHERE k IN ('profile', 'balances')")
+                self.state["rewards"].pop(uid, None)
+                continue
+            table_by_kind = {"cabinetEntries": None, "transactions": ("nordea", "transactions"),
+                             "entryHistory": ("cm", "history"), "shares": ("cm", "shares"), "undoRecords": ("cm", "undo"),
+                             "documents": ("user", "documents"), "bankAccounts": ("nordea", "accounts"),
+                             "balanceSnapshots": ("nordea", "balance_snapshots"), "importBatches": ("nordea", "import_batches")}
+            if kind == "cabinetEntries":
+                for which, table, col in (("user", "goals", "doc"), ("cm", "entries", "doc")):
+                    f = _db_file(uid, which)
+                    if f.exists():
+                        with sqlite3.connect(f) as con:
+                            con.execute(f"DELETE FROM {table} WHERE json_extract({col}, '$.userId') = ?", (uid,))
+                continue
+            target = table_by_kind.get(kind)
+            if target:
+                which, table = target
+                f = _db_file(uid, which)
+                if f.exists():
+                    with sqlite3.connect(f) as con:
+                        con.execute(f"DELETE FROM {table} WHERE json_extract(json, '$.userId') = ?", (uid,))
+
+    def _prune(self, uid: str) -> None:
+        """Drop a customer from the index (and the empty files) once nothing of them is left."""
+        empty = True
+        for which in ("user", "cm", "nordea"):
+            f = _db_file(uid, which)
+            if not f.exists():
+                continue
+            with sqlite3.connect(f) as con:
+                for table in ("kv", "goals", "personal_facts", "documents", "entries", "history", "shares",
+                              "undo", "accounts", "transactions", "balance_snapshots", "import_batches"):
+                    try:
+                        if con.execute(f"SELECT 1 FROM {table} LIMIT 1").fetchone():
+                            empty = False
+                    except sqlite3.OperationalError:
+                        pass
+        if empty and uid not in self.state["rewards"]:
+            for which in ("user", "cm", "nordea"):
+                _db_file(uid, which).unlink(missing_ok=True)
+            _index_write([u for u in _index_read() if u != uid])
+
     def delete(self, kind: str | None = None, user_id: str | None = None) -> None:
-        for k in ([kind] if kind else KINDS):
-            if k == "users":
-                self.state["users"] = {i: u for i, u in self.state["users"].items() if user_id and i != user_id}
+        kinds = [kind] if kind else list(CUSTOMER_KINDS) + PLUMBING_KINDS
+        for k in kinds:
+            if k in CUSTOMER_KINDS:
+                self._delete_customer(k, user_id)
             else:
                 self.state[k] = [x for x in self.state[k] if user_id and x.get("userId") != user_id]
+        if not kind and not user_id:  # --clear: wipe the three databases and the index too
+            for f in ARCH_DIR.glob("*.db"):
+                f.unlink()
+            (ARCH_DIR / "customers.json").unlink(missing_ok=True)
+            self.state["rewards"] = {}
+        for uid in ([user_id] if user_id else list(_index_read())):
+            if uid:
+                self._prune(uid)
         self.save()
 
     def save(self) -> None:
@@ -396,7 +614,7 @@ def main() -> None:
                     help="delete the existing records of the kinds being loaded first (only that customer's with --user-id)")
     ap.add_argument("--keep-names", action="store_true", help="keep column names as they are (no user_id -> userId)")
     ap.add_argument("--target", choices=["supabase", "file"], default="supabase",
-                    help="supabase (default) or file = data/cabinet-db.json for running without Supabase")
+                    help="supabase (default) or file = the three agent databases under data/arch for running without Supabase")
     ap.add_argument("--app-url", default="http://localhost:3000", help="running app to tell about the new data")
     ap.add_argument("--no-reload", action="store_true", help="don't tell the running app")
     ap.add_argument("--dry-run", action="store_true", help="read and check the files, show what would happen, change nothing")
@@ -430,7 +648,7 @@ def main() -> None:
     for r in rows:
         by_kind[r["kind"]] = by_kind.get(r["kind"], 0) + 1
 
-    where = "data/cabinet-db.json" if args.target == "file" else f"Supabase table {TABLE}"
+    where = "the three agent databases (data/arch/*.db)" if args.target == "file" else f"Supabase table {TABLE}"
     if args.dry_run:
         if args.clear:
             print(f"Would delete all data in {where}.")

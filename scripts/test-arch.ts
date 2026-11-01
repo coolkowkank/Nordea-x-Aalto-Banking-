@@ -257,6 +257,10 @@ const { db: legacyDb } = await import('../src/server/db.js');
 await legacyDb.init();
 const { applyNordeaData } = await import('../src/server/nordeaData.js');
 const UID5 = 'lauri';
+S.deleteDb(UID5, 'cm');
+S.deleteDb(UID5, 'user');
+S.deleteDb(UID5, 'nordea');
+S.saveBus(UID5, { messages: [], airlock: [] }); // clean slate: the legacy demo file now migrates into the three DBs on init
 S.saveNordeaDb({ userId: UID5, accounts: [], transactions: [{ id: 'i1', userId: UID5, date: '2026-10-01', category: 'transport', amount: -100, account: 'current', description: 'Fuel for the car' }] });
 A.addGoalDirect(UID5, 'Save for a car');
 const ic = A.contribute(UID5);
@@ -278,6 +282,10 @@ check('the import hook does nothing for a customer without the architecture', A.
 // --- Resume never serves outdated facts as fresh: re-check runs before reuse
 // Scenario A: import while PARKED updates the Nordea DB without detection; reconnect re-checks.
 const UID6 = 'eeva';
+S.deleteDb(UID6, 'cm');
+S.deleteDb(UID6, 'user');
+S.deleteDb(UID6, 'nordea');
+S.saveBus(UID6, { messages: [], airlock: [] }); // clean slate: the legacy demo file now migrates into the three DBs on init
 S.saveNordeaDb({ userId: UID6, accounts: [], transactions: [{ id: 'e1', userId: UID6, date: '2026-10-01', category: 'transport', amount: -100, account: 'current', description: 'Fuel for the car' }] });
 A.addGoalDirect(UID6, 'Save for a car');
 const ec = A.contribute(UID6);
@@ -292,6 +300,10 @@ check('the reconnect re-check posted flag-stale + refresh messages', S.loadBus(U
 
 // Scenario B: import while the NORDEA agent is OFF does not touch its DB; turn-on refreshes + re-checks.
 const UID7 = 'alex';
+S.deleteDb(UID7, 'cm');
+S.deleteDb(UID7, 'user');
+S.deleteDb(UID7, 'nordea');
+S.saveBus(UID7, { messages: [], airlock: [] }); // clean slate: the legacy demo file now migrates into the three DBs on init
 S.saveNordeaDb({ userId: UID7, accounts: [], transactions: [{ id: 'x1', userId: UID7, date: '2026-10-01', category: 'transport', amount: -100, account: 'current', description: 'Fuel for the car' }] });
 A.addGoalDirect(UID7, 'Save for a car');
 const xc = A.contribute(UID7);
@@ -299,9 +311,9 @@ A.decideProposal(UID7, xc.proposals[0].messageId, true);
 A.setAgentOff(UID7, 'nordea', true);
 applyNordeaData(UID7, { mode: 'incremental', transactions: [{ date: '2026-10-22', amount: -77, category: 'transport', description: 'More fuel for the car', bankId: 'IMP-TEST-3' }] } as Parameters<typeof applyNordeaData>[1], 'test import while off');
 const hookOff = A.applyBankImportToArch(UID7);
-check('while the Nordea agent is off, the import hook does not touch its DB', hookOff.updated === false && !S.loadNordeaDb(UID7)!.transactions.some((t) => t.description === 'More fuel for the car'));
+check('while the Nordea agent is off, the import still lands in the Nordea DB but the hook runs no update/detection', hookOff.updated === false && S.loadNordeaDb(UID7)!.transactions.some((t) => t.description === 'More fuel for the car') && S.loadCmDb(UID7).entries[0].status === 'active');
 A.setAgentOff(UID7, 'nordea', false);
-check('turning the Nordea agent back on refreshes its DB from current bank data', S.loadNordeaDb(UID7)!.transactions.some((t) => t.description === 'More fuel for the car'));
+check('turning the Nordea agent back on finds its DB already current (imports write it directly)', S.loadNordeaDb(UID7)!.transactions.some((t) => t.description === 'More fuel for the car'));
 check('turn-on re-checks BEFORE the agent serves again: the entry is flagged stale', S.loadCmDb(UID7).entries[0].status === 'stale');
 
 // Scenario C: import while the CM agent is OFF updates the DB without detection; turn-on re-checks.
@@ -328,14 +340,14 @@ const personalSrc = readSrc('../src/server/arch/agents/personal.ts');
 const cmSrc = readSrc('../src/server/arch/agents/cm.ts');
 const nordeaSrc = readSrc('../src/server/arch/agents/nordea.ts');
 // Allowlist (F14): each agent module may import only its own store, the bus store, the
-// dispatcher, the round engine, text helpers and shared types - plus, for the Nordea agent,
-// the bank's core data source (../../db.js). Any other import fails, however it is named.
+// dispatcher, the round engine, text helpers and shared types. No agent imports the app layer -
+// no agent may import the app layer (../../db.js) - each agent's own DB is its only data source.
 const importsOf = (src: string) => [...src.matchAll(/from\s+['"]([^'"]+)['"]/g)].map((m) => m[1]);
 const AGENT_SHARED = ['../types.js', '../text.js', '../store/busStore.js', '../store/contextStore.js', '../dispatcher.js', '../rounds.js', '../risk.js']; // contextStore = the AC2 shared document, section writers pinned below
 const onlyAllowed = (src: string, ownStore: string, extra: string[] = []) => importsOf(src).every((spec) => [...AGENT_SHARED, ownStore, ...extra].includes(spec));
 check('AC1: the personal agent module imports only its own store plus shared bus/round infra', onlyAllowed(personalSrc, '../store/userStore.js'), importsOf(personalSrc).join(','));
 check('AC1: the CM agent module imports only its own store plus shared bus/round infra', onlyAllowed(cmSrc, '../store/cmStore.js'), importsOf(cmSrc).join(','));
-check('AC1: the Nordea agent module imports only its own store plus shared infra and the core bank source', onlyAllowed(nordeaSrc, '../store/nordeaStore.js', ['../../db.js']), importsOf(nordeaSrc).join(','));
+check('AC1: the Nordea agent module imports only its own store plus shared infra (its own DB is the bank source, no ../../db.js)', onlyAllowed(nordeaSrc, '../store/nordeaStore.js') && !importsOf(nordeaSrc).includes('../../db.js'), importsOf(nordeaSrc).join(','));
 check('AC2: only the personal agent module writes the Customer section', personalSrc.includes('writeCustomerSection') && !personalSrc.includes('writeMemorySection') && !personalSrc.includes('writeNordeaSection'));
 check('AC2: only the CM agent module writes the Context memory section and the header', cmSrc.includes('writeMemorySection') && cmSrc.includes('writeHeader') && !cmSrc.includes('writeCustomerSection') && !cmSrc.includes('writeNordeaSection'));
 check('AC2: only the Nordea agent module writes the Nordea section', nordeaSrc.includes('writeNordeaSection') && !nordeaSrc.includes('writeCustomerSection') && !nordeaSrc.includes('writeMemorySection'));

@@ -12,7 +12,8 @@
     "lint": "tsc --noEmit",
     "test": "tsx scripts/test-bank-records.ts",
     "check:feed": "tsx scripts/check-feed-csv.ts",
-    "test:arch": "tsx scripts/test-arch.ts"
+    "test:arch": "tsx scripts/test-arch.ts",
+    "test:adapter": "tsx scripts/test-adapter.ts"
   },
   "dependencies": {
     "@google/genai": "^2.4.0",

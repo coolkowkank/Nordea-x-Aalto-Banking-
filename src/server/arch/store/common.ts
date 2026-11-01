@@ -25,20 +25,26 @@ export const legacyFileFor = (uid: string, db: DbKind) => fileFor(uid, db).repla
 
 const SCHEMAS: Record<DbKind, string> = {
   user: `CREATE TABLE IF NOT EXISTS kv (k TEXT PRIMARY KEY, v TEXT NOT NULL);
-    CREATE TABLE IF NOT EXISTS goals (id TEXT PRIMARY KEY, title TEXT NOT NULL, detail TEXT NOT NULL, created_at TEXT NOT NULL);
-    CREATE TABLE IF NOT EXISTS personal_facts (id TEXT PRIMARY KEY, source TEXT NOT NULL, text TEXT NOT NULL, at TEXT NOT NULL, via_airlock_id TEXT NOT NULL);`,
+    CREATE TABLE IF NOT EXISTS goals (id TEXT PRIMARY KEY, title TEXT NOT NULL, detail TEXT NOT NULL, created_at TEXT NOT NULL, doc TEXT);
+    CREATE TABLE IF NOT EXISTS personal_facts (id TEXT PRIMARY KEY, source TEXT NOT NULL, text TEXT NOT NULL, at TEXT NOT NULL, via_airlock_id TEXT NOT NULL);
+    CREATE TABLE IF NOT EXISTS documents (id TEXT PRIMARY KEY, json TEXT NOT NULL);`,
   cm: `CREATE TABLE IF NOT EXISTS kv (k TEXT PRIMARY KEY, v TEXT NOT NULL);
     CREATE TABLE IF NOT EXISTS entries (
       id TEXT PRIMARY KEY, title TEXT NOT NULL, detail TEXT NOT NULL, goal_ids TEXT NOT NULL,
       proposed_by TEXT NOT NULL, via_message_id TEXT, evidence TEXT, status TEXT NOT NULL,
-      dispute_reason TEXT, created_at TEXT NOT NULL, observed TEXT, risk TEXT, auto_accepted INTEGER);`,
+      dispute_reason TEXT, created_at TEXT NOT NULL, observed TEXT, risk TEXT, auto_accepted INTEGER, doc TEXT);
+    CREATE TABLE IF NOT EXISTS history (id TEXT PRIMARY KEY, entry_id TEXT NOT NULL, at TEXT NOT NULL, json TEXT NOT NULL);
+    CREATE TABLE IF NOT EXISTS shares (id TEXT PRIMARY KEY, json TEXT NOT NULL);
+    CREATE TABLE IF NOT EXISTS undo (token TEXT PRIMARY KEY, at TEXT NOT NULL, json TEXT NOT NULL);`,
   nordea: `CREATE TABLE IF NOT EXISTS kv (k TEXT PRIMARY KEY, v TEXT NOT NULL);
     CREATE TABLE IF NOT EXISTS accounts (id TEXT PRIMARY KEY, json TEXT NOT NULL);
     CREATE TABLE IF NOT EXISTS transactions (
       id TEXT PRIMARY KEY, date TEXT NOT NULL, category TEXT NOT NULL, amount REAL NOT NULL,
       account TEXT NOT NULL, description TEXT, json TEXT NOT NULL);
     CREATE INDEX IF NOT EXISTS idx_transactions_category ON transactions(category);
-    CREATE INDEX IF NOT EXISTS idx_transactions_date ON transactions(date);`,
+    CREATE INDEX IF NOT EXISTS idx_transactions_date ON transactions(date);
+    CREATE TABLE IF NOT EXISTS balance_snapshots (id TEXT PRIMARY KEY, account_key TEXT NOT NULL, at TEXT NOT NULL, json TEXT NOT NULL);
+    CREATE TABLE IF NOT EXISTS import_batches (id TEXT PRIMARY KEY, at TEXT NOT NULL, json TEXT NOT NULL);`,
   bus: `CREATE TABLE IF NOT EXISTS kv (k TEXT PRIMARY KEY, v TEXT NOT NULL);
     CREATE TABLE IF NOT EXISTS messages (
       id TEXT PRIMARY KEY, at TEXT NOT NULL, frm TEXT NOT NULL, tto TEXT NOT NULL,
@@ -83,4 +89,33 @@ export function migrateLegacy(uid: string, kind: DbKind, apply: (data: Record<st
   } catch {
     // A corrupt legacy file must not block the demo: start the SQLite DB empty instead.
   }
+}
+
+/**
+ * G1: the index of customers with data in the three-database architecture. The app layer
+ * needs it to find which per-customer databases exist (e.g. to look a record up by id
+ * without knowing the customer). One small JSON file next to the databases.
+ */
+const INDEX_FILE = () => path.join(ARCH_DIR, 'customers.json');
+
+export function listCustomers(): string[] {
+  try {
+    if (!fs.existsSync(INDEX_FILE())) return [];
+    const uids = JSON.parse(fs.readFileSync(INDEX_FILE(), 'utf-8')) as string[];
+    return Array.isArray(uids) ? uids : [];
+  } catch { return []; }
+}
+
+export function registerCustomer(uid: string) {
+  const uids = listCustomers();
+  if (uids.includes(uid)) return;
+  fs.mkdirSync(ARCH_DIR, { recursive: true });
+  fs.writeFileSync(INDEX_FILE(), JSON.stringify([...uids, uid]), 'utf-8');
+}
+
+export function unregisterCustomer(uid: string) {
+  const uids = listCustomers().filter((u) => u !== uid);
+  if (uids.length === listCustomers().length) return;
+  fs.mkdirSync(ARCH_DIR, { recursive: true });
+  fs.writeFileSync(INDEX_FILE(), JSON.stringify(uids), 'utf-8');
 }

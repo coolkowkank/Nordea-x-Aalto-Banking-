@@ -5,11 +5,10 @@
  * agent asks. It never opens the User DB or the Context Memory DB.
  * Boundary pinned by the AC1 source-scan test: this module imports no other agent's store.
  */
-import { db } from '../../db.js';
 import { now } from '../types.js';
 import type { AgentMessage, NordeaDb } from '../types.js';
 import { words, overlaps, CATEGORY_HINTS } from '../text.js';
-import { loadNordeaDb, saveNordeaDb, nordeaFileExists } from '../store/nordeaStore.js';
+import { loadNordeaDb } from '../store/nordeaStore.js';
 import { readSectionRows, writeNordeaSection } from '../store/contextStore.js';
 import type { ContextRow } from '../store/contextStore.js';
 import { appendMessage, loadBus, updateMessage } from '../store/busStore.js';
@@ -25,25 +24,13 @@ const hashIds = (ids: string[]) => {
   return h.toString(16).padStart(8, '0');
 };
 
-/** The Nordea agent syncs its own DB from the bank's core data (the app's bank records). */
-export function refreshFromCore(uid: string): NordeaDb {
-  const fresh: NordeaDb = {
-    userId: uid,
-    accounts: db.getBankAccounts(uid).map((a) => ({ ...a })),
-    transactions: db.getTransactions(uid).map((t) => ({ ...t })),
-  };
-  saveNordeaDb(fresh);
-  return fresh;
-}
+/** The DB may not exist yet (no import ever ran) - serve an empty one instead of crashing. */
+const nordeaDbOrEmpty = (uid: string): NordeaDb => loadNordeaDb(uid) ?? { userId: uid, accounts: [], transactions: [] };
 
-/** The Nordea DB starts as a one-time copy of the customer's bank data the app already holds. */
+/** G1: the Nordea DB IS the bank data's one home - imports write it directly, nothing to copy. */
 export function prepare(uid: string): { transactions: number; accounts: number } {
-  if (nordeaFileExists(uid)) {
-    const existing = loadNordeaDb(uid)!;
-    return { transactions: existing.transactions.length, accounts: existing.accounts.length };
-  }
-  const fresh = refreshFromCore(uid);
-  return { transactions: fresh.transactions.length, accounts: fresh.accounts.length };
+  const existing = loadNordeaDb(uid) ?? { userId: uid, accounts: [], transactions: [] };
+  return { transactions: existing.transactions.length, accounts: existing.accounts.length };
 }
 
 /** Match transactions against shared goal TITLES (goal details never leave the User DB). */
@@ -70,8 +57,7 @@ function handleMessage(uid: string, msg: AgentMessage) {
     // session/top-up query may also carry the customer's question to match against.
     const goals = readSectionRows(uid, 'customer').map((r) => ({ id: r.id, title: r.title }));
     const questionWords = typeof payload.question === 'string' ? words(payload.question as string) : [];
-    prepare(uid);
-    const nordea = loadNordeaDb(uid)!;
+    const nordea = nordeaDbOrEmpty(uid);
     const alreadyPending = pendingProposalSummaries(uid);
     const proposals: { messageId: string; title: string; detail: string; matched: number; total: number }[] = [];
     const sectionRows: ContextRow[] = [];
@@ -114,8 +100,7 @@ function handleMessage(uid: string, msg: AgentMessage) {
 
   // --- A direct question for the Nordea agent (agent-query transport): aggregates only.
   if (msg.type === 'query' && typeof payload.question === 'string') {
-    prepare(uid);
-    const nordea = loadNordeaDb(uid)!;
+    const nordea = nordeaDbOrEmpty(uid);
     const q = words(payload.question);
     const hinted = new Set(q.flatMap((w) => CATEGORY_HINTS[w] ?? []));
     const matches = nordea.transactions.filter((t) =>
@@ -141,8 +126,7 @@ function handleMessage(uid: string, msg: AgentMessage) {
   // --- Refresh request from the Context Memory agent: confirm or refresh stored values.
   if (msg.type === 'refresh' && typeof payload.roundId === 'string') {
     const items = (payload.items ?? []) as { entryId: string; title: string; goalIds?: string[]; goalTitles: string[]; was: number | null; storedIds?: string[]; storedIdsHash?: string; reason?: 'evidence' | 'aged' | 'missing-evidence' }[];
-    prepare(uid);
-    const nordea = loadNordeaDb(uid)!;
+    const nordea = nordeaDbOrEmpty(uid);
     const alreadyPending = pendingProposalSummaries(uid);
     const results = items.map((item) => {
       const matches = matchForTitles(nordea, item.goalTitles);
@@ -206,13 +190,14 @@ function handleMessage(uid: string, msg: AgentMessage) {
     return;
   }
 
-  // --- App control: refresh the Nordea DB from the bank's core data (import / resume / turn-on).
+  // --- App control: a bank import landed (imports write the Nordea DB directly now, G1) -
+  // report the current counts and inform the customer.
   if (msg.type === 'control' && payload.control === 'refresh-from-core') {
-    const fresh = refreshFromCore(uid);
+    const counts = prepare(uid);
     if (typeof payload.inform === 'string' && payload.inform) {
-      appendMessage(uid, { from: 'nordea', to: 'user', type: 'inform', summary: payload.inform.replace('{n}', String(fresh.transactions.length)).replace('{m}', `${fresh.accounts.length} account${fresh.accounts.length === 1 ? '' : 's'}`) });
+      appendMessage(uid, { from: 'nordea', to: 'user', type: 'inform', summary: payload.inform.replace('{n}', String(counts.transactions)).replace('{m}', `${counts.accounts} account${counts.accounts === 1 ? '' : 's'}`) });
     }
-    appendMessage(uid, { from: 'nordea', to: 'app', type: 'reply', summary: 'Nordea DB refreshed from core bank data.', payload: { inReplyTo: msg.id, updated: true, transactions: fresh.transactions.length, accounts: fresh.accounts.length } });
+    appendMessage(uid, { from: 'nordea', to: 'app', type: 'reply', summary: 'Nordea DB is current (imports write it directly).', payload: { inReplyTo: msg.id, updated: true, ...counts } });
     updateMessage(uid, msg.id, { status: 'answered' });
     return;
   }

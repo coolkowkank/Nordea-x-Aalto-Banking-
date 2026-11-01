@@ -2,7 +2,7 @@
  * Shared types for the three-agent architecture. No database access in this file -
  * it is the one module every agent may import without crossing a boundary.
  */
-import type { BankAccount, Transaction } from '../../types.js';
+import type { BankAccount, CabinetEntry, Transaction } from '../../types.js';
 
 export type AgentId = 'personal' | 'cm' | 'nordea';
 export const AGENTS: { id: AgentId; name: string; owns: string }[] = [
@@ -11,7 +11,10 @@ export const AGENTS: { id: AgentId; name: string; owns: string }[] = [
   { id: 'nordea', name: 'Nordea agent', owns: 'Nordea DB (accounts and transactions)' },
 ];
 
-export interface Goal { id: string; title: string; detail: string; createdAt: string; }
+export interface Goal { id: string; title: string; detail: string; createdAt: string;
+  /** G1: when this goal came from the Abel app, the full CabinetEntry record. Columns stay
+      authoritative for the arch view (title/detail/createdAt); the Abel-only fields live here. */
+  doc?: CabinetEntry; }
 export interface PersonalFact { id: string; source: string; text: string; at: string; viaAirlockId: string; }
 export interface PersonalAgentSettings { mode: 'abel' | 'external'; externalName?: string; connectedAt?: string; simulated?: boolean; }
 export interface UserDb {
@@ -34,7 +37,13 @@ export interface ArchEntry {
   observed?: 'observed' | 'inferred';
   risk?: 'low' | 'medium' | 'high'; // AC7: code-rule risk level from risk.ts
   autoAccepted?: boolean; // AC7: stored automatically under the customer's standing permissions
-  status: 'active' | 'disputed' | 'stale';
+  /** G1: 'archived' added for the Abel app's cabinet lifecycle; non-active rows are never served. */
+  status: 'active' | 'disputed' | 'stale' | 'archived';
+  /** G1: when this entry came from the Abel app, the full CabinetEntry record. The arch columns
+      stay authoritative for arch-owned fields (title, detail, status, evidence, goalIds...);
+      Abel-owned fields (type, source, private, readableBy, provenance, target, why, reviewed,
+      goalType, confirmedAt, updatedAt) are read from here. */
+  doc?: CabinetEntry;
   disputeReason?: string;
   createdAt: string;
 }
