@@ -119,7 +119,7 @@ Open **http://localhost:3000/arch.html** for the three-agent demo UI. Its contro
 
 Local files are the default and need nothing. To host the data on [Supabase](https://supabase.com) instead:
 
-1. Create a project and run **supabase/three-agents.sql** once in the *SQL Editor* - it makes the three agent tables and one Postgres role per agent. Give each role a letters-and-digits password: `alter role agent_user password '...';` (same for `agent_cm`, `agent_nordea`).
+1. Create a project and run three SQL files in the *SQL Editor*, in order: **supabase/three-agents.sql** (the three agent tables and one Postgres role per agent - give each role a letters-and-digits password: `alter role agent_user password '...';`, same for `agent_cm`, `agent_nordea`), then **supabase/nordea-feed.sql** (the new-data feed; run it again if you ran an older copy), then **supabase/role-smoke.sql** (prints one PASS/FAIL table - every line should say PASS).
 2. (Optional) Run **supabase/setup.sql** once too - only needed if you also want the app plumbing
    (chat transcripts, logs, rewards) hosted. Without `SUPABASE_URL` + `SUPABASE_SECRET_KEY` that
    plumbing stays in `data/cabinet-db.json` locally. If you DO set those two variables but skip this
@@ -142,9 +142,11 @@ At startup the app replaces its local agent databases with the hosted rows (hydr
 
 New (fictional) Nordea account data can be dropped into Supabase for the running app to apply:
 
-1. Run **supabase/nordea-feed.sql** once in the SQL Editor. It creates `nordea_feed` and grants the
-   Nordea agent's own role read + mark-applied rights: in hosted mode (`NORDEA_DB_URL` set) the feed
-   works WITHOUT the service key; otherwise it falls back to `SUPABASE_URL` + `SUPABASE_SECRET_KEY`.
+1. Run **supabase/nordea-feed.sql** once in the SQL Editor, AFTER three-agents.sql (it grants the
+   `agent_nordea` role); if you ran an older copy of this file, run the current one again. It creates
+   `nordea_feed` and grants the Nordea agent's own role read + mark-applied rights: in hosted mode
+   (`NORDEA_DB_URL` set) the feed works WITHOUT the service key; otherwise it falls back to
+   `SUPABASE_URL` + `SUPABASE_SECRET_KEY`.
 2. Add rows in *Table Editor* -> `nordea_feed`, or import the ready-made
    **supabase/nordea-feed-example.csv** (validate it first with `npm run check:feed`).
 3. The app checks the table every 20 seconds while it runs, or immediately with **Check feed** on

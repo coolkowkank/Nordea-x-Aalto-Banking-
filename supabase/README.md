@@ -91,6 +91,8 @@ pick up. Needs step 4's `SUPABASE_URL` + `SUPABASE_SECRET_KEY` (the feed is read
 key today).
 
 1. **SQL Editor** → **New query** → paste all of [`nordea-feed.sql`](nordea-feed.sql) → **Run**.
+   Run it AFTER [`three-agents.sql`](three-agents.sql) (it grants the `agent_nordea` role), and run
+   it again if you ran an older copy of this file.
 2. Add rows in **Table Editor → nordea_feed → Insert row**, or import
    [`nordea-feed-example.csv`](nordea-feed-example.csv) (**Insert** → **Import data from CSV**).
    Check the CSV first with `npm run check:feed`.

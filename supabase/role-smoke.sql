@@ -25,7 +25,8 @@ create temp table smoke_user as
   union all select * from pg_temp.smoke('agent_user reads agent_cm_records',     'deny', 'select 1 from agent_cm_records limit 1')
   union all select * from pg_temp.smoke('agent_user reads agent_nordea_records', 'deny', 'select 1 from agent_nordea_records limit 1')
   union all select * from pg_temp.smoke('agent_user reads abel_records',         'deny', 'select 1 from abel_records limit 1')
-  union all select * from pg_temp.smoke('agent_user reads nordea_feed',          'deny', 'select 1 from nordea_feed limit 1');
+  union all select * from pg_temp.smoke('agent_user reads nordea_feed',          'deny', 'select 1 from nordea_feed limit 1')
+  union all select * from pg_temp.smoke('agent_user updates nordea_feed',        'deny', 'update nordea_feed set result = result where false');
 reset role;
 
 set role agent_cm;
@@ -34,7 +35,9 @@ create temp table smoke_cm as
   union all select * from pg_temp.smoke('agent_cm writes agent_cm_records', 'allow', $$insert into agent_cm_records (user_id, table_name, id, data) values ('smoke','smoke','smoke','{}'::jsonb)$$)
   union all select * from pg_temp.smoke('agent_cm reads agent_user_records',   'deny', 'select 1 from agent_user_records limit 1')
   union all select * from pg_temp.smoke('agent_cm reads agent_nordea_records', 'deny', 'select 1 from agent_nordea_records limit 1')
-  union all select * from pg_temp.smoke('agent_cm reads abel_records',         'deny', 'select 1 from abel_records limit 1');
+  union all select * from pg_temp.smoke('agent_cm reads abel_records',         'deny', 'select 1 from abel_records limit 1')
+  union all select * from pg_temp.smoke('agent_cm reads nordea_feed',            'deny', 'select 1 from nordea_feed limit 1')
+  union all select * from pg_temp.smoke('agent_cm updates nordea_feed',          'deny', 'update nordea_feed set result = result where false');
 reset role;
 
 set role agent_nordea;
@@ -43,7 +46,9 @@ create temp table smoke_nordea as
   union all select * from pg_temp.smoke('agent_nordea writes agent_nordea_records', 'allow', $$insert into agent_nordea_records (user_id, table_name, id, data) values ('smoke','smoke','smoke','{}'::jsonb)$$)
   union all select * from pg_temp.smoke('agent_nordea reads agent_user_records', 'deny', 'select 1 from agent_user_records limit 1')
   union all select * from pg_temp.smoke('agent_nordea reads agent_cm_records',   'deny', 'select 1 from agent_cm_records limit 1')
-  union all select * from pg_temp.smoke('agent_nordea reads abel_records',       'deny', 'select 1 from abel_records limit 1');
+  union all select * from pg_temp.smoke('agent_nordea reads abel_records',       'deny', 'select 1 from abel_records limit 1')
+  union all select * from pg_temp.smoke('agent_nordea reads nordea_feed',        'allow', 'select 1 from nordea_feed limit 1')
+  union all select * from pg_temp.smoke('agent_nordea updates nordea_feed',      'allow', 'update nordea_feed set result = result where false');
 reset role;
 
 set role anon;

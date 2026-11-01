@@ -1,8 +1,10 @@
 -- Abel x Nordea concept: new (fictional) Nordea account data for a demo customer.
--- Run this ONCE in Supabase → SQL Editor → New query → paste → Run.
+-- Run AFTER three-agents.sql (it grants the agent_nordea role), in Supabase → SQL Editor →
+-- New query → paste → Run. Ran an older copy of this file already? Run this version again.
 -- Then add a row (Table Editor → nordea_feed → Insert row, or the example insert at the bottom):
--- the app applies it within about 20 seconds, or straight away with
--- More → Nordea account data → Check Supabase now. It writes back applied_at and result.
+-- the app applies it within about 20 seconds, or straight away with **Check feed** on
+-- /arch.html (More → Nordea account data → Check Supabase now in the main app).
+-- It writes back applied_at and result.
 
 create table if not exists public.nordea_feed (
   id          bigint generated always as identity primary key,
