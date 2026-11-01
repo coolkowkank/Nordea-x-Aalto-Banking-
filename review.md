@@ -55,7 +55,7 @@ This branch starts from `instinct-prototype-v2` @ `4433b05`. The v2 review is ke
 - **Verified:** G1, G5 @95de3d4; G2 @17a640b (every app write = bus control msg to owning agent); G9 @ac8b828.
 - **Now (Bill): QC G10 rework @67d2e87** (one pending proposal per entry id; archive lands direct; confirm = `decideProposal`), **G7 @fcbe2d0**, **G8 @f6c4e62**, guard @29eaf05 (`npm run check:review`, in test:arch). Gateway `reviewed` flag kept as enforcement.
 - **OWNER (03:02):** line-guard for Messages: done @29eaf05, awaiting QC.
-- **Next:** G6 hand-over (code off-turn @df3b637, @64613fb; `three-agents.sql`, per-store secrets, `test:remote` 13/13; live pg+RLS smoke test after Habibil runs the SQL) → G7+G8 → G3 → V7 tests → G4.
+- **Next:** G6 hand-over (code off-turn @df3b637, @64613fb; `three-agents.sql`, per-store secrets, `test:remote` 13/13; live pg+RLS smoke test after Habibil runs the SQL) → G3 → V7 tests → G4.
 - **Accepted (Bill 02:50):** off-switch gates reasoning only, control writes still land; say so on `/arch.html` + README. Init migration and `load_data.py` write stores directly (bulk approved data, like G5).
 - **G3 hook:** `put-goal` control path in the personal agent can start a round.
 - **Settled from v2:** Node 22.13+; per-session `context.md`, one writer per section; risk by code rules (`assessEntryRisk`); Abel sees active rows only.
