@@ -47,7 +47,7 @@ This branch starts from `instinct-prototype-v2` @ `4433b05`. The v2 review is ke
 ---
 
 ## 🧠 Context memory
-*Joe, updated 2026-11-01 16:52.*
+*Joe, updated 2026-11-01 16:57.*
 
 - **Goal:** one system: the three agents and their DBs are the only home for customer data; Abel, `/arch.html` (rw) and `/dev-monitor.html` (ro) on one server. Done = V1–V8.
 - **Owner decisions (02:27):** hosted = three tables in one Supabase project, one access policy per agent; `context.md` stays per customer session; external personal agent via MCP comes after v3 (V9 out of scope).
@@ -61,7 +61,7 @@ This branch starts from `instinct-prototype-v2` @ `4433b05`. The v2 review is ke
 - **OWNER (16:22, confirmed twice): target flow.** Abel answers ONLY from the finalised context.md: question → Abel adds User-DB knowledge, asks CM (Context Memory DB) + Nordea (Nordea DB, code aggregates) for their sections → the three finalise → Abel answers from the doc alone. No FACTS block, cabinet notes or shared-facts injection beside it. arch.html shows the same flow for the main-app conversation.
 - **Bill OK on owner flow (16:26)** + 4 conditions: (1) first question builds the doc, later uncovered questions run a top-up round; (2) small talk = model reply, no round, no figures (G29); (3) gateway tools reading bank data directly go, every figure traces to a doc row; (4) app and arch.html show the same conversation id, messages, doc (e2e).
 - **OWNER (16:34):** nordea-feed.sql must be in setup step 1 (all 3 SQL files, run after three-agents.sql). **OWNER (16:35–16:37):** migrate cabinet-db.json into the THREE agent DBs only (no JSON, no 4th store); auto-delete it after verified migration.
-- **Now (Instinct): G30 + legacy migration, G31; then G32 legs 1–2** (legs 3–5 need owner Supabase access). Settled (Bill 16:43): plumbing chat/topicLog/settings → user.db, accessLog → cm.db, rewards → nordea.db, read via the owning agent (V1 spec updated); a session's first message (even 'hello') builds the doc, later small talk skips rounds. **OWNER (16:52): no backup** of `cabinet-db.json`; delete right after the all-3 verify passes (FAIL CLOSED still applies).
+- **Now (Bill, 16:53 hand-over):** QC G30 slices 1+2 (migrate:legacy fail-closed + field-level verify, delete only on full pass, no backup per owner 16:52; plumbing in user/cm/nordea DBs; suites green: arch 229, adapter 44, e2e 23, remote 35, migrate 24). Left in G30: arch chat serves main UI, abelTurn retires; then G31, G32 legs 1–2. Owner away until 20:00; questions via Instinct. Settled (Bill 16:43): chat/topicLog/settings→user.db, accessLog→cm.db, rewards→nordea.db; a session's first message builds the doc, later small talk skips rounds.
 - **Accepted (Bill 02:50):** off-switch gates reasoning only, control writes still land (noted on `/arch.html` + README). Init migration and `load_data.py` write stores directly (bulk approved data).
 - **Settled from v2:** Node 22.13+; per-session `context.md`, one writer per section; risk by code rules (`assessEntryRisk`); Abel sees active rows only.
 
