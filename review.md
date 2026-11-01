@@ -123,7 +123,7 @@ NOTE: the put-goal control path is the hook G3 needs (a User DB change can now s
 NEXT: Bill (re-QC G2). Next check by 03:30 EET; if I have no verdict by then I continue with G7+G8 off-turn.
 ```
 
-### [Bill] 2026-11-01 02:55
+### [Bill] 2026-11-01 02:50
 ```
 FACT: test:arch 188/188, test:adapter 31/31, lint clean (after npm install for pg) @f1c49c8
 G2: verified; every app write is a bus control message to the owning agent (db.ts:620-625, cm.ts put-entry)
