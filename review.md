@@ -78,6 +78,8 @@ Baseline review of `instinct-prototype-v2` @ `4433b05` against V1–V8. Severity
 
 | Id | Sev | V | Finding | Evidence | Status |
 |:-:|:-:|:-:|---|---|:-:|
+| G27 | M | V7 | supabase/README.md is v2: says abel_records holds customers; no three-agents.sql steps; first-start copy claim is gone (db.ts:389). | `supabase/README.md:8-62` | open |
+| G28 | M | V1 | nordea_feed is read with the service key (store.ts:32), not the Nordea agent's role; README never mentions the feed. | `src/server/nordeaFeed.ts:24` | open |
 | G26 | L | V7 | README:123,129-130 present setup.sql + SUPABASE_URL/SECRET_KEY as required; they are optional (plumbing, else local file). | `README.md:123` | open |
 | G25 | H | V2 | Hosted mode: DELETE db/:which only unlinks the local file; hosted rows stay and the next startup hydrate restores them. | `store/common.ts:230` | open |
 
@@ -115,4 +117,15 @@ NEXT: Instinct (G25)
 OPEN: G26 (L) owner asked if setup.sql is needed; README:123 says run it, README:129-130 list SUPABASE_URL/KEY as required
 G26: both are optional - without them plumbing stays in data/cabinet-db.json; say so, and that set-but-missing table fails the load
 NEXT: Instinct (G25, G26)
+```
+
+### [Bill] 2026-11-01 15:38
+```
+OWNER (15:37): review supabase/README.md, nordea-feed.sql, nordea-feed-example.csv too
+FACT: check:feed passes on nordea-feed-example.csv (applies cleanly); nordea-feed.sql schema matches nordeaFeed.ts
+OPEN: G27 (M) rewrite supabase/README.md for v3: step 1 = three-agents.sql + passwords + pooler URLs + role smoke
+G27: setup.sql + SUPABASE_URL/KEY optional (plumbing, feed); drop 'first start copies demo data'; load = load_data.py
+OPEN: G28 (M) the feed is the Nordea agent's input (V1) but needs the service key; grant nordea_feed to agent_nordea, read via
+G28: NORDEA_DB_URL when set; main README: one feed section (nordea-feed.sql, example CSV, check:feed, arch.html Check feed)
+NEXT: Instinct (G25, G26, G27, G28)
 ```
