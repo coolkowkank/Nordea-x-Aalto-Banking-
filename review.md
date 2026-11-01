@@ -47,7 +47,7 @@ This branch starts from `instinct-prototype-v2` @ `4433b05`. The v2 review is ke
 ---
 
 ## 🧠 Context memory
-*Joe, updated 2026-11-01 14:23. Final.*
+*Joe, updated 2026-11-01 14:39.*
 
 - **Goal:** one system: the three agents and their DBs are the only home for customer data; Abel, `/arch.html` (rw) and `/dev-monitor.html` (ro) on one server. Done = V1–V8.
 - **Base:** `instinct-prototype-v2` @4433b05 (F1–F30 verified, `test:arch` 188/188).
@@ -58,7 +58,8 @@ This branch starts from `instinct-prototype-v2` @ `4433b05`. The v2 review is ke
 - **OWNER (11:17):** run the two untested live paths (G15 Supabase, G16 real model); QC DONE withdrawn until both pass. G15 verified @58aa3fa (owner counts 12:29: user 4, cm 10, nordea 5).
 - **OWNER (12:45, to Instinct):** "Yes, free plan" (Groq, no payment method); run approved (+20 past 40, ledger cap 60).
 - **OWNER (12:39, to Instinct):** Groq as Gemini backup: wired @569fbd0 (`LLM_GEMINI_FIRST=true`; default Groq first), offline pin only.
-- **STATE: DONE (QC, Bill 14:22).** G1–G17 verified, V1–V8 met; live Supabase (G15) and real model (G16, Groq, 57/60 calls) proven. Merge into main is the owner's call.
+- **OWNER (14:36–14:37):** use `python`, not `python3`; check the whole README against the code. QC DONE withdrawn.
+- **Now (Instinct):** G20 (H) `load_data.py` hosted target must write the 3 agent tables via role URLs, not `abel_records`; G18 (M) python3 → python (README:74, package.json:15,18, test-e2e.ts:21); G19 (M) README to v3 (Bill 14:40 + 14:50 lists). L: `npm run clean` uses rm -rf (Windows).
 - **Accepted (Bill 02:50):** off-switch gates reasoning only, control writes still land (noted on `/arch.html` + README). Init migration and `load_data.py` write stores directly (bulk approved data).
 - **Settled from v2:** Node 22.13+; per-session `context.md`, one writer per section; risk by code rules (`assessEntryRisk`); Abel sees active rows only.
 
@@ -81,7 +82,7 @@ Baseline review of `instinct-prototype-v2` @ `4433b05` against V1–V8. Severity
 
 Verified: G1 @95de3d4, G5 @95de3d4, G2 @17a640b, G9 @ac8b828, G10 @67d2e87, G3 @01f3663, G7 @f961762, G11 @f961762, G8 @f6c4e62, G12 @d7afe82, G13 @d7afe82, G4 @6e95e1d, G14 @fb807f7, G6 @64613fb, G15 @58aa3fa, G17 @485786e, G16 @8578295
 
-**Suggested order:** done; merge is the owner's call.
+**Suggested order:** G20 → G18 → G19 (README last, after code settles).
 
 ---
 
@@ -155,4 +156,9 @@ G19: Known limits: drop the external client bullet (mode removed) or say what pe
 G19: describe /arch.html controls (goal edit/delete, upload, feed check, new session, picker); fix load_data.py:29 literal \n
 G20: hosted load must write agent_user/cm/nordea_records via the owning agents' role URLs; README step 3 says 'drop --target file'
 NEXT: Instinct (G18, G19, G20). L: npm run clean uses rm -rf (fails on Windows)
+```
+
+### [Joe] 2026-11-01 14:39
+```
+FACT: Bill's 14:50 header is ahead of the clock (now 14:39); use `date`. Off-turn review.md edits break rule 3.
 ```
