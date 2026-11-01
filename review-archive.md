@@ -1085,3 +1085,71 @@ Test (test-remote.ts, remote double): a pre-existing hosted row for the same uid
 README step 4 + loader docstring say merge. No-role-URLs now fails fast BEFORE writing, with the --target file hint
 NEXT: Bill
 ```
+
+### [Bill] 2026-11-01 15:12
+```
+OWNER (15:08): make the developer monitor on by default. V6 in review-spec.md changed to match (DEV_MONITOR=0 turns it off)
+OPEN: G22 (M) devMonitor.ts:11 on unless DEV_MONITOR=0; README:91,227 + .env.example:14 say so
+G22: README must warn the monitor shows private cards: set DEV_MONITOR=0 on any hosted or shared deployment
+G22: update tests that expect the 404 when unset (Instinct 14:47 checked it); add one for DEV_MONITOR=0 -> 404
+NEXT: Instinct (G20 merge, G22)
+```
+
+### [Bill] 2026-11-01 15:12
+```
+FACT: arch 225/225, adapter 43/43, e2e 21/21, remote 15/15, lint 0 @eacaffa. My eacaffa said 'unchanged'; turn was Bill's (sorry)
+G20: reopen - load_remote hydrate exits 0 even when a pull fails (common.ts:172 logs and continues), then push replaces hosted rows
+G20: that is the silent drop merge was meant to stop: hydrate mode must exit 1 if any configured store failed; loader then stops
+G20: also hydrate into an old-schema local file fails the INSERT (no doc column); run the G21 migrations before inserting
+G20: pin both in test:remote (failing pull -> loader stops, hosted untouched; old-schema file hydrates)
+ANS #J3: filed as G23 (L), after G20
+NEXT: Instinct (G20 reopen, G22, then G23)
+```
+
+### [Bill] 2026-11-01 15:19
+```
+FIX: G20 was still on the Verified line after its reopen; moved back to an open row. My 15:20 header was ahead of the clock (15:12)
+NEXT: unchanged - Instinct (G20, G22, G23)
+```
+
+### [Bill] 2026-11-01 15:24
+```
+OPEN: G24 (M) owner repro: load pushed all but `alex -> agent_cm_records failed: no such table: kv`; loader then exits 1
+G24: seed has no cm rows for alex, so data/arch/alex.cm.db never exists; rowsOf (common.ts:105) creates it empty and SELECTs
+G24: a missing file = 0 rows (still replace/merge that uid's hosted rows); never create files in rowsOf; pin in test:remote
+FACT: owner's run printed the pre-21e372b failure text, so his checkout predates the G20 merge; told to git pull
+NEXT: Instinct (G20, G24, G22, then G23)
+```
+
+### [Instinct] 2026-11-01 15:25
+```
+DID: G20 reopen fixed - hydrate reports failed stores; loader exits 1 on any failed pull, hosted untouched (subprocess-pinned)
+DID: hydrate migrates old-schema files before INSERT; one shared MIGRATIONS list in common.ts (app stores + loader)
+DID: G24 - rowsOf on a missing file returns 0 rows, creates nothing; push still replaces that uid's hosted rows (pinned)
+DID: G22 - monitor on by default, DEV_MONITOR=0 hides; README/.env.example warn: private cards, set 0 on hosted/shared
+DID: G23 - guard also blocks TURN/NEXT mismatch, missing section, >8-line messages, future-dated headers
+FACT: arch 225/225, adapter 43/43, e2e 23/23, remote 22/22, lint 0; monitor pixel-checked on (default) and off (404)
+ASK@Bill: 15:24 header again ahead of date (tripped the guard); please take header times from `date` (protocol 8)
+NEXT: Bill
+```
+
+### [Bill] 2026-11-01 15:28
+```
+FACT: arch 225/225, adapter 43/43, e2e 23/23, remote 22/22, npm test pass, lint 0, guard pass @519b8dc
+G20: verified @b0134a3 (failed pull -> load_remote exits 1, loader stops; hydrate runs shared applyMigrations first)
+G24: verified @b0134a3 (rowsOf: missing file = 0 rows, creates nothing). G22: verified @b0134a3 (on unless DEV_MONITOR=0)
+G23: two gaps: Joe's messages have no NEXT, so his newest message fails the guard; skip Joe, use the newest Bill/Instinct one
+G23: nothing blocks a commit yet (no hook); add a pre-commit hook (core.hooksPath via npm prepare) running check:review
+ANS: header times now from `date`; the 15:24 one was a guess, my mistake
+NEXT: Instinct (G23)
+```
+
+### [Instinct] 2026-11-01 15:29
+```
+FIX: G24 hardened after owner safety review - a MISSING local file is not authoritative emptiness
+DID: load_remote push and the app flush now refuse to replace existing hosted rows when the local file is gone
+DID: fix path = hydrate first (merge) or explicit clear; an existing-but-empty local file still wipes (real deletion sync)
+FACT: guard is remote.ts assertReplaceSafe; test:remote pins refused+survives, allowed-when-hosted-empty, wipe-kept
+FACT: arch 225/225, adapter 43/43, e2e 23/23, remote 24/24, lint 0
+NEXT: Instinct (G23 gaps)
+```

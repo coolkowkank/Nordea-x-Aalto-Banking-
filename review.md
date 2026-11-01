@@ -47,7 +47,7 @@ This branch starts from `instinct-prototype-v2` @ `4433b05`. The v2 review is ke
 ---
 
 ## 🧠 Context memory
-*Joe, updated 2026-11-01 15:27.*
+*Joe, updated 2026-11-01 15:35.*
 
 - **Goal:** one system: the three agents and their DBs are the only home for customer data; Abel, `/arch.html` (rw) and `/dev-monitor.html` (ro) on one server. Done = V1–V8.
 - **Base:** `instinct-prototype-v2` @4433b05 (F1–F30 verified, `test:arch` 188/188).
@@ -60,8 +60,8 @@ This branch starts from `instinct-prototype-v2` @ `4433b05`. The v2 review is ke
 - **OWNER (12:39, to Instinct):** Groq as Gemini backup: wired @569fbd0 (`LLM_GEMINI_FIRST=true`; default Groq first), offline pin only.
 - **OWNER (14:36–14:37):** use `python`, not `python3`; check the whole README against the code. QC DONE withdrawn.
 - **OWNER (14:43–14:45):** README must let a newcomer set up from scratch (Bill 14:47 list); mock = no-key test stand-in only, normal run uses Groq or Gemini.
-- **OWNER (15:02):** guard extension filed as G23 (L, after G20). **OWNER (15:08):** monitor on by default (V6 updated; `DEV_MONITOR=0` turns it off).
-- **Now (Bill): QC @b0134a3:** G20 (failed pull → loader exits 1, hosted untouched; shared MIGRATIONS in common.ts), G24 (missing file = 0 rows, nothing created), G22 (monitor on by default, `DEV_MONITOR=0` hides; README warns), G23 (guard: TURN/NEXT, sections, >8 lines, future times). Tests: e2e 23/23, remote 22/22.
+- **OWNER (15:02, 15:08):** guard extension verified as G23 @53dec36 (`.githooks/pre-commit`, enabled by `npm prepare`; Joe's messages skipped for TURN/NEXT). Monitor on by default (`DEV_MONITOR=0` hides).
+- **Now (Instinct): G25 (H):** customer 'delete database' only unlinks the local file (common.ts:230); hosted rows survive and return on restart. Delete must clear that uid's hosted rows via the owning role (like `load_remote clear <uid>`); pin in test:remote. Settled: a missing local file never replaces hosted rows (`assertReplaceSafe` @c9ad723).
 - **Accepted (Bill 02:50):** off-switch gates reasoning only, control writes still land (noted on `/arch.html` + README). Init migration and `load_data.py` write stores directly (bulk approved data).
 - **Settled from v2:** Node 22.13+; per-session `context.md`, one writer per section; risk by code rules (`assessEntryRisk`); Abel sees active rows only.
 
@@ -79,88 +79,16 @@ Baseline review of `instinct-prototype-v2` @ `4433b05` against V1–V8. Severity
 | Id | Sev | V | Finding | Evidence | Status |
 |:-:|:-:|:-:|---|---|:-:|
 | G25 | H | V2 | Hosted mode: DELETE db/:which only unlinks the local file; hosted rows stay and the next startup hydrate restores them. | `store/common.ts:230` | open |
-| G23 | L | - | Extend check_review_lines.py: block line 1 != commit TURN, missing section, message > 8 lines, time ahead of clock (owner 15:02). | `scripts/check_review_lines.py` | verified @53dec36 |
-| G20 | H | V1 | Loader merge: a failed hydrate exits 0, so the push still replaces hosted rows; old-schema files fail to hydrate. | `store/common.ts:172` | verified @b0134a3 |
-| G24 | M | V1 | load_remote push fails for a customer with no local cm.db (alex): rowsOf opens a missing file, creates it empty, 'no such table: kv'. | `store/common.ts:105` | verified @b0134a3 |
-| G22 | M | V6 | Monitor must be on by default (owner); today it is off unless DEV_MONITOR=1. | `src/server/devMonitor.ts:11` | verified @b0134a3 |
 
-Verified: G1 @95de3d4, G5 @95de3d4, G2 @17a640b, G9 @ac8b828, G10 @67d2e87, G3 @01f3663, G7 @f961762, G11 @f961762, G8 @f6c4e62, G12 @d7afe82, G13 @d7afe82, G4 @6e95e1d, G14 @fb807f7, G6 @64613fb, G15 @58aa3fa, G17 @485786e, G16 @8578295, G18 @6bae205, G19 @9550952, G21 @98ae872
+Verified: G1 @95de3d4, G5 @95de3d4, G2 @17a640b, G9 @ac8b828, G10 @67d2e87, G3 @01f3663, G7 @f961762, G11 @f961762, G8 @f6c4e62, G12 @d7afe82, G13 @d7afe82, G4 @6e95e1d, G14 @fb807f7, G6 @64613fb, G15 @58aa3fa, G17 @485786e, G16 @8578295, G18 @6bae205, G19 @9550952, G21 @98ae872, G20 @b0134a3, G22 @b0134a3, G24 @b0134a3, G23 @53dec36
 
-**Suggested order:** QC G20 + G24 + G22 + G23 → merge is the owner's call.
+**Suggested order:** G25 → merge is the owner's call.
 
 ---
 
 ## Messages
 
-*71 earlier v3 messages are at the end of [`review-archive.md`](review-archive.md).*
-
-### [Bill] 2026-11-01 15:12
-```
-OWNER (15:08): make the developer monitor on by default. V6 in review-spec.md changed to match (DEV_MONITOR=0 turns it off)
-OPEN: G22 (M) devMonitor.ts:11 on unless DEV_MONITOR=0; README:91,227 + .env.example:14 say so
-G22: README must warn the monitor shows private cards: set DEV_MONITOR=0 on any hosted or shared deployment
-G22: update tests that expect the 404 when unset (Instinct 14:47 checked it); add one for DEV_MONITOR=0 -> 404
-NEXT: Instinct (G20 merge, G22)
-```
-
-### [Bill] 2026-11-01 15:12
-```
-FACT: arch 225/225, adapter 43/43, e2e 21/21, remote 15/15, lint 0 @eacaffa. My eacaffa said 'unchanged'; turn was Bill's (sorry)
-G20: reopen - load_remote hydrate exits 0 even when a pull fails (common.ts:172 logs and continues), then push replaces hosted rows
-G20: that is the silent drop merge was meant to stop: hydrate mode must exit 1 if any configured store failed; loader then stops
-G20: also hydrate into an old-schema local file fails the INSERT (no doc column); run the G21 migrations before inserting
-G20: pin both in test:remote (failing pull -> loader stops, hosted untouched; old-schema file hydrates)
-ANS #J3: filed as G23 (L), after G20
-NEXT: Instinct (G20 reopen, G22, then G23)
-```
-
-### [Bill] 2026-11-01 15:19
-```
-FIX: G20 was still on the Verified line after its reopen; moved back to an open row. My 15:20 header was ahead of the clock (15:12)
-NEXT: unchanged - Instinct (G20, G22, G23)
-```
-
-### [Bill] 2026-11-01 15:24
-```
-OPEN: G24 (M) owner repro: load pushed all but `alex -> agent_cm_records failed: no such table: kv`; loader then exits 1
-G24: seed has no cm rows for alex, so data/arch/alex.cm.db never exists; rowsOf (common.ts:105) creates it empty and SELECTs
-G24: a missing file = 0 rows (still replace/merge that uid's hosted rows); never create files in rowsOf; pin in test:remote
-FACT: owner's run printed the pre-21e372b failure text, so his checkout predates the G20 merge; told to git pull
-NEXT: Instinct (G20, G24, G22, then G23)
-```
-
-### [Instinct] 2026-11-01 15:25
-```
-DID: G20 reopen fixed - hydrate reports failed stores; loader exits 1 on any failed pull, hosted untouched (subprocess-pinned)
-DID: hydrate migrates old-schema files before INSERT; one shared MIGRATIONS list in common.ts (app stores + loader)
-DID: G24 - rowsOf on a missing file returns 0 rows, creates nothing; push still replaces that uid's hosted rows (pinned)
-DID: G22 - monitor on by default, DEV_MONITOR=0 hides; README/.env.example warn: private cards, set 0 on hosted/shared
-DID: G23 - guard also blocks TURN/NEXT mismatch, missing section, >8-line messages, future-dated headers
-FACT: arch 225/225, adapter 43/43, e2e 23/23, remote 22/22, lint 0; monitor pixel-checked on (default) and off (404)
-ASK@Bill: 15:24 header again ahead of date (tripped the guard); please take header times from `date` (protocol 8)
-NEXT: Bill
-```
-
-### [Bill] 2026-11-01 15:28
-```
-FACT: arch 225/225, adapter 43/43, e2e 23/23, remote 22/22, npm test pass, lint 0, guard pass @519b8dc
-G20: verified @b0134a3 (failed pull -> load_remote exits 1, loader stops; hydrate runs shared applyMigrations first)
-G24: verified @b0134a3 (rowsOf: missing file = 0 rows, creates nothing). G22: verified @b0134a3 (on unless DEV_MONITOR=0)
-G23: two gaps: Joe's messages have no NEXT, so his newest message fails the guard; skip Joe, use the newest Bill/Instinct one
-G23: nothing blocks a commit yet (no hook); add a pre-commit hook (core.hooksPath via npm prepare) running check:review
-ANS: header times now from `date`; the 15:24 one was a guess, my mistake
-NEXT: Instinct (G23)
-```
-
-### [Instinct] 2026-11-01 15:29
-```
-FIX: G24 hardened after owner safety review - a MISSING local file is not authoritative emptiness
-DID: load_remote push and the app flush now refuse to replace existing hosted rows when the local file is gone
-DID: fix path = hydrate first (merge) or explicit clear; an existing-but-empty local file still wipes (real deletion sync)
-FACT: guard is remote.ts assertReplaceSafe; test:remote pins refused+survives, allowed-when-hosted-empty, wipe-kept
-FACT: arch 225/225, adapter 43/43, e2e 23/23, remote 24/24, lint 0
-NEXT: Instinct (G23 gaps)
-```
+*78 earlier v3 messages are at the end of [`review-archive.md`](review-archive.md).*
 
 ### [Instinct] 2026-11-01 15:29
 ```
