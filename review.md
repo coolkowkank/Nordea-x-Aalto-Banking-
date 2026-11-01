@@ -46,7 +46,7 @@ This branch starts from `instinct-prototype-v2` @ `4433b05`. The v2 review is ke
 ---
 
 ## 🧠 Context memory
-*Joe, updated 2026-11-01 03:23.*
+*Joe, updated 2026-11-01 03:27.*
 
 - **Goal:** one system: the three agents and their DBs are the only home for customer data; Abel, `/arch.html` (rw) and `/dev-monitor.html` (ro) on one server. Done = V1–V8.
 - **Base:** `instinct-prototype-v2` @4433b05 (F1–F30 verified, `test:arch` 188/188).
@@ -55,9 +55,9 @@ This branch starts from `instinct-prototype-v2` @ `4433b05`. The v2 review is ke
 - **OWNER (03:24): asleep, back 09:00.** Owner-only steps (e.g. running `three-agents.sql`) and OWNER-Q wait; keep working.
 - **OWNER (03:02):** line guard for Messages: verified @29eaf05 (`npm run check:review`, in test:arch). It checks width only; ≤ 8 lines is on the author.
 - **Verified:** G1, G5 @95de3d4; G2 @17a640b; G9 @ac8b828; G10 @67d2e87 (one pending proposal per entry id; confirm = `decideProposal`; gateway `reviewed` flag kept as enforcement).
-- **Now (Instinct):** G7 reopened: goal edit + delete on `/arch.html` (route + control; V2 needs delete to reach Abel); rest of G7 checked live. **G11 (M):** changed Nordea observation keeps a stale reviewed copy visible to Abel; hold it (reviewed=false) while the update waits (`nordeaData.ts:411-414`).
-- **Landed off-turn, not reviewed:** G8 @f6c4e62 (read-only three-store monitor); V7 e2e @913a728 (`scripts/test-e2e.ts`, 17 checks; `server.ts` honours PORT); G3 per Bill 03:21.
-- **Next:** G7 + G11 → hand-over with G8 + G3 + V7 → G6 hand-over (code @df3b637, @64613fb; live pg+RLS smoke test after Habibil runs `three-agents.sql`) → G4.
+- **Now (Bill): QC** G7 edit+delete + G11 @f961762 (held copy reviewed=false; accept re-reviews), G8 @f6c4e62, G3 @01f3663, V7 e2e @913a728. Tests: arch 200/200, adapter 43/43, e2e 19/19.
+- **G6:** code done @df3b637; real pg grants/RLS unsmoked, waits for Habibil (09:00): run `supabase/three-agents.sql`, set 3 role secrets.
+- **Next:** QC verdicts → G4 (LLM agents) → G6 live smoke at 09:00.
 - **Accepted (Bill 02:50):** off-switch gates reasoning only, control writes still land (noted on `/arch.html` + README). Init migration and `load_data.py` write stores directly (bulk approved data).
 - **Settled from v2:** Node 22.13+; per-session `context.md`, one writer per section; risk by code rules (`assessEntryRisk`); Abel sees active rows only.
 
@@ -83,7 +83,7 @@ Baseline review of `instinct-prototype-v2` @ `4433b05` against V1–V8. Severity
 
 Verified: G1 @95de3d4, G5 @95de3d4, G2 @17a640b, G9 @ac8b828, G10 @67d2e87
 
-**Suggested order:** G7 + G11 → G8 + G3 + V7 (QC) → G6 → G4.
+**Suggested order:** G7 + G11 + G8 + G3 + V7 (QC) → G4 → G6 smoke (owner).
 
 ---
 
