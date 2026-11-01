@@ -1,4 +1,4 @@
-TURN: Bill
+TURN: Instinct
 
 
 # review.md: quality control for `instinct-prototype-v3`
@@ -81,6 +81,8 @@ Baseline review of `instinct-prototype-v2` @ `4433b05` against V1–V8. Severity
 | G32 | M | V7 | Closing live pass on the final code is missing (owner 16:31): checklist in Bill 16:33. | `review.md` | open |
 | G30 | H | V2 | Two Abels: app /api/chat runs legacy abelTurn (routes.ts:142); arch.html runs the personal agent (arch/routes.ts:43); no shared history. | `src/server/routes.ts:142` | open |
 | G31 | M | V4 | Observability gaps: dev-monitor lacks per-agent data cards + actual model labels; both pages refresh slowly after activity. | `public/dev-monitor.html` | open |
+| G33 | M | V1 | `load_data.py --target file` still writes chat/log/rewards to `cabinet-db.json` (ran it: file created, 3 messages, 1 accessLog, 3 rewards); app ignores it, README:124 says no such file. Docstrings `load_data.py:36-39,445` and `store.ts:3` say the same. Fix: loader writes plumbing into the agent DBs; no JSON from a fresh load. | `scripts/load_data.py:63,445` | open |
+| G34 | H | V1 | `migrate:legacy` on hosted mode can lose data. No hydrate first (`migrate-legacy.ts`); writes only local SQLite; flush is a 250 ms timer (`common.ts:123,155`) that runs after `unlinkSync` (`legacyMigrate.ts:257`); a failed push is only logged, exit 0. Next start hydrates over local rows. Read from code, not run. Fix: hydrate (failed pull stops), write, await push, read back hosted, only then delete; fake-pool test. | `src/server/arch/legacyMigrate.ts:257` | open |
 
 Verified: G1 @95de3d4, G5 @95de3d4, G2 @17a640b, G9 @ac8b828, G10 @67d2e87, G3 @01f3663, G7 @f961762, G11 @f961762, G8 @f6c4e62, G12 @d7afe82, G13 @d7afe82, G4 @6e95e1d, G14 @fb807f7, G6 @64613fb, G15 @58aa3fa, G17 @485786e, G16 @8578295, G18 @6bae205, G19 @9550952, G21 @98ae872, G20 @b0134a3, G22 @b0134a3, G23 @53dec36, G25 @d8c6ba1, G26 @d8c6ba1, G24 @d4ebaf1, G27 @d4ebaf1, G29 @79aeb98, G28 @0778fec
 
@@ -154,4 +156,15 @@ Q2 helperId switcher (abel/autopilot/budget/...): v3 has one personal agent [acc
 Q3 'Abel could see N notes' line: replace with source+provider+doc stamp [yes]
 Q4 error surface: map chat() plan.error -> errorDetail; offline label == source!=model [yes]
 NEXT: Bill
+```
+
+### [Bill] 2026-11-01 17:05
+```
+FACT: arch 229/229, migrate 29/29, adapter 44/44, e2e 23/23, remote 35/35, npm test pass, lint 0, guard ok @d271017
+OK: G30 slices 1-2 locally: migrate:legacy on loader output verified 8 kinds, deleted file, rerun says gone (legacyMigrate.ts:125-259)
+G34 (H): hosted migrate can lose data: no hydrate first, push not awaited before unlink (legacyMigrate.ts:257), push errors only logged
+G33 (M): load_data.py --target file still writes cabinet-db.json (messages, log, rewards); app ignores it; README:124 says no such file
+ANS Q1: owner call (offers and import cards are v2 features, V8): batch to him via Instinct; do not retire until he answers
+ANS Q2-Q4: yes; Q4 label comes from the actual source+provider. Slice 3 OK, cond-4 e2e: same session id, messages, doc in app and arch.html
+NEXT: Instinct
 ```
