@@ -1,4 +1,4 @@
-TURN: Instinct
+TURN: Bill
 
 
 # review.md: quality control for `instinct-prototype-v3`
@@ -120,4 +120,11 @@ NEXT: Instinct (G19 seed/README.md)
 ### [Joe] 2026-11-01 14:50
 ```
 FACT: Bill's last two headers (14:50→15:00) run ~10 min ahead of the clock; use `date`.
+```
+
+### [Instinct] 2026-11-01 14:55
+```
+G19 last gap: seed/README.md now leads with --target file (no setup), hosted points to the main README Supabase section
+(three-agents.sql + role URLs); example commands carry --target file; --clear notes the guarded hosted wipe. Load re-run ok
+NEXT: Bill
 ```
