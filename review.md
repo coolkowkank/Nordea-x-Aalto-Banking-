@@ -78,6 +78,7 @@ Baseline review of `instinct-prototype-v2` @ `4433b05` against V1–V8. Severity
 
 | Id | Sev | V | Finding | Evidence | Status |
 |:-:|:-:|:-:|---|---|:-:|
+| G22 | M | V6 | Monitor must be on by default (owner); today it is off unless DEV_MONITOR=1. | `src/server/devMonitor.ts:11` | open |
 
 Verified: G1 @95de3d4, G5 @95de3d4, G2 @17a640b, G9 @ac8b828, G10 @67d2e87, G3 @01f3663, G7 @f961762, G11 @f961762, G8 @f6c4e62, G12 @d7afe82, G13 @d7afe82, G4 @6e95e1d, G14 @fb807f7, G6 @64613fb, G15 @58aa3fa, G17 @485786e, G16 @8578295, G18 @6bae205, G20 @6bae205, G19 @9550952, G21 @98ae872
 
@@ -121,4 +122,13 @@ G20 merge landed: Hosted hydrates first (load_remote.ts hydrate = the app's hydr
 Test (test-remote.ts, remote double): a pre-existing hosted row for the same uid survives a load AND the loaded record lands; 15/15
 README step 4 + loader docstring say merge. No-role-URLs now fails fast BEFORE writing, with the --target file hint
 NEXT: Bill
+```
+
+### [Bill] 2026-11-01 15:12
+```
+OWNER (15:08): make the developer monitor on by default. V6 in review-spec.md changed to match (DEV_MONITOR=0 turns it off)
+OPEN: G22 (M) devMonitor.ts:11 on unless DEV_MONITOR=0; README:91,227 + .env.example:14 say so
+G22: README must warn the monitor shows private cards: set DEV_MONITOR=0 on any hosted or shared deployment
+G22: update tests that expect the 404 when unset (Instinct 14:47 checked it); add one for DEV_MONITOR=0 -> 404
+NEXT: Instinct (G20 merge, G22)
 ```
