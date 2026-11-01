@@ -150,7 +150,11 @@ function scheduleFlush(file: string, kind: DbKind) {
     const uid = path.basename(file).replace(/\.(user|cm|nordea|bus)\.db$/, '');
     const rows = rowsOf(file, kind).map((r) => ({ user_id: uid, ...r }));
     const prev = flushChains.get(key) ?? Promise.resolve();
-    const next = prev.then(() => import('./remote.js').then((R) => R.pushCustomer(kind, url, uid, rows)))
+    const next = prev.then(() => import('./remote.js').then(async (R) => {
+      // G24: if the local file vanished between write and flush, do not replace hosted rows with it.
+      await R.assertReplaceSafe(kind, url, uid, fs.existsSync(file));
+      return R.pushCustomer(kind, url, uid, rows);
+    }))
       .catch((err) => console.error(`Remote flush failed for ${key}:`, err instanceof Error ? err.message : err));
     flushChains.set(key, next);
   }, 250));

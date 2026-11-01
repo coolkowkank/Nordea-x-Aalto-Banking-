@@ -44,6 +44,8 @@ class FakePg {
     let m = text.match(/^SELECT user_id, table_name, id, data FROM (\w+)$/);
     if (m) { this.permit(url, m[1]); return { rows: [...(this.tables.get(m[1]) ?? [])] }; }
     if (/^(BEGIN|COMMIT|ROLLBACK)$/.test(text)) return { rows: [] };
+    m = text.match(/^SELECT 1 FROM (\w+) WHERE user_id = \$1 LIMIT 1$/);
+    if (m) { this.permit(url, m[1]); return { rows: (this.tables.get(m[1]) ?? []).filter((r) => r.user_id === params[0]).slice(0, 1).map(() => ({ '?column?': 1 })) }; }
     m = text.match(/^DELETE FROM (\w+) WHERE user_id = \$1$/);
     if (m) { this.permit(url, m[1]); this.tables.set(m[1], (this.tables.get(m[1]) ?? []).filter((r) => r.user_id !== params[0])); return { rows: [] }; }
     m = text.match(/^INSERT INTO (\w+) \(user_id, table_name, id, data\) VALUES \(\$1, \$2, \$3, \$4\)$/);
@@ -217,11 +219,23 @@ check('with its own secret the CM store hydrates its table',
   const missing = ff2('nocm', 'cm');
   const rows = ro2(missing, 'cm'); // must not throw and must not create the file
   check('G24: rowsOf on a missing file returns 0 rows and creates nothing', rows.length === 0 && !fs2.existsSync(missing));
+
+  // Safety guard (owner review): a MISSING local file must never replace existing hosted rows.
+  let refused = false;
+  try { await R.assertReplaceSafe('cm', URLS.cm, 'nocm', false); } catch { refused = true; }
+  const hostedKept = (fake.tables.get('agent_cm_records') ?? []).some((r) => r.user_id === 'nocm');
+  check('G24: missing local file + existing hosted rows => push refused, hosted rows survive', refused && hostedKept);
+  // Same missing file once hosted is empty (post-hydrate truth): the replace is safe and proceeds.
+  fake.tables.set('agent_cm_records', []);
+  let allowed = true;
+  try { await R.assertReplaceSafe('cm', URLS.cm, 'nocm', false); } catch { allowed = false; }
+  check('G24: missing local file + empty hosted table => push allowed (0 rows replace nothing)', allowed);
   await R.pushCustomer('cm', URLS.cm, 'nocm', rows.map((r) => ({ user_id: 'nocm', ...r })));
-  const hosted = fake.tables.get('agent_cm_records') ?? [];
-  check('G24: the push still replaces that uid\'s hosted rows (0 local = hosted cleared)',
-    hosted.filter((r) => r.user_id === 'nocm').length === 0, hosted);
   check('G24: the push created no local file', !fs2.existsSync(missing));
+  // An EXISTING local file with 0 rows is a real wipe and still syncs (replace semantics kept).
+  let wipeAllowed = true;
+  try { await R.assertReplaceSafe('cm', URLS.cm, 'nocm', true); } catch { wipeAllowed = false; }
+  check('G24: an existing (empty) local file stays authoritative - replace allowed', wipeAllowed);
 }
 
 console.log(`\n${passed} passed, ${failed} failed`);

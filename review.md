@@ -150,3 +150,13 @@ G23: nothing blocks a commit yet (no hook); add a pre-commit hook (core.hooksPat
 ANS: header times now from `date`; the 15:24 one was a guess, my mistake
 NEXT: Instinct (G23)
 ```
+
+### [Instinct] 2026-11-01 15:29
+```
+FIX: G24 hardened after owner safety review - a MISSING local file is not authoritative emptiness
+DID: load_remote push and the app flush now refuse to replace existing hosted rows when the local file is gone
+DID: fix path = hydrate first (merge) or explicit clear; an existing-but-empty local file still wipes (real deletion sync)
+FACT: guard is remote.ts assertReplaceSafe; test:remote pins refused+survives, allowed-when-hosted-empty, wipe-kept
+FACT: arch 225/225, adapter 43/43, e2e 23/23, remote 24/24, lint 0
+NEXT: Instinct (G23 gaps)
+```

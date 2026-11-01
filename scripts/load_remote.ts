@@ -12,8 +12,9 @@
  * A store whose URL is unset is skipped with a note.
  */
 import dotenv from 'dotenv';
+import fs from 'node:fs';
 import { fileFor, listCustomers, remoteConfigured, configureRemote, rowsOf, hydrateAgentStoresDetailed, type DbKind } from '../src/server/arch/store/common.js';
-import { pushCustomer, REMOTE_TABLES, type PoolLike } from '../src/server/arch/store/remote.js';
+import { pushCustomer, assertReplaceSafe, REMOTE_TABLES, type PoolLike } from '../src/server/arch/store/remote.js';
 
 dotenv.config({ path: '.env' });
 dotenv.config({ path: '.env.local', override: true });
@@ -86,7 +87,10 @@ for (const kind of configured) {
   }
   for (const uid of uids) {
     try {
-      const rows = mode === 'clear' ? [] : rowsOf(fileFor(uid, kind), kind).map((r) => ({ user_id: uid, ...r }));
+      const file = fileFor(uid, kind);
+      const rows = mode === 'clear' ? [] : rowsOf(file, kind).map((r) => ({ user_id: uid, ...r }));
+      // G24: never let a missing local file silently replace hosted rows (explicit clear is exempt).
+      if (mode === 'push') await assertReplaceSafe(kind, url, uid, fs.existsSync(file));
       await pushCustomer(kind, url, uid, rows);
       console.log(`${mode === 'clear' ? 'cleared' : 'pushed'} ${uid} -> ${table} (${rows.length} rows)`);
     } catch (err) { failed++; console.error(`${mode} ${uid} -> ${table} failed:`, err instanceof Error ? err.message : err); }

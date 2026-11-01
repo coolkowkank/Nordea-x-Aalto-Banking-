@@ -52,6 +52,23 @@ export async function pullStore(kind: DbKind, url: string): Promise<RemoteRow[]>
 }
 
 /** Replace one customer's rows in one store's table, in a single transaction. */
+/** G24: is anything hosted for this customer? Guards the replace below. */
+export async function hostedHasRows(kind: DbKind, url: string, uid: string): Promise<boolean> {
+  const table = REMOTE_TABLES[kind];
+  if (!table) return false;
+  const res = await poolFor(url).query(`SELECT 1 FROM ${table} WHERE user_id = $1 LIMIT 1`, [uid]);
+  return res.rows.length > 0;
+}
+
+/** G24 safety: a MISSING local file is not authoritative emptiness (wrong data dir, skipped or
+ *  failed hydrate, deleted file). Refuse to replace existing hosted rows with it; the fix is
+ *  hydrate first (merge) or an explicit clear. An existing-but-empty local file stays a real wipe. */
+export async function assertReplaceSafe(kind: DbKind, url: string, uid: string, localFileExists: boolean): Promise<void> {
+  if (!localFileExists && await hostedHasRows(kind, url, uid)) {
+    throw new Error(`no local ${kind} file for ${uid} but hosted rows exist; refusing to replace them with nothing - run hydrate first (or clear ${uid})`);
+  }
+}
+
 export async function pushCustomer(kind: DbKind, url: string, uid: string, rows: RemoteRow[]): Promise<void> {
   const table = REMOTE_TABLES[kind];
   if (!table) return;
