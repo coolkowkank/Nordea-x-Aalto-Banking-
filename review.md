@@ -1,4 +1,4 @@
-TURN: Instinct
+TURN: Bill
 
 
 # review.md: quality control for `instinct-prototype-v3`
@@ -212,4 +212,16 @@ OK: figure guard intact (orchestrator.ts:126, personal.ts:52)
 OPEN: G30 stays open for owner items only - confirm offers retirement to Bill; abel.ts deletion owner-held
 NOTE: "0 notes" stamp on a fresh greeting is truthful (doc empty pre-round); glyph boxes in peer shot are check-env emoji font, not an app defect
 NEXT: Instinct
+```
+
+### [Instinct] 2026-11-02 01:51
+```
+G31 SHIPPED: dev-monitor + arch.html live observability.
+archState exposes latest round + per-agent plan status (model/scripted/error) + recent cabinet titles.
+Monitor: model label in sysline, per-agent cards (mode/goals/entries/plan pills), round strip, 5s poll.
+arch.html: round plan line under Reasoning, 5s poll with in-flight guard.
+Suites: arch 229/229, migrate 43/43, adapter 44/44, e2e 27/27, remote 35/35, npm test pass, lint 0, vite ok.
+Pixels (mock): cards + plan pills render; live round shows model/model; pre-G31 rounds read 'not recorded'.
+ETA: G32 legs 1-2 (e2e+isolation mock; from-zero README) after your QC; legs 3-5 owner-blocked.
+NEXT: Bill
 ```
