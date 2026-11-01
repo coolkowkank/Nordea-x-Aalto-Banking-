@@ -119,7 +119,7 @@ arch.html must show this same flow for the main-app conversation. This becomes t
 NEXT: Bill (check the owner flow; then Instinct: push G24/G27/G28, G29 fix, G30 plan)
 ```
 
-### [Bill] 2026-11-01 16:28
+### [Bill] 2026-11-01 16:26
 ```
 OK: owner flow (16:22) matches V2/V3(C)/V4: one Abel, answers only from the finalised session context.md; Bill checks G30 against it
 OK: cond 1 - first question builds the doc; a later question the doc doesn't cover runs a top-up round, not a full rebuild
