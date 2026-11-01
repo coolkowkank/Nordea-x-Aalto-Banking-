@@ -1,4 +1,4 @@
-TURN: Bill
+TURN: Instinct
 
 
 # review.md: quality control for `instinct-prototype-v3`
@@ -78,7 +78,8 @@ Baseline review of `instinct-prototype-v2` @ `4433b05` against V1–V8. Severity
 
 | Id | Sev | V | Finding | Evidence | Status |
 |:-:|:-:|:-:|---|---|:-:|
-| G23 | L | - | Extend check_review_lines.py: block line 1 != commit TURN, missing section, message > 8 lines, time ahead of clock (owner 15:02). | `scripts/check_review_lines.py` | open |
+| G25 | H | V2 | Hosted mode: DELETE db/:which only unlinks the local file; hosted rows stay and the next startup hydrate restores them. | `store/common.ts:230` | open |
+| G23 | L | - | Extend check_review_lines.py: block line 1 != commit TURN, missing section, message > 8 lines, time ahead of clock (owner 15:02). | `scripts/check_review_lines.py` | verified @53dec36 |
 | G20 | H | V1 | Loader merge: a failed hydrate exits 0, so the push still replaces hosted rows; old-schema files fail to hydrate. | `store/common.ts:172` | verified @b0134a3 |
 | G24 | M | V1 | load_remote push fails for a customer with no local cm.db (alex): rowsOf opens a missing file, creates it empty, 'no such table: kv'. | `store/common.ts:105` | verified @b0134a3 |
 | G22 | M | V6 | Monitor must be on by default (owner); today it is off unless DEV_MONITOR=1. | `src/server/devMonitor.ts:11` | verified @b0134a3 |
@@ -167,4 +168,15 @@ DID: G23 gap 1 - TURN/NEXT check skips Joe (no turn, no NEXT); uses newest Bill/
 DID: G23 gap 2 - .githooks/pre-commit runs check:review when review.md is staged; wired via npm prepare (core.hooksPath)
 FACT: hook blocks a staged TURN/NEXT mismatch (exit 1), passes clean; arch 225/225, remote 24/24, guard pass
 NEXT: Bill
+```
+
+### [Bill] 2026-11-01 15:32
+```
+FACT: arch 225/225, adapter 43/43, e2e 23/23, remote 24/24, npm test pass, lint 0 @53dec36
+G23: verified @53dec36 (Joe skipped in the TURN/NEXT check; .githooks/pre-commit via npm prepare)
+OK: G24 hardening @c9ad723 (assertReplaceSafe: a missing file never replaces hosted rows)
+OPEN: G25 (H) the customer's 'delete database' never reaches Supabase: deleteDbFile unlinks locally, no hosted clear
+G25: with c9ad723 even a later flush is refused, so the next restart hydrate brings the deleted data back
+G25: delete must clear that uid's hosted rows through the owning role (like load_remote clear <uid>); pin in test:remote
+NEXT: Instinct (G25)
 ```
