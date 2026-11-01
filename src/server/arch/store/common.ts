@@ -131,7 +131,11 @@ export function rowsOf(file: string, kind: DbKind): { table_name: string; id: st
   const db = new DatabaseSync(file);
   try {
     const out: { table_name: string; id: string; data: Record<string, unknown> }[] = [];
+    // G24: an existing but empty/old file (e.g. left by a crashed pre-fix run) may lack tables
+    // entirely - read an absent table as 0 rows instead of dying with 'no such table'.
+    const present = new Set((db.prepare("SELECT name FROM sqlite_master WHERE type='table'").all() as { name: string }[]).map((r) => r.name));
     for (const [table, idCol] of Object.entries(TABLE_IDS[kind])) {
+      if (!present.has(table)) continue;
       for (const row of db.prepare(`SELECT * FROM ${table}`).all() as Record<string, unknown>[]) {
         out.push({ table_name: table, id: String(row[idCol]), data: row });
       }

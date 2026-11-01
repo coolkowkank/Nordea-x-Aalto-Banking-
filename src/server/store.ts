@@ -30,6 +30,11 @@ export interface Remote {
 
 const key = () => process.env.SUPABASE_SECRET_KEY || process.env.SUPABASE_SERVICE_ROLE_KEY || '';
 export const supabaseConfigured = () => !!process.env.SUPABASE_URL && !!key();
+/** G28: the feed is the Nordea agent's input - with NORDEA_DB_URL set it is read through the
+ *  agent's OWN role (no service key on an agent path); the service key is only the fallback. */
+export const feedRoleUrl = () => process.env.NORDEA_DB_URL || '';
+export const feedConfigured = () => !!feedRoleUrl() || supabaseConfigured();
+const feedTableMissing = (msg: string) => /nordea_feed|does not exist|42P01|PGRST205|schema cache/i.test(msg);
 
 /** Error text without anything that looks like a key. */
 export function cleanErr(err: any): string {
@@ -137,6 +142,17 @@ const feed = () => (feedClient ||= createClient(process.env.SUPABASE_URL!, key()
 
 /** Rows not applied yet, oldest first. */
 export async function feedPending(): Promise<FeedRow[]> {
+  if (feedRoleUrl()) {
+    try {
+      const { queryRemote } = await import('./arch/store/remote.js');
+      return await queryRemote(feedRoleUrl(),
+        'SELECT id, user_id, data, note, created_at FROM nordea_feed WHERE applied_at IS NULL ORDER BY id LIMIT 20') as unknown as FeedRow[];
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      if (feedTableMissing(msg)) throw new Error(`The table "${FEED_TABLE}" is missing. Run supabase/nordea-feed.sql once in Supabase → SQL Editor.`);
+      throw new Error(`Could not read ${FEED_TABLE}: ${msg}`);
+    }
+  }
   const { data, error } = await feed().from(FEED_TABLE).select('id,user_id,data,note,created_at').is('applied_at', null).order('id').limit(20);
   if (error) {
     const msg = cleanErr(error);
@@ -148,6 +164,16 @@ export async function feedPending(): Promise<FeedRow[]> {
 
 /** Marks a row as done, with what happened (shown in Supabase too). */
 export async function feedDone(id: number, result: string) {
+  if (feedRoleUrl()) {
+    try {
+      const { queryRemote } = await import('./arch/store/remote.js');
+      await queryRemote(feedRoleUrl(), 'UPDATE nordea_feed SET applied_at = now(), result = $1 WHERE id = $2', [result.slice(0, 500), id]);
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      throw new Error(`Could not mark ${FEED_TABLE} row ${id} as applied: ${msg}`);
+    }
+    return;
+  }
   const { error } = await feed().from(FEED_TABLE).update({ applied_at: new Date().toISOString(), result: result.slice(0, 500) }).eq('id', id);
   if (error) throw new Error(`Could not mark ${FEED_TABLE} row ${id} as applied: ${cleanErr(error)}`);
 }

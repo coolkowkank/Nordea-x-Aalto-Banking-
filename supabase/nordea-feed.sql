@@ -14,10 +14,16 @@ create table if not exists public.nordea_feed (
   result      text                                     -- what the app did, e.g. 'Applied: Updated 104 transactions…'
 );
 
--- Locked like abel_records: only the app's server (secret key) can read or write.
+-- Locked like abel_records: the app's server (secret key) can read or write - and, since G28,
+-- the Nordea agent's own role reads new rows and marks them applied through NORDEA_DB_URL,
+-- so the feed works in hosted mode WITHOUT the service key on an agent path.
 alter table public.nordea_feed enable row level security;
 grant select, insert, update, delete on public.nordea_feed to service_role;
 grant usage, select on sequence public.nordea_feed_id_seq to service_role;
+grant select, update on public.nordea_feed to agent_nordea; -- reads pending rows, writes applied_at/result
+drop policy if exists nordea_feed_service on public.nordea_feed;
+drop policy if exists nordea_feed_agent on public.nordea_feed;
+create policy nordea_feed_agent on public.nordea_feed for all to agent_nordea using (true) with check (true);
 
 -- The "data" column is JSON. The app accepts (all transactions fields optional except date and amount):
 --   mode:          'snapshot' (default; replaces the whole statement) or 'incremental' (merges new rows only;

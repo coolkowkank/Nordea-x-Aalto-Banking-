@@ -628,9 +628,12 @@ def run_remote(*args: str) -> None:
     except FileNotFoundError:
         sys.exit("npx was not found - install Node.js (the hosted push runs scripts/load_remote.ts).")
     except subprocess.CalledProcessError:
-        sys.exit("Syncing with the hosted agent tables failed (see above). Set the role URLs "
-                 "(USER_DB_URL, CM_DB_URL, NORDEA_DB_URL - see the README Supabase section), "
-                 "or use --target file for a local-only load.")
+        # G24: never blanket-blame the role URLs - the helper already printed the exact
+        # failing store and customer above (e.g. "push alex -> agent_cm_records failed: ...").
+        sys.exit("Hosted sync failed - the lines above name the exact store and customer that "
+                 "failed. Suspect the role URLs (USER_DB_URL, CM_DB_URL, NORDEA_DB_URL) only when "
+                 "the failure says a table is missing or permission was denied. "
+                 "--target file does a local-only load.")
 
 
 class Hosted(LocalFile):

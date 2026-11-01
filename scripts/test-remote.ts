@@ -37,10 +37,23 @@ class FakePg {
   /** One role per agent, as three-agents.sql grants it: agent_<x> may touch agent_<x>_records only. */
   private permit(url: string, table: string) {
     const role = new URL(url).username;
+    if (table === 'nordea_feed' && role === 'agent_nordea') return; // G28 grant
     if (table !== `agent_${role.replace('agent_', '')}_records`) throw new Error(`permission denied for table ${table}`);
   }
+  feedRows: { id: number; user_id: string; data: Record<string, unknown>; note: string | null; created_at: string; applied_at: string | null; result: string | null }[] = [];
+
   private run(url: string, text: string, params: unknown[] = []): { rows: unknown[] } {
     if (this.failAll) throw new Error('connection refused (fake outage)');
+    if (text.startsWith('SELECT id, user_id, data, note, created_at FROM nordea_feed')) {
+      this.permit(url, 'nordea_feed');
+      return { rows: this.feedRows.filter((r) => r.applied_at === null).sort((a, b) => a.id - b.id).slice(0, 20) };
+    }
+    if (text === 'UPDATE nordea_feed SET applied_at = now(), result = $1 WHERE id = $2') {
+      this.permit(url, 'nordea_feed');
+      const row = this.feedRows.find((r) => r.id === Number(params[1]));
+      if (row) { row.result = String(params[0]); row.applied_at = new Date().toISOString(); }
+      return { rows: [] };
+    }
     let m = text.match(/^SELECT user_id, table_name, id, data FROM (\w+)$/);
     if (m) { this.permit(url, m[1]); return { rows: [...(this.tables.get(m[1]) ?? [])] }; }
     if (/^(BEGIN|COMMIT|ROLLBACK)$/.test(text)) return { rows: [] };
@@ -283,6 +296,43 @@ check('with its own secret the CM store hydrates its table',
   check('G25: local-only stores report local-only', (await hostedClearOutcome('nobody', 'bus')) === 'local-only');
 }
 
+// --- G24 reopen: an existing EMPTY (0-byte) or table-less local file reads as 0 rows, never crashes. ---
+{
+  const { rowsOf: ro3, fileFor: ff4 } = await import('../src/server/arch/store/common.js');
+  fs.writeFileSync(ff4('zerobyte', 'cm'), ''); // what the crashed pre-fix run left behind
+  let rows: unknown[] | null = null;
+  try { rows = ro3(ff4('zerobyte', 'cm'), 'cm'); } catch { rows = null; }
+  check('G24: a 0-byte local file reads as 0 rows (no such table crash gone)', rows !== null && rows.length === 0, rows);
+  // an old file with only SOME tables reads the rest as 0 rows
+  const { DatabaseSync: DS2 } = await import('node:sqlite');
+  const partial = new DS2(ff4('partial', 'user'));
+  partial.exec("CREATE TABLE goals (id TEXT PRIMARY KEY, title TEXT NOT NULL, detail TEXT NOT NULL, created_at TEXT NOT NULL, doc TEXT)");
+  partial.prepare("INSERT INTO goals VALUES ('g9','T','D','2026-11-01',NULL)").run();
+  partial.close();
+  const prows = ro3(ff4('partial', 'user'), 'user');
+  check('G24: a partial old file reads existing tables, absent ones as 0 rows',
+    prows.length === 1 && prows[0].table_name === 'goals', prows.map((r) => r.table_name));
+}
+
 console.log(`\n${passed} passed, ${failed} failed`);
 if (failed) { console.error('REMOTE TESTS FAILED'); process.exit(1); }
 console.log('All checks passed');
+// ---------- G28: the feed runs through the Nordea agent's OWN role (no service key) ----------
+{
+  const OS = await import('../src/server/store.js');
+  process.env.NORDEA_DB_URL = URLS.nordea;
+  check('G28: feedConfigured with only NORDEA_DB_URL (no service key)', OS.feedConfigured() === true && !OS.supabaseConfigured());
+  fake.feedRows = [
+    { id: 1, user_id: 'alex', data: { bank: 'NORDEA', transactions: [] }, note: 'n', created_at: 't', applied_at: null, result: null },
+  ];
+  const pending = await OS.feedPending();
+  check('G28: feed pending read through agent_nordea role', pending.length === 1 && pending[0].id === 1 && pending[0].user_id === 'alex');
+  await OS.feedDone(1, 'applied');
+  check('G28: feed row marked applied through agent_nordea role', fake.feedRows[0].applied_at !== null && fake.feedRows[0].result === 'applied');
+  let denied = false;
+  try {
+    await R.queryRemote(URLS.user, 'SELECT id, user_id, data, note, created_at FROM nordea_feed WHERE applied_at IS NULL ORDER BY id LIMIT 20');
+  } catch { denied = true; }
+  check('G28: agent_user role cannot touch nordea_feed (one role per agent)', denied);
+  delete process.env.NORDEA_DB_URL;
+}

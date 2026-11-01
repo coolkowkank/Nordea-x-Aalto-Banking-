@@ -36,14 +36,23 @@ CM_DB_URL="postgresql://agent_cm.<project-ref>:<password>@aws-0-<region>.pooler.
 NORDEA_DB_URL="postgresql://agent_nordea.<project-ref>:<password>@aws-0-<region>.pooler.supabase.com:5432/postgres"
 ```
 
-Smoke-check each role before starting the app (each should print `1`; a permission error means
-step 1 didn't run in this project):
+Smoke-check each role before starting the app (each prints one number - `0` on a fresh project is
+fine; a permission or connection error means step 1 didn't run in this project, or the URL is wrong):
 
+```bash
+# bash / macOS / Linux:
+psql "$USER_DB_URL" -c 'select count(*) from agent_user_records;'
+psql "$CM_DB_URL" -c 'select count(*) from agent_cm_records;'
+psql "$NORDEA_DB_URL" -c 'select count(*) from agent_nordea_records;'
 ```
-psql "$USER_DB_URL" -c 'select 1 from agent_user_records limit 1;'
-psql "$CM_DB_URL" -c 'select 1 from agent_cm_records limit 1;'
-psql "$NORDEA_DB_URL" -c 'select 1 from agent_nordea_records limit 1;'
+```powershell
+# Windows PowerShell:
+psql $env:USER_DB_URL -c 'select count(*) from agent_user_records;'
 ```
+
+For the full isolation proof run [`role-smoke.sql`](role-smoke.sql) once in the SQL Editor: it
+sets each agent role (and the public anon role), tries to read and write every table, and ends
+with a PASS/FAIL table - every line should say PASS.
 
 ## 3. Load the data
 

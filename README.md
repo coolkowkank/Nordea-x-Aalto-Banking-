@@ -101,7 +101,7 @@ LLM_PROVIDER=mock npm run dev        # bash (Mac/Linux)
 - Port 3000 already in use: stop the other app, or run on another port - `PORT=3001 npm run dev` (bash), `$env:PORT=3001; npm run dev` (PowerShell), `set PORT=3001 && npm run dev` (cmd).
 - `python` is not recognized / command not found: use `python3`; if neither exists, install Python 3 from [python.org](https://www.python.org) (no packages needed). The npm test scripts try both names automatically (via `scripts/run_python.mjs`).
 
-Open **http://localhost:3000/arch.html** for the three-agent demo UI. Its controls: pick a customer in the **Customer** picker; chat (answered from the session's document); **New session** starts a fresh session whose next question rebuilds `context.md`; **Add goal** plus each goal's **edit**/**delete** manage the User DB goals; **Upload bank file** imports a JSON/CSV statement through the airlock; **Check feed** applies new rows of the Nordea feed CSV; the agent **off/on** switches pause one agent's reasoning; **Park** silences the whole cabinet; **Permissions** set the standing review level; **Contribute** runs a Nordea round; and the review and airlock queues take accept/reject decisions. The developer monitor at **http://localhost:3000/dev-monitor.html** is on by default - set `DEV_MONITOR=0` to turn it off. It shows private cards, so always set `DEV_MONITOR=0` on a hosted or shared deployment. Without `LLM_PROVIDER=mock`, Abel uses Gemini (`GEMINI_API_KEY`) or an OpenAI-compatible provider, as on `main`.
+Open **http://localhost:3000/arch.html** for the three-agent demo UI. Its controls: pick a customer in the **Customer** picker; chat (answered from the session's document); **New session** starts a fresh session whose next question rebuilds `context.md`; **Add goal** plus each goal's **edit**/**delete** manage the User DB goals; **Upload bank file** imports a JSON/CSV statement through the airlock; **Check feed** applies new rows of the Supabase `nordea_feed` table (feed section below); the agent **off/on** switches pause one agent's reasoning; **Park** silences the whole cabinet; **Permissions** set the standing review level; **Contribute** runs a Nordea round; and the review and airlock queues take accept/reject decisions. The developer monitor at **http://localhost:3000/dev-monitor.html** is on by default - set `DEV_MONITOR=0` to turn it off. It shows private cards, so always set `DEV_MONITOR=0` on a hosted or shared deployment. Without `LLM_PROVIDER=mock`, Abel uses Gemini (`GEMINI_API_KEY`) or an OpenAI-compatible provider, as on `main`.
 
 ### Settings worth knowing
 
@@ -137,6 +137,19 @@ Local files are the default and need nothing. To host the data on [Supabase](htt
 4. Load the data without `--target file`: `python scripts/load_data.py seed/demo` first hydrates the local agent databases from the hosted tables, then loads, then pushes everything back (through `scripts/load_remote.ts`, each store with its own role) - a load merges, it never drops hosted rows.
 
 At startup the app replaces its local agent databases with the hosted rows (hydrate) and flushes later writes back; if Supabase is unreachable it keeps working on the local files and logs the failure.
+
+### Optional: the Nordea data feed
+
+New (fictional) Nordea account data can be dropped into Supabase for the running app to apply:
+
+1. Run **supabase/nordea-feed.sql** once in the SQL Editor. It creates `nordea_feed` and grants the
+   Nordea agent's own role read + mark-applied rights: in hosted mode (`NORDEA_DB_URL` set) the feed
+   works WITHOUT the service key; otherwise it falls back to `SUPABASE_URL` + `SUPABASE_SECRET_KEY`.
+2. Add rows in *Table Editor* -> `nordea_feed`, or import the ready-made
+   **supabase/nordea-feed-example.csv** (validate it first with `npm run check:feed`).
+3. The app checks the table every 20 seconds while it runs, or immediately with **Check feed** on
+   `/arch.html`; it writes back `applied_at` and `result` on each row. The `data` JSON shape is
+   documented in `nordea-feed.sql` and `docs/bank-records.md`.
 
 | Script | What it does |
 |---|---|

@@ -43,6 +43,12 @@ const poolFor = (url: string): PoolLike => {
   return p;
 };
 
+/** G28: run one statement through a role URL's pool (tests replace the pool with a double). */
+export async function queryRemote(url: string, text: string, params: unknown[] = []): Promise<Record<string, unknown>[]> {
+  const res = await poolFor(url).query(text, params);
+  return res.rows as Record<string, unknown>[];
+}
+
 /** All rows of one store's table (that store's role can only ever see its own table). */
 export async function pullStore(kind: DbKind, url: string): Promise<RemoteRow[]> {
   const table = REMOTE_TABLES[kind];
