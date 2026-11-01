@@ -11,7 +11,7 @@ import { loadUserDb, saveUserDb, putGoal, removeGoal, loadProfile, saveProfile, 
 import { loadContext, readSectionRows, writeCustomerSection } from '../store/contextStore.js';
 import { appendMessage, getAgentsOff, getCabinetParkedMirror, loadBus, saveBus, updateMessage } from '../store/busStore.js';
 import { registerHandler } from '../dispatcher.js';
-import { roundDone } from '../rounds.js';
+import { roundDone, runRound } from '../rounds.js';
 
 export const personalLabel = (u: { personalAgent: { mode: string; externalName?: string } }) =>
   (u.personalAgent.mode === 'external' ? u.personalAgent.externalName || 'External personal agent' : 'Abel');
@@ -32,7 +32,20 @@ export function addGoalDirect(uid: string, title: string, detail = ''): Goal {
   u.goals.push(goal);
   saveUserDb(u);
   appendMessage(uid, { from: 'personal', to: 'user', type: 'inform', summary: `${personalLabel(u)} saved goal "${goal.title}" in the User DB. No sync airlock - direct input is yours.` });
+  startUserChangeRound(uid, goal.title);
   return goal;
+}
+
+/**
+ * G3/V3(A): a User DB change is REACTIVE - the personal agent starts a user-change round:
+ * the CM agent checks its own cabinet against the change and asks the Nordea agent for
+ * evidence; risk rules store or send for review; an open session's context.md is topped up.
+ * Skipped while the personal agent is off (off silences its pipeline) - the write still landed.
+ */
+function startUserChangeRound(uid: string, changedTitle: string) {
+  if ((getAgentsOff(uid) ?? []).includes('personal')) return;
+  if (getCabinetParkedMirror(uid)) return; // parked cabinet: no rounds run at all
+  runRound(uid, 'user-change', { question: changedTitle });
 }
 
 /**
@@ -237,6 +250,7 @@ function handleMessage(uid: string, msg: AgentMessage) {
     putGoal(uid, goal);
     appendMessage(uid, { from: 'personal', to: 'app', type: 'reply', summary: `Personal agent wrote goal "${goal.title}" to the User DB.`, payload: { inReplyTo: msg.id, goal } });
     updateMessage(uid, msg.id, { status: 'answered' });
+    startUserChangeRound(uid, goal.title);
     return;
   }
   if (msg.type === 'control' && payload.control === 'remove-goal') {

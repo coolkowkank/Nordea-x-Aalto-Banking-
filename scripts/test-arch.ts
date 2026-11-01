@@ -62,8 +62,10 @@ A.disconnectPersonalAgent(UID);
 check('disconnect returns Abel as the in-app personal agent', S.loadUserDb(UID).personalAgent.mode === 'abel');
 
 // --- Decision 5: goal-filtered contribution -> merge review -> explain/dispute
+const decideFirstNordea = (uid: string) => A.decideProposal(uid, A.reviewQueue(uid).find((m) => m.from === 'nordea')!.id, true); // G3: the reactive round may already have proposed
 const c1 = A.contribute(UID);
-check('contribution proposes only goal-matching entries', c1.proposals.length === 1 && c1.proposals[0].matched === 2, JSON.stringify(c1.proposals));
+const actPending = A.reviewQueue(UID).filter((m) => m.from === 'nordea' && m.summary.includes('Activity related to goal'));
+check('contribution proposes only goal-matching entries (G3: the reactive round may have proposed first)', c1.proposals.length + actPending.length === 1 && (c1.proposals[0]?.matched ?? ((actPending[0]?.payload as { transactionIds?: string[] })?.transactionIds?.length ?? 0)) === 2, JSON.stringify(c1.proposals));
 
 // --- AC2: the build round wrote the shared context.md; each agent wrote only its own section
 const doc1 = S.loadContext(UID);
@@ -139,8 +141,11 @@ S.saveNordeaDb({
   transactions: [{ id: 's1', userId: UID2, date: '2026-10-01', category: 'transport', amount: -100, account: 'current', description: 'Fuel for the car' }],
 });
 A.addGoalDirect(UID2, 'Save for a car');
+// G3: the reactive user-change round already proposed the goal-relevant activity, so the
+// contribution round dedupes - take whichever proposal the rounds left pending.
 const sc = A.contribute(UID2);
-A.decideProposal(UID2, sc.proposals[0].messageId, true);
+const firstId = sc.proposals[0]?.messageId ?? A.reviewQueue(UID2).find((m) => m.summary.includes('Activity related to goal'))!.id;
+A.decideProposal(UID2, firstId, true);
 check('staleness setup: entry active with 100 EUR evidence', S.loadCmDb(UID2).entries[0].status === 'active' && S.loadCmDb(UID2).entries[0].evidence?.total === 100);
 const nd = S.loadNordeaDb(UID2)!;
 nd.transactions.push({ id: 's2', userId: UID2, date: '2026-10-02', category: 'transport', amount: -50, account: 'current', description: 'Car wash' });
@@ -199,8 +204,8 @@ check('the server\'s agent-query reply carries facts only, no composed wording',
 const UID3 = 'disputeuser';
 S.saveNordeaDb({ userId: UID3, accounts: [], transactions: [{ id: 'd1', userId: UID3, date: '2026-10-01', category: 'transport', amount: -100, account: 'current', description: 'Fuel' }] });
 A.addGoalDirect(UID3, 'Save for a car');
-const dc = A.contribute(UID3);
-const dEntry = A.decideProposal(UID3, dc.proposals[0].messageId, true);
+A.contribute(UID3);
+const dEntry = A.decideProposal(UID3, A.reviewQueue(UID3).find((m) => m.from === 'nordea')!.id, true);
 A.disputeEntry(UID3, (dEntry as { id: string }).id, 'savings transfers are not car spending');
 const nd3 = S.loadNordeaDb(UID3)!;
 nd3.transactions.push({ id: 'd2', userId: UID3, date: '2026-10-02', category: 'transport', amount: -50, account: 'current', description: 'Car wash' });
@@ -223,7 +228,8 @@ check('the guardrail still rejects numbers absent from the retrieved facts', inv
 const UID4 = 'parkuser';
 S.saveNordeaDb({ userId: UID4, accounts: [], transactions: [{ id: 'p1', userId: UID4, date: '2026-10-01', category: 'transport', amount: -100, account: 'current', description: 'Fuel for the car' }] });
 A.addGoalDirect(UID4, 'Save for a car');
-const pc = A.contribute(UID4);
+A.contribute(UID4);
+const parkPropId = A.reviewQueue(UID4).find((m) => m.from === 'nordea')!.id;
 A.parkCabinet(UID4, true);
 check('parking keeps every cabinet entry (nothing deleted)', S.loadCmDb(UID4).entries.length === 0 && S.loadCmDb(UID4).parked === true);
 threw = '';
@@ -233,10 +239,10 @@ threw = '';
 try { A.contribute(UID4); } catch (e) { threw = (e as Error).message; }
 check('a parked cabinet denies new contributions', threw.includes('parked'), threw);
 threw = '';
-try { A.decideProposal(UID4, pc.proposals[0].messageId, true); } catch (e) { threw = (e as Error).message; }
+try { A.decideProposal(UID4, parkPropId, true); } catch (e) { threw = (e as Error).message; }
 check('a parked cabinet denies accepting proposals (no supply while parked)', threw.includes('parked'), threw);
-check('the denied acceptance left the proposal pending (no half-mutated review)', A.reviewQueue(UID4).some((m) => m.id === pc.proposals[0].messageId));
-const rejected = A.decideProposal(UID4, pc.proposals[0].messageId, false) as { rejected: boolean };
+check('the denied acceptance left the proposal pending (no half-mutated review)', A.reviewQueue(UID4).some((m) => m.id === parkPropId));
+const rejected = A.decideProposal(UID4, parkPropId, false) as { rejected: boolean };
 check('the user can still REJECT a proposal while parked (review is the user\'s, not agent supply)', rejected.rejected === true);
 A.connectExternalAgent(UID4, 'Meta Muse');
 check('connecting an external personal agent does NOT unpark the cabinet', S.loadCmDb(UID4).parked === true);
@@ -264,7 +270,7 @@ S.saveBus(UID5, { messages: [], airlock: [] }); // clean slate: the legacy demo 
 S.saveNordeaDb({ userId: UID5, accounts: [], transactions: [{ id: 'i1', userId: UID5, date: '2026-10-01', category: 'transport', amount: -100, account: 'current', description: 'Fuel for the car' }] });
 A.addGoalDirect(UID5, 'Save for a car');
 const ic = A.contribute(UID5);
-const iEntry = A.decideProposal(UID5, ic.proposals[0].messageId, true) as { id: string };
+const iEntry = decideFirstNordea(UID5) as { id: string };
 check('import-test setup: entry active with 100 EUR evidence', S.loadCmDb(UID5).entries[0].status === 'active' && S.loadCmDb(UID5).entries[0].evidence?.total === 100);
 const applied = applyNordeaData(UID5, { mode: 'incremental', transactions: [{ date: '2026-10-20', amount: -42, category: 'transport', description: 'Extra fuel for the car', bankId: 'IMP-TEST-1' }] } as Parameters<typeof applyNordeaData>[1], 'test import');
 check('the legacy import applies', applied.ok, applied.message);
@@ -289,7 +295,7 @@ S.saveBus(UID6, { messages: [], airlock: [] }); // clean slate: the legacy demo 
 S.saveNordeaDb({ userId: UID6, accounts: [], transactions: [{ id: 'e1', userId: UID6, date: '2026-10-01', category: 'transport', amount: -100, account: 'current', description: 'Fuel for the car' }] });
 A.addGoalDirect(UID6, 'Save for a car');
 const ec = A.contribute(UID6);
-A.decideProposal(UID6, ec.proposals[0].messageId, true);
+decideFirstNordea(UID6);
 A.parkCabinet(UID6, true);
 applyNordeaData(UID6, { mode: 'incremental', transactions: [{ date: '2026-10-21', amount: -55, category: 'transport', description: 'Extra fuel for the car', bankId: 'IMP-TEST-2' }] } as Parameters<typeof applyNordeaData>[1], 'test import while parked');
 const hookParked = A.applyBankImportToArch(UID6);
@@ -307,7 +313,7 @@ S.saveBus(UID7, { messages: [], airlock: [] }); // clean slate: the legacy demo 
 S.saveNordeaDb({ userId: UID7, accounts: [], transactions: [{ id: 'x1', userId: UID7, date: '2026-10-01', category: 'transport', amount: -100, account: 'current', description: 'Fuel for the car' }] });
 A.addGoalDirect(UID7, 'Save for a car');
 const xc = A.contribute(UID7);
-A.decideProposal(UID7, xc.proposals[0].messageId, true);
+decideFirstNordea(UID7);
 A.setAgentOff(UID7, 'nordea', true);
 applyNordeaData(UID7, { mode: 'incremental', transactions: [{ date: '2026-10-22', amount: -77, category: 'transport', description: 'More fuel for the car', bankId: 'IMP-TEST-3' }] } as Parameters<typeof applyNordeaData>[1], 'test import while off');
 const hookOff = A.applyBankImportToArch(UID7);
@@ -325,7 +331,7 @@ S.saveBus(UID8, { messages: [], airlock: [] }); // clean slate for this customer
 S.saveNordeaDb({ userId: UID8, accounts: [], transactions: [{ id: 'l1', userId: UID8, date: '2026-10-01', category: 'transport', amount: -100, account: 'current', description: 'Fuel for the car' }] });
 A.addGoalDirect(UID8, 'Save for a car');
 const lc = A.contribute(UID8);
-A.decideProposal(UID8, lc.proposals[0].messageId, true);
+decideFirstNordea(UID8);
 A.setAgentOff(UID8, 'cm', true);
 applyNordeaData(UID8, { mode: 'incremental', transactions: [{ date: '2026-10-23', amount: -33, category: 'transport', description: 'Even more fuel for the car', bankId: 'IMP-TEST-4' }] } as Parameters<typeof applyNordeaData>[1], 'test import while cm off');
 A.applyBankImportToArch(UID8);
@@ -384,7 +390,7 @@ const UID10 = 'limituser';
 S.saveNordeaDb({ userId: UID10, accounts: [], transactions: [{ id: 'l1', userId: UID10, date: '2026-10-01', category: 'transport', amount: -100, account: 'current', description: 'Fuel' }] });
 A.addGoalDirect(UID10, 'Save for a car');
 const lc10 = A.contribute(UID10);
-A.decideProposal(UID10, lc10.proposals[0].messageId, true);
+decideFirstNordea(UID10);
 const limited = R.runRound(UID10, 'decay', { maxSteps: 1 });
 check('AC6: a round that cannot finish ends at its step limit', limited.state === 'step-limit', limited.state);
 
@@ -500,6 +506,23 @@ A.setStandingPermissions(UID16, 'high');
 A.contribute(UID16);
 check('F7: a sensitive-topic proposal is HIGH risk and waits for the customer', S.loadCmDb(UID16).entries.length === 0 && A.reviewQueue(UID16).length === 1, `entries ${S.loadCmDb(UID16).entries.length} queue ${A.reviewQueue(UID16).length}`);
 
+
+// --- G3/V3-A: a User DB change reactively runs a full round (personal -> cm -> nordea)
+const UID50 = 'reactiveuser';
+S.saveNordeaDb({ userId: UID50, accounts: [], transactions: [
+  { id: 'ru1', userId: UID50, date: '2026-10-01', category: 'transport', amount: -100, account: 'current', description: 'Fuel for the car' },
+  { id: 'ru2', userId: UID50, date: '2026-10-02', category: 'transport', amount: -83.5, account: 'current', description: 'Car wash' },
+] });
+A.addGoalDirect(UID50, 'Save for a car');
+const reactRound = R.loadLatestRound(UID50)!;
+check('G3: a User DB change starts a user-change round that runs to completion', reactRound.trigger === 'user-change' && reactRound.state === 'stored', `${reactRound.trigger} ${reactRound.state}`);
+check('G3: the reactive round is personal-first and all three agents signalled done', reactRound.doneSignals[0] === 'personal' && ['personal', 'cm', 'nordea'].every((a) => reactRound.doneSignals.includes(a as 'personal' | 'cm' | 'nordea')), reactRound.doneSignals.join(','));
+const reactBus = S.loadBus(UID50).messages;
+check('G3: the round-start on the bus carries the user-change trigger', reactBus.some((m) => m.type === 'round-start' && (m.payload as { trigger?: string } | undefined)?.trigger === 'user-change'));
+check('G3: personal informs cm and cm queries nordea inside the reactive round', reactBus.some((m) => m.from === 'personal' && m.to === 'cm') && reactBus.some((m) => m.from === 'cm' && m.to === 'nordea' && m.type === 'query'));
+const reactDoc = S.loadContext(UID50)!;
+check('G3: the reactive round wrote the customer + nordea sections with evidence', reactDoc.sections.customer.rows.some((r) => r.title === 'Save for a car') && reactDoc.sections.nordea.rows.some((r) => typeof r.evidence?.total === 'number'));
+check('G3: the reactive round leaves the goal-matching proposal pending review (consent path unchanged)', A.reviewQueue(UID50).some((m) => m.from === 'nordea' && ((m.payload as { transactionIds?: string[] }).transactionIds ?? []).length === 2));
 
 // --- F18: maintenance rounds merge into the open session's document - no row is dropped.
 const UID17 = 'mergeround';

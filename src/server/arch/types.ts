@@ -77,7 +77,7 @@ export interface StaleFlag { entryId: string; title: string; was: number | null;
 /** A build round: the lifecycle one shared-context build goes through (AC6). */
 export interface BuildRound {
   id: string;
-  trigger: 'contribution' | 'decay' | 'session' | 'topup';
+  trigger: 'contribution' | 'decay' | 'session' | 'topup' | 'user-change';
   state: 'open' | 'collecting' | 'finalizing' | 'stored' | 'step-limit' | 'failed';
   participants: AgentId[];
   sessionId?: string;

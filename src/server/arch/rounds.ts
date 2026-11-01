@@ -16,6 +16,7 @@ const PARTICIPANTS: Record<BuildRound['trigger'], AgentId[]> = {
   decay: ['cm', 'nordea'],
   session: ['personal', 'cm', 'nordea'],
   topup: ['cm', 'nordea'],
+  'user-change': ['personal', 'cm', 'nordea'],
 };
 
 export function loadRound(uid: string, id: string): BuildRound | null {
@@ -74,7 +75,7 @@ export function runRound(uid: string, trigger: BuildRound['trigger'], opts?: { m
   };
   saveRound(uid, round);
 
-  const firstActor: AgentId = trigger === 'contribution' || trigger === 'session' ? 'personal' : 'cm';
+  const firstActor: AgentId = trigger === 'decay' || trigger === 'topup' ? 'cm' : 'personal';
   appendMessage(uid, {
     from: 'app',
     to: firstActor, type: 'round-start', status: 'pending',
