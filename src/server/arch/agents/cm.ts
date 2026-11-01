@@ -8,8 +8,8 @@
 import { newId, now } from '../types.js';
 import type { AgentMessage, ArchEntry, StaleFlag } from '../types.js';
 import { words, overlaps, overlapScore } from '../text.js';
-import { assessProposalRisk, deriveObserved } from '../risk.js';
-import { loadCmDb, saveCmDb, storeRoundRecord, storeContextSnapshot } from '../store/cmStore.js';
+import { assessProposalRisk, assessEntryRisk, deriveObserved } from '../risk.js';
+import { loadCmDb, saveCmDb, storeRoundRecord, storeContextSnapshot, putEntry, removeEntry, addHistoryEvent, deleteHistoryFor, putShare, putUndoRecord, removeUndoRecord } from '../store/cmStore.js';
 import { loadContext, readSectionRows, renderContextMd, writeHeader, writeMemorySection } from '../store/contextStore.js';
 import type { ContextRow } from '../store/contextStore.js';
 import { appendMessage, findMessage, getAgentsOff, loadBus, setCabinetParkedMirror, updateMessage } from '../store/busStore.js';
@@ -420,6 +420,48 @@ function handleMessage(uid: string, msg: AgentMessage) {
       return;
     }
 
+    // --- G2: app writes to the Context Memory DB go through the CM agent (it owns the store).
+    // Risk and observed are derived by code rules here, never taken from the caller (AC7/F20).
+    if (control === 'put-entry') {
+      const inEntry = payload.entry as ArchEntry;
+      const doc = (inEntry.doc ?? {}) as { source?: string };
+      const { risk, observed } = assessEntryRisk({ title: inEntry.title, detail: inEntry.detail, source: doc.source, evidence: inEntry.evidence });
+      putEntry(uid, { ...inEntry, risk, observed });
+      appendMessage(uid, { from: 'cm', to: 'app', type: 'reply', summary: `Context Memory agent stored "${inEntry.title}" (risk: ${risk}, ${observed}).`, payload: { inReplyTo: msg.id, ok: true, risk, observed } });
+      updateMessage(uid, msg.id, { status: 'answered' });
+      return;
+    }
+    if (control === 'remove-entry') {
+      removeEntry(uid, payload.entryId as string);
+      if (payload.purge === true) deleteHistoryFor(uid, payload.entryId as string);
+      appendMessage(uid, { from: 'cm', to: 'app', type: 'reply', summary: 'Context Memory agent removed the entry.', payload: { inReplyTo: msg.id, removed: true } });
+      updateMessage(uid, msg.id, { status: 'answered' });
+      return;
+    }
+    if (control === 'log-history') {
+      addHistoryEvent(uid, payload.event as Parameters<typeof addHistoryEvent>[1]);
+      appendMessage(uid, { from: 'cm', to: 'app', type: 'reply', summary: 'Context Memory agent logged the entry event.', payload: { inReplyTo: msg.id, ok: true } });
+      updateMessage(uid, msg.id, { status: 'answered' });
+      return;
+    }
+    if (control === 'put-share') {
+      putShare(uid, payload.share as Parameters<typeof putShare>[1]);
+      appendMessage(uid, { from: 'cm', to: 'app', type: 'reply', summary: 'Context Memory agent stored the share.', payload: { inReplyTo: msg.id, ok: true } });
+      updateMessage(uid, msg.id, { status: 'answered' });
+      return;
+    }
+    if (control === 'put-undo') {
+      putUndoRecord(uid, payload.record as Parameters<typeof putUndoRecord>[1]);
+      appendMessage(uid, { from: 'cm', to: 'app', type: 'reply', summary: 'Context Memory agent stored the undo record.', payload: { inReplyTo: msg.id, ok: true } });
+      updateMessage(uid, msg.id, { status: 'answered' });
+      return;
+    }
+    if (control === 'remove-undo') {
+      const removed = removeUndoRecord(uid, payload.token as string);
+      appendMessage(uid, { from: 'cm', to: 'app', type: 'reply', summary: 'Context Memory agent removed the undo record.', payload: { inReplyTo: msg.id, removed } });
+      updateMessage(uid, msg.id, { status: 'answered' });
+      return;
+    }
     if (control === 'review-decision') {
       const messageId = payload.messageId as string;
       const accept = payload.accept === true;

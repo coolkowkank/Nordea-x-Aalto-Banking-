@@ -27,3 +27,16 @@ export function assessProposalRisk(proposal: AgentMessage): Risk {
   if (proposal.from === 'personal') return 'low'; // the customer's own direct input
   return 'medium'; // observed aggregates from the bank side
 }
+
+/**
+ * G2: the same code rules for writes that arrive from the APP (Abel's screens, imports),
+ * applied by the owning agent at write time - never taken from the caller's own claim.
+ * The customer's own direct input is observed+low; bank-evidenced aggregates observed+medium;
+ * anything else is inferred+high; a sensitive topic is always high (F21).
+ */
+export function assessEntryRisk(e: { title: string; detail: string; source?: string; evidence?: { transactionIds?: string[] } | null }): { risk: Risk; observed: 'observed' | 'inferred' } {
+  const observed = (e.evidence?.transactionIds?.length ? true : false) || e.source === 'customer' ? 'observed' as const : 'inferred' as const;
+  if (isSensitiveTopic(`${e.title} ${e.detail}`)) return { risk: 'high', observed };
+  if (observed === 'inferred') return { risk: 'high', observed };
+  return { risk: e.source === 'customer' ? 'low' : 'medium', observed };
+}

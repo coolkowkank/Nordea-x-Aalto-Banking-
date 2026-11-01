@@ -63,6 +63,32 @@ check('adapter writes record entry history in the Context Memory DB', S.loadHist
 const roundTrip = db.getCabinetEntry('p-adapt-1');
 check('a written entry reads back through getState mapping with Abel fields intact', roundTrip?.title === 'Adapter preference' && roundTrip?.type === 'preference' && roundTrip?.provenance.channel === 'app');
 
+// --- G2: runtime writes go through the owning agent - an auditable bus control message,
+// the agent performs the store write, and risk is derived by CODE rules, never the caller.
+db.addCabinetEntry({ id: 'g2-routed-1', userId: 'lauri', type: 'preference', title: 'G2 routed entry', detail: 'prefers plain emails', source: 'customer', status: 'active', private: false, readableBy: { abel: true, offers: true }, provenance: { channel: 'app' }, reviewed: true, createdAt: '2026-11-01T00:00:00Z', updatedAt: '2026-11-01T00:00:00Z' });
+const busMsgs = S.loadBus('lauri').messages;
+check('a cabinet write arrives at the CM agent as an auditable control message',
+  busMsgs.some((m) => m.type === 'control' && m.to === 'cm' && (m.payload as { control?: string })?.control === 'put-entry'));
+const routed = S.loadCmDb('lauri').entries.find((e) => e.id === 'g2-routed-1');
+check('the CM agent wrote the entry and derived risk+observed by code rules (customer input = low/observed)',
+  routed?.risk === 'low' && routed?.observed === 'observed', { risk: routed?.risk, observed: routed?.observed });
+
+db.addCabinetEntry({ id: 'g2-routed-2', userId: 'lauri', type: 'fact', title: 'Note about therapy appointments', detail: 'mentioned in chat', source: 'customer', status: 'active', private: false, readableBy: { abel: true, offers: false }, provenance: { channel: 'app' }, reviewed: true, createdAt: '2026-11-01T00:00:00Z', updatedAt: '2026-11-01T00:00:00Z' });
+check('a sensitive-topic write is derived HIGH risk by the CM agent (code rules, F21)',
+  S.loadCmDb('lauri').entries.find((e) => e.id === 'g2-routed-2')?.risk === 'high');
+
+db.addCabinetEntry({ id: 'g2-routed-3', userId: 'lauri', type: 'goal', title: 'G2 routed goal', detail: '', source: 'customer', status: 'active', private: false, readableBy: { abel: true, offers: true }, provenance: { channel: 'app' }, reviewed: true, createdAt: '2026-11-01T00:00:00Z', updatedAt: '2026-11-01T00:00:00Z' });
+check('a goal write arrives at the PERSONAL agent as a control message and lands in the User DB',
+  busMsgs.some((m) => m.type === 'control' && m.to === 'personal' && (m.payload as { control?: string })?.control === 'put-goal')
+  || S.loadBus('lauri').messages.some((m) => m.type === 'control' && m.to === 'personal' && (m.payload as { control?: string })?.control === 'put-goal'),
+  undefined);
+check('the routed goal is in the User DB', S.loadUserDb('lauri').goals.some((g) => g.id === 'g2-routed-3'));
+
+db.upsertTransactions('lauri', [{ id: 't-g2-1', userId: 'lauri', date: '2026-10-31', category: 'transport', amount: -20, account: 'current', bankId: 'G2-1' }]);
+check('a bank import arrives at the NORDEA agent as a control message and lands in the Nordea DB',
+  S.loadBus('lauri').messages.some((m) => m.type === 'control' && m.to === 'nordea' && (m.payload as { control?: string })?.control === 'put-transactions')
+  && S.loadNordeaDb('lauri')!.transactions.some((t) => t.bankId === 'G2-1'));
+
 // --- G6: each agent store reads ONLY its own hosted secret (one Postgres role per agent)
 const readSrc = (p: string) => fs.readFileSync(new URL(p, import.meta.url), 'utf-8');
 const SECRETS = ['USER_DB_URL', 'CM_DB_URL', 'NORDEA_DB_URL'];

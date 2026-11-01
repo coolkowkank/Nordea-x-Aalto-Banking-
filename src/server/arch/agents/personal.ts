@@ -7,7 +7,7 @@
 import { ArchError, newId, now } from '../types.js';
 import type { AgentMessage, Goal } from '../types.js';
 import { words, overlaps } from '../text.js';
-import { loadUserDb, saveUserDb } from '../store/userStore.js';
+import { loadUserDb, saveUserDb, putGoal, removeGoal, loadProfile, saveProfile, putDocument, removeStoredDocument } from '../store/userStore.js';
 import { loadContext, readSectionRows, writeCustomerSection } from '../store/contextStore.js';
 import { appendMessage, getAgentsOff, getCabinetParkedMirror, loadBus, saveBus, updateMessage } from '../store/busStore.js';
 import { registerHandler } from '../dispatcher.js';
@@ -218,7 +218,7 @@ export function decideAirlock(uid: string, batchId: string, approve: boolean) {
 // ---------- Message handler: what the personal agent does when the bus delivers ----------
 
 function handleMessage(uid: string, msg: AgentMessage) {
-  const payload = (msg.payload ?? {}) as { roundId?: string; purpose?: string; goalIds?: string[]; control?: string; trigger?: string; question?: string; sessionId?: string };
+  const payload = (msg.payload ?? {}) as { roundId?: string; purpose?: string; goalIds?: string[]; control?: string; trigger?: string; question?: string; sessionId?: string } & Record<string, unknown>;
   if (msg.type === 'control' && payload.control === 'abel-facts') {
     // F10 phase 2 / AC11: the in-app Abel asks for the customer's facts. The personal agent is
     // the owner of the User DB - it reads it itself and answers by message (provenance kept).
@@ -228,6 +228,38 @@ function handleMessage(uid: string, msg: AgentMessage) {
       summary: `Personal agent returns ${u.goals.length} goal${u.goals.length === 1 ? '' : 's'} and ${u.personalFacts.length} fact${u.personalFacts.length === 1 ? '' : 's'} from the User DB for Abel.`,
       payload: { inReplyTo: msg.id, from: 'user-db', goals: u.goals.map((g) => ({ title: g.title, detail: g.detail })), facts: u.personalFacts.map((f) => ({ text: f.text, source: f.source })) },
     });
+    updateMessage(uid, msg.id, { status: 'answered' });
+    return;
+  }
+  // --- G2: app writes to the User DB go through the personal agent (it owns the store).
+  if (msg.type === 'control' && payload.control === 'put-goal') {
+    const goal = payload.goal as Parameters<typeof putGoal>[1];
+    putGoal(uid, goal);
+    appendMessage(uid, { from: 'personal', to: 'app', type: 'reply', summary: `Personal agent wrote goal "${goal.title}" to the User DB.`, payload: { inReplyTo: msg.id, goal } });
+    updateMessage(uid, msg.id, { status: 'answered' });
+    return;
+  }
+  if (msg.type === 'control' && payload.control === 'remove-goal') {
+    removeGoal(uid, payload.goalId as string);
+    appendMessage(uid, { from: 'personal', to: 'app', type: 'reply', summary: 'Personal agent removed the goal from the User DB.', payload: { inReplyTo: msg.id, removed: true } });
+    updateMessage(uid, msg.id, { status: 'answered' });
+    return;
+  }
+  if (msg.type === 'control' && payload.control === 'put-profile') {
+    saveProfile(uid, { ...(loadProfile(uid) ?? {}), ...(payload.profile as Record<string, unknown>) });
+    appendMessage(uid, { from: 'personal', to: 'app', type: 'reply', summary: 'Personal agent updated the profile in the User DB.', payload: { inReplyTo: msg.id, ok: true } });
+    updateMessage(uid, msg.id, { status: 'answered' });
+    return;
+  }
+  if (msg.type === 'control' && payload.control === 'put-document') {
+    putDocument(payload.doc as Parameters<typeof putDocument>[0]);
+    appendMessage(uid, { from: 'personal', to: 'app', type: 'reply', summary: 'Personal agent stored the document in the User DB.', payload: { inReplyTo: msg.id, ok: true } });
+    updateMessage(uid, msg.id, { status: 'answered' });
+    return;
+  }
+  if (msg.type === 'control' && payload.control === 'remove-document') {
+    removeStoredDocument(uid, payload.id as string);
+    appendMessage(uid, { from: 'personal', to: 'app', type: 'reply', summary: 'Personal agent removed the document from the User DB.', payload: { inReplyTo: msg.id, removed: true } });
     updateMessage(uid, msg.id, { status: 'answered' });
     return;
   }

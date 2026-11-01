@@ -5,7 +5,7 @@
  * own dashboard. Agents talk to each other only through bus messages.
  */
 import { ArchError, newId, now } from './types.js';
-import type { AgentId, ArchEntry, BuildRound } from './types.js';
+import type { AgentId, ArchEntry, BuildRound, Goal } from './types.js';
 import { dispatchPending } from './dispatcher.js';
 import { runRound } from './rounds.js';
 import {
@@ -292,6 +292,46 @@ function recheckBeforeReuse(uid: string): BuildRound['staleFlags'] {
 function refreshNordeaFromCore(uid: string, inform?: string) {
   controlRoundTrip(uid, 'nordea', 'Refresh the Nordea DB from core bank data.', { control: 'refresh-from-core', ...(inform ? { inform } : {}) });
 }
+
+// ---------- G2: app writes to the three databases go through the owning agent ----------
+// Each wrapper is a control round-trip on the bus: auditable, and the owning agent applies
+// its own rules (the CM agent derives risk by code; the Nordea agent owns bank-data merge
+// semantics). An agent being "off" gates its reasoning/contribution, never the storage
+// write itself - imports must land even while the Nordea agent is off.
+export const appWrites = {
+  putGoal: (uid: string, goal: Goal) =>
+    controlRoundTrip(uid, 'personal', `The app writes goal "${goal.title}" to the User DB.`, { control: 'put-goal', goal }),
+  removeGoal: (uid: string, goalId: string) =>
+    controlRoundTrip(uid, 'personal', 'The app removes a goal from the User DB.', { control: 'remove-goal', goalId }),
+  putProfile: (uid: string, profile: Record<string, unknown>) =>
+    controlRoundTrip(uid, 'personal', 'The app updates the profile in the User DB.', { control: 'put-profile', profile }),
+  putDocument: (uid: string, doc: unknown) =>
+    controlRoundTrip(uid, 'personal', 'The app stores a document in the User DB.', { control: 'put-document', doc }),
+  removeDocument: (uid: string, id: string) =>
+    controlRoundTrip(uid, 'personal', 'The app removes a document from the User DB.', { control: 'remove-document', id }),
+  putEntry: (uid: string, entry: ArchEntry) =>
+    controlRoundTrip(uid, 'cm', `The app writes cabinet entry "${entry.title}" to the Context Memory DB.`, { control: 'put-entry', entry }),
+  removeEntry: (uid: string, entryId: string, purge: boolean) =>
+    controlRoundTrip(uid, 'cm', 'The app removes a cabinet entry from the Context Memory DB.', { control: 'remove-entry', entryId, purge }),
+  logHistory: (uid: string, event: unknown) =>
+    controlRoundTrip(uid, 'cm', 'The app logs an entry event in the Context Memory DB.', { control: 'log-history', event }),
+  putShare: (uid: string, share: unknown) =>
+    controlRoundTrip(uid, 'cm', 'The app stores a share in the Context Memory DB.', { control: 'put-share', share }),
+  putUndo: (uid: string, record: unknown) =>
+    controlRoundTrip(uid, 'cm', 'The app stores an undo record in the Context Memory DB.', { control: 'put-undo', record }),
+  removeUndo: (uid: string, token: string) =>
+    controlRoundTrip(uid, 'cm', 'The app removes an undo record from the Context Memory DB.', { control: 'remove-undo', token }),
+  putTransactions: (uid: string, transactions: unknown[], mode: 'upsert' | 'replace') =>
+    controlRoundTrip(uid, 'nordea', 'The app applies bank transactions to the Nordea DB.', { control: 'put-transactions', transactions, mode }),
+  putBalances: (uid: string, balances: unknown) =>
+    controlRoundTrip(uid, 'nordea', 'The app stores account balances in the Nordea DB.', { control: 'put-balances', balances }),
+  putBankAccount: (uid: string, account: unknown) =>
+    controlRoundTrip(uid, 'nordea', 'The app stores an account record in the Nordea DB.', { control: 'put-bank-account', account }),
+  putSnapshot: (uid: string, snapshot: unknown) =>
+    controlRoundTrip(uid, 'nordea', 'The app stores a balance snapshot in the Nordea DB.', { control: 'put-snapshot', snapshot }),
+  putImportBatch: (uid: string, batch: unknown) =>
+    controlRoundTrip(uid, 'nordea', 'The app records an import batch in the Nordea DB.', { control: 'put-import-batch', batch }),
+};
 
 // ---------- Bank import: the source owner updates its DB, then decay detection runs ----------
 

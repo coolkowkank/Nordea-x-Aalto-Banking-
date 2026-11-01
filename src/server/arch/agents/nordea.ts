@@ -8,7 +8,7 @@
 import { now } from '../types.js';
 import type { AgentMessage, NordeaDb } from '../types.js';
 import { words, overlaps, CATEGORY_HINTS } from '../text.js';
-import { loadNordeaDb } from '../store/nordeaStore.js';
+import { loadNordeaDb, saveNordeaDb, saveBalances, putBankAccount, putBalanceSnapshot, putImportBatch } from '../store/nordeaStore.js';
 import { readSectionRows, writeNordeaSection } from '../store/contextStore.js';
 import type { ContextRow } from '../store/contextStore.js';
 import { appendMessage, loadBus, updateMessage } from '../store/busStore.js';
@@ -179,6 +179,79 @@ function handleMessage(uid: string, msg: AgentMessage) {
     });
     updateMessage(uid, msg.id, { status: 'answered' });
     roundDone(uid, payload.roundId, 'nordea');
+    return;
+  }
+
+  // --- G2: app writes to the Nordea DB go through the Nordea agent (it owns the store).
+  if (msg.type === 'control' && payload.control === 'put-transactions') {
+    const list = payload.transactions as NordeaDb['transactions'];
+    const mode = payload.mode === 'replace' ? 'replace' : 'upsert';
+    const nd = loadNordeaDb(uid) ?? { userId: uid, accounts: [], transactions: [] };
+    const added: NordeaDb['transactions'] = [];
+    const skipped: NordeaDb['transactions'] = [];
+    const updated: NordeaDb['transactions'] = [];
+    if (mode === 'replace') {
+      nd.transactions = [...list];
+      added.push(...list);
+    } else {
+      const byId = new Map(nd.transactions.map((t) => [t.id, t]));
+      const seen = new Set<string>();
+      // Fields a bank correction may legitimately change between feeds (never the identity fields).
+      const CORRECTABLE = ['date', 'amount', 'category', 'account', 'description', 'valueDate', 'status', 'currency', 'counterparty', 'reference', 'paymentMethod', 'originalCategory', 'categorySource'] as const;
+      for (const t of list) {
+        const existing = byId.get(t.id);
+        if (existing || seen.has(t.id)) {
+          // A row the bank re-sent under its own stable reference with changed content is a
+          // correction, not a duplicate: update it in place, keep the id.
+          if (existing && existing.bankId && t.bankId) {
+            const diff = CORRECTABLE.filter((f) => (existing as unknown as Record<string, unknown>)[f] !== (t as unknown as Record<string, unknown>)[f]);
+            if (diff.length) {
+              for (const f of diff) {
+                if ((t as unknown as Record<string, unknown>)[f] === undefined) delete (existing as unknown as Record<string, unknown>)[f];
+                else (existing as unknown as Record<string, unknown>)[f] = (t as unknown as Record<string, unknown>)[f];
+              }
+              existing.batchId = t.batchId;
+              updated.push(existing);
+              continue;
+            }
+          }
+          skipped.push(t);
+          continue;
+        }
+        seen.add(t.id);
+        added.push(t);
+      }
+      nd.transactions.push(...added);
+      nd.transactions.sort((a, b) => a.date.localeCompare(b.date) || a.id.localeCompare(b.id));
+    }
+    saveNordeaDb(nd);
+    appendMessage(uid, { from: 'nordea', to: 'app', type: 'reply', summary: `Nordea agent applied ${added.length} transaction${added.length === 1 ? '' : 's'} to its DB (${skipped.length} skipped, ${updated.length} corrected).`, payload: { inReplyTo: msg.id, added, skipped, updated } });
+    updateMessage(uid, msg.id, { status: 'answered' });
+    return;
+  }
+  if (msg.type === 'control' && payload.control === 'put-balances') {
+    saveBalances(uid, payload.balances as Parameters<typeof saveBalances>[1]);
+    appendMessage(uid, { from: 'nordea', to: 'app', type: 'reply', summary: 'Nordea agent stored the account balances in its DB.', payload: { inReplyTo: msg.id, ok: true } });
+    updateMessage(uid, msg.id, { status: 'answered' });
+    return;
+  }
+  if (msg.type === 'control' && payload.control === 'put-bank-account') {
+    const account = payload.account as Parameters<typeof putBankAccount>[1];
+    putBankAccount(uid, account);
+    appendMessage(uid, { from: 'nordea', to: 'app', type: 'reply', summary: 'Nordea agent stored the account record in its DB.', payload: { inReplyTo: msg.id, account } });
+    updateMessage(uid, msg.id, { status: 'answered' });
+    return;
+  }
+  if (msg.type === 'control' && payload.control === 'put-snapshot') {
+    putBalanceSnapshot(uid, payload.snapshot as Parameters<typeof putBalanceSnapshot>[1]);
+    appendMessage(uid, { from: 'nordea', to: 'app', type: 'reply', summary: 'Nordea agent stored the balance snapshot in its DB.', payload: { inReplyTo: msg.id, ok: true } });
+    updateMessage(uid, msg.id, { status: 'answered' });
+    return;
+  }
+  if (msg.type === 'control' && payload.control === 'put-import-batch') {
+    putImportBatch(uid, payload.batch as Parameters<typeof putImportBatch>[1]);
+    appendMessage(uid, { from: 'nordea', to: 'app', type: 'reply', summary: 'Nordea agent recorded the import batch in its DB.', payload: { inReplyTo: msg.id, ok: true } });
+    updateMessage(uid, msg.id, { status: 'answered' });
     return;
   }
 

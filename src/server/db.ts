@@ -25,6 +25,7 @@ import { Remote, Row, supabaseConfigured, supabaseRemote, cleanErr } from './sto
 // The app layer may import the store modules (see the store file headers); agents never
 // import this module, and no agent module imports another agent's store.
 import { listCustomers, unregisterCustomer, deleteDbFile, ARCH_DIR, hydrateAgentStores } from './arch/store/common.js';
+import { appWrites } from './arch/orchestrator.js';
 import {
   loadUserDb, loadProfile, saveProfile, putGoal, removeGoal,
   loadDocuments, putDocument, removeStoredDocument, deleteUserDb,
@@ -283,6 +284,8 @@ class Database {
    * three agent databases. Idempotent enough for the demo: store writes are upserts, and the
    * legacy rows are removed from the old store afterwards, so this runs once per dataset.
    */
+  // Bulk migration writes the stores directly - same class as scripts/load_data.py (G5):
+  // loading existing approved data, not app behavior. Runtime writes go through the agents (G2).
   private splitLegacyIntoStores(legacy: DatabaseState) {
     const st = migrateLegacyState(legacy);
     const uids = new Set<string>([
@@ -574,8 +577,8 @@ class Database {
       if (redeemed !== undefined) r.redeemed = redeemed;
       this.state.rewards[userId] = r;
     }
-    if (accounts !== undefined) saveBalances(userId, accounts);
-    if (Object.keys(profileUpdates).length) saveProfile(userId, { ...(loadProfile(userId) ?? {}), ...profileUpdates });
+    if (accounts !== undefined) appWrites.putBalances(userId, accounts);
+    if (Object.keys(profileUpdates).length) appWrites.putProfile(userId, { ...(loadProfile(userId) ?? {}), ...profileUpdates });
     this.saveState();
     return this.getUser(userId);
   }
@@ -600,7 +603,7 @@ class Database {
 
   // ---- history of each entry (Context Memory DB)
   private logEvent(e: CabinetEntry, action: EntryEvent['action'], meta: ChangeMeta = {}, changes?: EntryEvent['changes']) {
-    addHistoryEvent(e.userId, {
+    appWrites.logHistory(e.userId, {
       id: eventId(), entryId: e.id, userId: e.userId, at: new Date().toISOString(), action: meta.action || action,
       by: meta.by || (e.source === 'nordea' ? 'nordea' : 'you'), how: meta.how, title: e.title, changes: changes?.length ? changes : undefined,
     });
@@ -615,8 +618,8 @@ class Database {
   }
 
   public addCabinetEntry(entry: CabinetEntry, meta: ChangeMeta = {}): CabinetEntry {
-    if (entry.type === 'goal') putGoal(entry.userId, entryToGoal(entry));
-    else putEntry(entry.userId, entryToCm(entry));
+    if (entry.type === 'goal') appWrites.putGoal(entry.userId, entryToGoal(entry));
+    else appWrites.putEntry(entry.userId, entryToCm(entry));
     this.logEvent(entry, 'added', meta);
     return entry;
   }
@@ -626,10 +629,10 @@ class Database {
     if (!before) return undefined;
     const after = { ...before, ...updates, updatedAt: new Date().toISOString() };
     if (before.type === 'goal') {
-      putGoal(before.userId, entryToGoal(after));
+      appWrites.putGoal(before.userId, entryToGoal(after));
     } else {
       const existing = loadCmDb(before.userId).entries.find((x) => x.id === id);
-      putEntry(before.userId, entryToCm(after, existing));
+      appWrites.putEntry(before.userId, entryToCm(after, existing));
     }
     const changes = TRACKED.filter((f) => f in updates && !same(before[f], after[f])).map((f) => ({ field: f, from: before[f] ?? null, to: after[f] ?? null }));
     const status = changes.find((c) => c.field === 'status');
@@ -651,10 +654,14 @@ class Database {
   public deleteCabinetEntry(id: string, meta: ChangeMeta & { purge?: boolean } = {}): boolean {
     const e = this.getCabinetEntry(id);
     if (!e) return false;
-    if (e.type === 'goal') removeGoal(e.userId, id);
-    else removeEntry(e.userId, id);
-    if (meta.purge) deleteHistoryFor(e.userId, id);
-    else this.logEvent(e, 'deleted', meta);
+    if (e.type === 'goal') {
+      appWrites.removeGoal(e.userId, id);
+      if (meta.purge) appWrites.removeEntry(e.userId, id, true); // a goal has no CM row; purge is a no-op there
+      else this.logEvent(e, 'deleted', meta);
+    } else {
+      appWrites.removeEntry(e.userId, id, meta.purge === true);
+      if (!meta.purge) this.logEvent(e, 'deleted', meta);
+    }
     return true;
   }
 
@@ -672,7 +679,7 @@ class Database {
   }
 
   public addDocument(d: StoredDocument): StoredDocument {
-    putDocument(d);
+    appWrites.putDocument(d.userId, d);
     return d;
   }
 
@@ -680,14 +687,14 @@ class Database {
     const d = this.getDocument(id);
     if (!d) return undefined;
     const next = { ...d, ...updates };
-    putDocument(next);
+    appWrites.putDocument(d.userId, next);
     return next;
   }
 
   public removeDocument(id: string) {
     const d = this.getDocument(id);
     if (!d) return undefined;
-    removeStoredDocument(d.userId, id);
+    appWrites.removeDocument(d.userId, id);
     // The chat bubble keeps the file name but loses its preview.
     for (const m of this.state.messages) if (m.attachment?.documentId === id) m.attachment = { ...m.attachment, thumb: undefined, deleted: true };
     this.saveState();
@@ -765,9 +772,7 @@ class Database {
 
   /** New Nordea account data for a customer, snapshot mode: their transactions are replaced by these. */
   public replaceTransactions(userId: string, list: Transaction[]) {
-    const nd = loadNordeaDb(userId) ?? { userId, accounts: [], transactions: [] };
-    nd.transactions = [...list];
-    saveNordeaDb(nd);
+    appWrites.putTransactions(userId, list, 'replace');
   }
 
   /**
@@ -775,38 +780,10 @@ class Database {
    * Rows whose id the customer already has are skipped (re-imports never duplicate).
    */
   public upsertTransactions(userId: string, list: Transaction[]): { added: Transaction[]; skipped: Transaction[]; updated: Transaction[] } {
-    const nd = loadNordeaDb(userId) ?? { userId, accounts: [], transactions: [] };
-    const byId = new Map(nd.transactions.map((t) => [t.id, t]));
-    const seen = new Set<string>();
-    const added: Transaction[] = [];
-    const skipped: Transaction[] = [];
-    const updated: Transaction[] = [];
-    // Fields a bank correction may legitimately change between feeds (never the identity fields).
-    const CORRECTABLE: (keyof Transaction)[] = ['date', 'amount', 'category', 'account', 'description', 'valueDate', 'status', 'currency', 'counterparty', 'reference', 'paymentMethod', 'originalCategory', 'categorySource'];
-    for (const t of list) {
-      const existing = byId.get(t.id);
-      if (existing || seen.has(t.id)) {
-        // A row the bank re-sent under its own stable reference with changed content (e.g. a pending
-        // transaction booking) is a correction, not a duplicate: update it in place, keep the id.
-        if (existing && existing.bankId && t.bankId) {
-          const diff = CORRECTABLE.filter((f) => (existing as any)[f] !== (t as any)[f]);
-          if (diff.length) {
-            for (const f of diff) { if ((t as any)[f] === undefined) delete (existing as any)[f]; else (existing as any)[f] = (t as any)[f]; }
-            existing.batchId = t.batchId;
-            updated.push(existing);
-            continue;
-          }
-        }
-        skipped.push(t);
-        continue;
-      }
-      seen.add(t.id);
-      added.push(t);
-    }
-    nd.transactions.push(...added);
-    nd.transactions.sort((a, b) => a.date.localeCompare(b.date) || a.id.localeCompare(b.id));
-    saveNordeaDb(nd);
-    return { added, skipped, updated };
+    // The Nordea agent owns the merge semantics (dedupe by stable id, bank corrections) and
+    // performs the write to its own DB; the adapter only relays the result.
+    const reply = appWrites.putTransactions(userId, list, 'upsert') as { added: Transaction[]; skipped: Transaction[]; updated: Transaction[] };
+    return { added: reply.added ?? [], skipped: reply.skipped ?? [], updated: reply.updated ?? [] };
   }
 
   // ---- Explicit account records: one per account, derived from the customer record, extended by feeds ----
@@ -823,7 +800,7 @@ class Database {
     if (fields.type !== undefined) a.type = fields.type;
     if (fields.iban !== undefined) a.iban = fields.iban;
     if (fields.currency !== undefined) a.currency = fields.currency;
-    putBankAccount(userId, a);
+    appWrites.putBankAccount(userId, a);
     return a;
   }
 
@@ -833,7 +810,7 @@ class Database {
   }
 
   public addBalanceSnapshot(x: BalanceSnapshot) {
-    putBalanceSnapshot(x.userId, x);
+    appWrites.putSnapshot(x.userId, x);
     return x;
   }
 
@@ -843,7 +820,7 @@ class Database {
   }
 
   public addImportBatch(x: ImportBatch) {
-    putImportBatch(x.userId, x);
+    appWrites.putImportBatch(x.userId, x);
     return x;
   }
 
@@ -895,7 +872,7 @@ class Database {
 
   // ---- Undo records: cabinet history, in the Context Memory DB ----
   public addUndoRecord(record: UndoRecord): UndoRecord {
-    putUndoRecord(record.userId, record);
+    appWrites.putUndo(record.userId, record);
     return record;
   }
 
@@ -909,7 +886,8 @@ class Database {
 
   public removeUndoRecord(undoToken: string): boolean {
     for (const uid of listCustomers()) {
-      if (cmRemoveUndo(uid, undoToken)) return true;
+      const reply = appWrites.removeUndo(uid, undoToken) as { removed?: boolean };
+      if (reply.removed) return true;
     }
     return false;
   }
@@ -960,7 +938,7 @@ class Database {
   }
 
   public addShare(x: Share): Share {
-    putShare(x.userId, x);
+    appWrites.putShare(x.userId, x);
     return x;
   }
 
@@ -969,7 +947,7 @@ class Database {
       const x = loadShares(uid).find((y) => y.id === id);
       if (x) {
         const next = { ...x, ...updates };
-        putShare(uid, next);
+        appWrites.putShare(uid, next);
         return next;
       }
     }
