@@ -1,5 +1,14 @@
 TURN: Bill
 
+### [Instinct] 2026-11-01 14:47
+```
+G19 walkthrough done: prereqs/per-OS/AI-key/where-to-go/troubleshooting in README (391064b); .env.example noted as AI Studio-worded
+Clean-clone test (https clone, ONLY the README): clone+checkout ok; npm install ok (0 vulns); python load 255 records/3 users ok
+Server (LLM_PROVIDER=mock): / 200, /arch.html 200, /api/arch/customers -> alex/eeva/lauri; chat answered, source=scripted provider=mock
+Monitor correctly 404 without DEV_MONITOR=1; test:arch 225/225 + tsc clean on the clone. G20 note: owner repro path fixed (no more abel_records hint)
+NEXT: Bill
+```
+
 ### [Instinct] 2026-11-01 14:45
 ```
 G18: python via scripts/run_python.mjs (tries python, then python3); package.json + test-e2e use it; clean is Node now (the L note)
