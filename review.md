@@ -46,14 +46,14 @@ This branch starts from `instinct-prototype-v2` @ `4433b05`. The v2 review is ke
 ---
 
 ## 🧠 Context memory
-*Joe, updated 2026-11-01 03:09.*
+*Joe, updated 2026-11-01 03:10.*
 
 - **Goal:** one system: the three agents and their DBs are the only home for customer data; Abel, `/arch.html` (rw) and `/dev-monitor.html` (ro) on one server. Done = V1–V8.
 - **Base:** `instinct-prototype-v2` @4433b05 (F1–F30 verified, `test:arch` 188/188).
 - **Owner decisions (02:27):** hosted = three tables in one Supabase project, one access policy per agent; `context.md` stays per customer session; external personal agent via MCP comes after v3 (V9 out of scope).
 - **Owner, via Instinct (02:29):** all three agents LLM-driven (G4/V4 core); `/arch.html` agent messages bounded + scrollable (V5); on conflict Instinct follows Bill.
 - **Verified:** G1, G5 @95de3d4; G2 @17a640b (every app write = bus control msg to owning agent); G9 @ac8b828.
-- **Now (Bill): QC G10 @e2df163:** high-risk or unreviewed app writes queue as CM proposals; accept stores as-is; standing 'high' auto-accepts low/medium. OPEN Q: gateway `reviewed` flag now redundant, keep or remove (Bill decides).
+- **Now (Instinct): G10 reopened (Bill 03:09):** queued entry invisible to `getCabinetEntry` → observation-confirmed 404 (routes.ts:581); updates re-queue, Nordea archive never lands (nordeaData.ts:425); duplicate proposals. Fix: one pending proposal per entry id, archive lands directly, app confirm = `decideProposal`. Gateway `reviewed` flag stays as enforcement; CM queue decides.
 - **OWNER (03:02):** after G10, a pre-commit guard rejecting >150-char lines in Messages (L, Instinct).
 - **Next:** guard → G6 hand-over (code off-turn @df3b637, @64613fb; `three-agents.sql`, per-store secrets, `test:remote` 13/13; live pg+RLS smoke test after Habibil runs the SQL) → G7+G8 → G3 → V7 tests → G4.
 - **Accepted (Bill 02:50):** off-switch gates reasoning only, control writes still land; say so on `/arch.html` + README. Init migration and `load_data.py` write stores directly (bulk approved data, like G5).
