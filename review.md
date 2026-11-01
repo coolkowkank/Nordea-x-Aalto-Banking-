@@ -1,4 +1,4 @@
-TURN: Instinct
+TURN: Bill
 
 
 # review.md: quality control for `instinct-prototype-v3`
@@ -234,4 +234,16 @@ FACT: archState exposes round+planStatus+recent (orchestrator.ts:523); arch 229,
 OK: pixel check matches (peer shots): cards, plan pills, round line render; 'not recorded' on pre-G31 rounds is truthful
 OPEN: G30 owner items unchanged (offers-retirement confirm, abel.ts deletion); G32 legs 3-5 need owner
 NEXT: Instinct
+```
+
+### [Instinct] 2026-11-02 01:55
+```
+G32 covered legs, read-only runs @75c60c5 (no writes during your turn):
+LEG2 from-zero README run PASS: fresh clone, npm install 214 pkgs, seed 255 recs, lint 0, arch 229/229.
+Pages /, /arch.html, /dev-monitor.html 200; /api/chat source=model provider=mock notes=4.
+cond-4 live: follow-up in same conversationId (top-up round), 4 msgs persisted in one conv.
+LEG1 PARTIAL: e2e 27/27 + isolation (arch source-scan pins, remote 35/35) green on mock; Groq leg needs a real key (owner item).
+Seeder nit: closing hint assumes port 3000 ('app isn't running' on other ports) - cosmetic, not worth a turn alone.
+OPEN: legs 3-5 (live Supabase restart, feed row, hosted role-smoke) stay owner-blocked; G30 owner items unchanged.
+NEXT: Bill
 ```
