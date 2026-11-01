@@ -1,7 +1,7 @@
 import type { Express, Request, Response } from 'express';
 import {
-  agentQuery, archState, chat, addGoalDirect, connectExternalAgent, disconnectPersonalAgent,
-  stageSync, decideAirlock, contribute, reviewQueue, decideProposal, setStandingPermissions, undoEntry,
+  agentQuery, archState, archCustomers, newSession, chat, addGoalDirect,
+  decideAirlock, contribute, reviewQueue, decideProposal, setStandingPermissions, undoEntry,
   explainEntry, disputeEntry, setAgentOff, deleteDatabase, parkCabinet, listEntries, ArchError,
 } from './orchestrator.js';
 import type { AgentId } from './types.js';
@@ -21,7 +21,12 @@ export function registerArchRoutes(app: Express) {
   };
   const uid = (req: Request) => String(req.params.uid || '');
 
+  app.get('/api/arch/customers', h((_req, res) => res.json(archCustomers())));
+
   app.get('/api/arch/:uid/state', h((req, res) => res.json(archState(uid(req)))));
+
+  // V5: start a fresh customer session (new empty context.md stamped with its session id).
+  app.post('/api/arch/:uid/session/new', h((req, res) => res.json(newSession(uid(req)))));
 
   app.post('/api/arch/:uid/entries/:entryId/undo', h((req, res) => res.json(undoEntry(uid(req), String(req.params.entryId)))));
 
@@ -54,20 +59,8 @@ export function registerArchRoutes(app: Express) {
     res.json(addGoalDirect(uid(req), title, String(req.body?.detail ?? '')));
   }));
 
-  app.post('/api/arch/:uid/personal-agent/connect', h((req, res) => {
-    const name = String(req.body?.name ?? '').trim();
-    if (!name) { res.status(400).json({ error: 'Name the external agent (e.g. Meta Muse).' }); return; }
-    res.json(connectExternalAgent(uid(req), name));
-  }));
-  app.post('/api/arch/:uid/personal-agent/disconnect', h((req, res) => res.json(disconnectPersonalAgent(uid(req)))));
-
-  // Sync airlock: only for a CONNECTED external personal agent's ingestion.
-  app.post('/api/arch/:uid/sync', h((req, res) => {
-    const source = String(req.body?.source ?? '').trim().toLowerCase();
-    const items = Array.isArray(req.body?.items) ? req.body.items : [];
-    if (!source) { res.status(400).json({ error: 'Name the sync source (whatsapp, calendar, notes, email).' }); return; }
-    res.json(stageSync(uid(req), source, items.map((i: { kind?: string; text?: string }) => ({ kind: String(i?.kind ?? 'note'), text: String(i?.text ?? '') })).filter((i: { text: string }) => i.text)));
-  }));
+  // G7/V5: the simulated external-agent mode and its stand-in sync endpoint are gone.
+  // The airlock stays, empty until a real external agent exists (V9: bank-hosted MCP).
   app.post('/api/arch/:uid/airlock/:batchId/approve', h((req, res) => res.json(decideAirlock(uid(req), String(req.params.batchId), true))));
   app.post('/api/arch/:uid/airlock/:batchId/reject', h((req, res) => res.json(decideAirlock(uid(req), String(req.params.batchId), false))));
 

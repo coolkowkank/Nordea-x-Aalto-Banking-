@@ -20,6 +20,9 @@ import { deleteContext, loadContext, renderContextMd, resetContextForSession } f
 import {
   appendMessage, findMessage, getAgentsOff, setAgentsOff, loadBus, busKvGet, busKvSet, getCabinetParkedMirror,
 } from './store/busStore.js';
+import fs from 'fs';
+import path from 'path';
+import { fileFor, remoteConfigured, listCustomers } from './store/common.js';
 
 // ---------- Coordination state (bus kv), with one-time migration from the legacy User DB field ----------
 
@@ -376,14 +379,47 @@ export function listEntries(uid: string) {
   return loadCmDb(uid);
 }
 
+/** V5: one connection line per store - backend, file, connected, last write (local mirror
+ * stats; in hosted mode the file is the local mirror of the per-agent Postgres tables). */
+function storeLine(uid: string, kind: 'user' | 'cm' | 'nordea') {
+  const file = fileFor(uid, kind);
+  let exists = false; let lastWrite: string | null = null;
+  try { const st = fs.statSync(file); exists = true; lastWrite = st.mtime.toISOString(); } catch { /* not created yet */ }
+  return {
+    backend: remoteConfigured(kind) ? 'postgres' : 'sqlite',
+    file: path.basename(file),
+    connected: exists,
+    lastWrite,
+  };
+}
+
+/** V5: the customers the loaded dataset knows (picker on /arch.html). */
+export function archCustomers() {
+  return { customers: listCustomers() };
+}
+
+/** V5: "new session" - rotate the chat session and start from an empty stamped document (F16). */
+export function newSession(uid: string) {
+  const session: ChatSession = { id: newId('session'), roundId: '', startedAt: now(), lastActivityAt: now() };
+  saveSession(uid, session);
+  resetContextForSession(uid, session.id);
+  return { sessionId: session.id };
+}
+
 export function archState(uid: string) {
   const off = getOff(uid);
   const u = loadUserDb(uid);
   const cm = loadCmDb(uid);
   const bus = loadBus(uid);
   const nordea = nordeaFileExists(uid) ? loadNordeaDb(uid) : null;
+  const sessionRaw = busKvGet(uid, 'chatSession');
+  const session = sessionRaw ? (JSON.parse(sessionRaw) as ChatSession) : null;
+  const ctxDoc = loadContext(uid);
   return {
     userId: uid,
+    stores: { user: storeLine(uid, 'user'), cm: storeLine(uid, 'cm'), nordea: storeLine(uid, 'nordea') },
+    context: ctxDoc ? { sessionId: ctxDoc.sessionId, roundId: ctxDoc.roundId, trigger: ctxDoc.trigger, openedAt: ctxDoc.openedAt, finalisedAt: ctxDoc.finalisedAt } : null,
+    sessionId: session?.id ?? null,
     agents: {
       personal: { mode: u.personalAgent.mode, name: personalLabel(u), simulated: u.personalAgent.mode === 'external', off: off.includes('personal') },
       cm: { off: off.includes('cm') },
@@ -394,7 +430,7 @@ export function archState(uid: string) {
       contextMemory: { entries: cm.entries.length, disputed: cm.entries.filter((e) => e.status === 'disputed').length, parked: !!cm.parked, permissions: cm.permissions ?? null },
       nordea: nordea ? { accounts: nordea.accounts.length, transactions: nordea.transactions.length } : null,
     },
-    contextMd: (() => { const d = loadContext(uid); return d ? renderContextMd(uid, d) : null; })(),
+    contextMd: ctxDoc ? renderContextMd(uid, ctxDoc) : null,
     queues: {
       airlock: bus.airlock.filter((b) => b.status === 'pending'),
       review: bus.messages.filter((m) => m.type === 'propose' && m.status === 'pending'),
