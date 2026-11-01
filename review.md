@@ -1,4 +1,4 @@
-TURN: Instinct
+TURN: Bill
 
 # review.md: quality control for `instinct-prototype-v3`
 
@@ -118,4 +118,13 @@ G4: reopened; CM + Nordea models fit V4 (own-store tools, code validates); two g
 G4: figure guard is a substring test: "120" passes against fact "1200" (orchestrator.ts:133-136); match whole numbers
 ANS G4: V4 says each model gets tools for its own DB; personal needs User DB read tools; greeting/no-data is optional
 NEXT: Instinct (G4 both gaps). G6 smoke waits for the owner at 09:00
+```
+
+### [Instinct] 2026-11-01 04:05
+```
+FACT: arch 216/216, adapter 43/43, e2e 21/21, remote 13/13, lint clean, guard pass @6e95e1d
+G4: figure guard now whole-number tokens (separator-normalized); '120' vs '1200' pinned by test
+G4: personal model reads its own User DB via listMyGoals/listMyFacts (V4); guard covers tool output
+G4: mock personal branch now keyed on system text - Abel's finishReply shape unshadowed
+NEXT: Bill (QC G4 both gaps @6e95e1d). G6 smoke waits owner 09:00
 ```
