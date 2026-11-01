@@ -47,23 +47,17 @@ This branch starts from `instinct-prototype-v2` @ `4433b05`. The v2 review is ke
 ---
 
 ## 🧠 Context memory
-*Joe, updated 2026-11-01 17:55.*
+*Joe, updated 2026-11-01 17:58.*
 
-- **Goal:** one system; 3 agents + their DBs are the only home for customer data; Abel, `/arch.html` (rw), `/dev-monitor.html` (ro) on one server. Done = V1–V8.
-- **Hosted (02:27):** 3 tables in one Supabase project, one access policy per agent; `context.md` per session; external MCP agent after v3 (V9 out).
-- **Agents (02:29):** all 3 LLM-driven (V4); arch.html messages bounded + scrollable (V5); on conflict Instinct follows Bill.
-- **Verified:** G1–G29 + G33 (Verified line). Live: Supabase G15 @58aa3fa, role smoke 30/30 (G6), real model G16.
-- **Models:** Groq free tier for live runs; Gemini backup wired (`LLM_GEMINI_FIRST`); mock = no-key test stand-in only.
-- **Setup docs:** `python` not `python3`; newcomer can set up from scratch; all 3 SQL files in step 1 (nordea-feed.sql last).
-- **Guard (G23):** `.githooks/pre-commit`, `npm prepare`; Joe's messages skipped for TURN/NEXT. Monitor on (`DEV_MONITOR=0` hides).
-- **Token pause (16:01):** Instinct reports, Bill feedback, Instinct implements on owner OK. Owner away until 20:00; questions via Instinct.
-- **Target flow (owner 16:22):** Abel answers ONLY from finalised context.md (User DB + CM + Nordea sections); no FACTS/cabinet notes beside it.
-- **Bill's 4 conditions (16:26):** 1st question builds doc, later gaps top-up; small talk = reply, no round; no direct bank reads; app + arch.html same id/messages/doc (e2e).
-- **Legacy (owner 16:35–17:44):** cabinet-db.json → 3 agent DBs only, auto-delete after verify, NO backup. Offers retire, imports stay; history preserved.
-- **Plumbing (Bill 16:43):** chat/topicLog/settings → user.db, accessLog → cm.db, rewards → nordea.db; session's first message builds the doc.
-- **Now (Instinct, Bill 17:47):** G34 (M): hosted read-back compares JSON.stringify but column is jsonb → use `canon()` both sides + reorder test.
-- **Next:** G30 slice 3 (/api/chat → arch chat(), cond-4 e2e, abel.ts retires), G31, G32 legs 1–2 (legs 3–5 need owner Supabase access).
-- **Settled:** off-switch gates reasoning only; Node 22.13+; one writer per section; risk by `assessEntryRisk`; Abel sees active rows only.
+- **Goal:** one system: 3 agents + their DBs are the only home for customer data; Abel, arch.html (rw), dev-monitor (ro). Done = V1–V8.
+- **Owner:** hosted = 3 tables in one Supabase project, one policy per agent; external MCP agent after v3 (V9 out).
+- **Owner:** all 3 agents LLM-driven (V4); on conflict Instinct follows Bill; Groq free tier for live runs.
+- **Owner (16:22):** Abel answers ONLY from finalised context.md; Bill's 4 conditions (16:26) are the QC gate.
+- **Owner (16:35–17:44):** cabinet-db.json → 3 agent DBs only, auto-delete after verify, NO backup; offers retire, imports stay.
+- **Owner:** away until 20:00; questions go through Instinct; no spending or live Supabase legs 3–5 until he is back.
+- **Verified:** G1–G29, G33 (Verified line).
+- **Now (Instinct, Bill 17:47):** G34 (M): hosted read-back uses JSON.stringify on jsonb; use `canon()` both sides + reorder test.
+- **Next:** G30 slice 3 (/api/chat → arch chat(), e2e cond-4, abel.ts retires) → G31 → G32 legs 1–2.
 
 ---
 
