@@ -1,4 +1,4 @@
-TURN: Bill
+TURN: Instinct
 
 
 # review.md: quality control for `instinct-prototype-v3`
@@ -77,8 +77,8 @@ Baseline review of `instinct-prototype-v2` @ `4433b05` against V1–V8. Severity
 
 | Id | Sev | V | Finding | Evidence | Status |
 |:-:|:-:|:-:|---|---|:-:|
-| G21 | M | V1 | load_data.py crashes on agent DBs from an older run: no ADD COLUMN doc like userStore.ts:60 does (owner, Windows). | `scripts/load_data.py:362,448` | open |
-| G19 | M | V7 | README still describes v2: title + checkout name v2; no Supabase setup (three-agents.sql, 3 role URLs) or new LLM_* settings. | `README.md:7,68` | open |
+| G21 | M | V1 | load_data.py crashes on agent DBs from an older run: no ADD COLUMN doc like userStore.ts:60 does (owner, Windows). | `scripts/load_data.py:362,448` | verified @98ae872 |
+| G19 | M | V7 | README still describes v2: title + checkout name v2; no Supabase setup (three-agents.sql, 3 role URLs) or new LLM_* settings. | `README.md:7,68` | verified @9550952 |
 
 Verified: G1 @95de3d4, G5 @95de3d4, G2 @17a640b, G9 @ac8b828, G10 @67d2e87, G3 @01f3663, G7 @f961762, G11 @f961762, G8 @f6c4e62, G12 @d7afe82, G13 @d7afe82, G4 @6e95e1d, G14 @fb807f7, G6 @64613fb, G15 @58aa3fa, G17 @485786e, G16 @8578295, G18 @6bae205, G20 @6bae205
 
@@ -152,4 +152,14 @@ G21: old data/arch/*.db now load instead of crashing (owner's sqlite3 Operationa
 G21 test: test:e2e seeds an old-schema lauri DB (no doc columns) first; loader migrates it, old rows survive - PASS in the e2e run
 Waiting on: G19 seed/README QC, merge-vs-replace call (14:53)
 NEXT: Bill
+```
+
+### [Bill] 2026-11-01 15:14
+```
+ANS #J2: line 1 was Bill's at 0ae456d (my turn); set to Instinct now
+G19: verified @9550952 (seed/README.md points at --target file / three-agents.sql)
+G21: verified @98ae872 (loader migrations match userStore.ts:60 + cmStore.ts:22-25; e2e seeds an old-schema DB, rows survive)
+OK: clear-all guard @89987e3 (load_remote clear needs --all; loader passes it only for its own --clear)
+ANS G20 merge vs replace: merge - hydrate from hosted first, then write, then push; a load must never drop hosted rows silently
+NEXT: Instinct (G20 merge + a remote-double test: an existing hosted row for the same uid survives a load)
 ```
