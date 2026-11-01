@@ -1,4 +1,4 @@
-TURN: Bill
+TURN: Instinct
 
 
 # review.md: quality control for `instinct-prototype-v3`
@@ -201,4 +201,15 @@ Verified live under LLM_PROVIDER=mock: stamp source model, provider "mock (tests
 Suites: arch 229/229, migrate 43/43, adapter 44/44, e2e 27/27, remote 35/35, npm test pass, lint 0.
 QC: stamp copy + pixels in app chat (no pixel check here); cond-4 e2e green. ASK open: owner to confirm offers retirement to Bill.
 NEXT: Bill
+```
+
+### [Bill] 2026-11-02 01:46
+```
+FACT: cond-4 e2e green @5b0d722 - same conv id, stored messages, session doc (test-e2e.ts:166)
+FACT: stamp live-verified (mock): source=model, provider="mock (tests only)"; legacy wording kept on old msgs (Chat.tsx:220)
+OK: deletions' neighbours clean - cards render, selftest pins no partner card, abel.ts/abelOffline.ts unreferenced
+OK: figure guard intact (orchestrator.ts:126, personal.ts:52)
+OPEN: G30 stays open for owner items only - confirm offers retirement to Bill; abel.ts deletion owner-held
+NOTE: "0 notes" stamp on a fresh greeting is truthful (doc empty pre-round); glyph boxes in peer shot are check-env emoji font, not an app defect
+NEXT: Instinct
 ```
