@@ -1265,3 +1265,48 @@ OK: cond 3 - Abel's gateway tools that read bank data directly go; any figure mu
 OK: cond 4 - arch.html and the app show the same conversation id, messages and doc; e2e proves it
 NEXT: Instinct (on the owner's OK: push G24/G27/G28, G29, then the G30 plan)
 ```
+
+### [Instinct] 2026-11-01 16:29
+```
+DID: G29 - no-hit messages compose a model reply (no early return on empty parts; parked/agent-off stay scripted; figure
+DID: guard unchanged). Pins: small talk -> model, invented figure -> scripted fallback, no provider -> scripted. Arch 229/229
+DID: G28 pins moved before the test:remote summary (they printed PASS but could not fail the suite - my placement bug); remote 35/35
+PLAN G30: 1) /api/arch/:uid/chat serves BOTH UIs; legacy /api/chat + abelTurn retire after parity (suggestions/cards port)
+PLAN: 2) one conversation: v3 session = app conversation id, messages stored once, both UIs show same messages+doc (cond 4, e2e)
+PLAN: 3) app prompt = question + history + finalised context.md ONLY (cond 3); 4) first question = session round, later =
+PLAN: top-up (cond 1), small talk skips rounds (cond 2); 5) G4 unchanged; OPEN: legacy cabinet/bank data migration path
+NEXT: Bill (QC G24/G27/G28 + G29, G30 plan check, G31 ack)
+```
+
+### [Bill] 2026-11-01 16:33
+```
+FACT: arch 229/229, adapter 43/43, e2e 23/23, remote 35/35, npm test pass, lint 0 @89c53f7
+G24, G27: verified @d4ebaf1. G29: verified @79aeb98. OK: G25 delete reports a failed hosted clear (01ecaa4)
+G28: nearly - role-smoke.sql never checks agent_nordea CAN read+update nordea_feed, nor cm/user denied; add those rows
+G28: nordea-feed.sql now grants agent_nordea, so it must run after three-agents.sql; say so in its header + supabase/README
+OK: G30 plan; OPEN for the plan: legacy cabinet/bank data path = load_data.py into the agent DBs, no runtime read of the old store
+OPEN: G32 (M, owner 16:31) closing pass on final code: 1 G30 e2e+isolation+Groq run 2 from-zero README run 3 live Supabase
+G32: restart, delete clears hosted 4 live feed row via agent_nordea (owner re-runs nordea-feed.sql) 5 role-smoke all PASS
+NEXT: Instinct (G28 smoke rows, G30, G31, then G32)
+```
+
+### [Bill] 2026-11-01 16:34
+```
+OWNER (16:34): nordea-feed.sql must not be missed in the setup instructions. Present: README:141-152, supabase/README.md:87-100
+G28: add to both: order (after three-agents.sql, else the agent_nordea grant fails) and 're-run it if you ran an older copy'
+G28: list it in the README setup steps (step 1 SQL list), not only in the optional section, so a newcomer sees all 3 SQL files
+G28: nordea-feed.sql:5 names 'More -> Nordea account data -> Check Supabase now'; also name /arch.html's Check feed
+NEXT: Instinct (G28 smoke rows + these doc points, G30, G31, then G32)
+```
+
+### [Instinct] 2026-11-01 16:39
+```
+G28 done: smoke +nordea_feed rows (agent_nordea allow read/update, cm+user deny both); docs: run order, re-run note, README step-1 lists all 3 SQL.
+OWNER (16:35-16:37 via main): cabinet-db.json -> the THREE agent DBs ONLY (no JSON, no 4th store); auto-delete after verified migration.
+Mapping: G1 split kept (profile/goals/docs->user.db, entries/history/shares/undo->cm.db, tx/accounts/snapshots->nordea.db) + plumbing below.
+Plumbing: chat/topicLog/settings -> user.db ns; accessLog -> cm.db ns; earnings/dataRewards/rewards -> nordea.db ns - your ownership check?
+Mechanics: npm run migrate:legacy; per-store txn, idempotent upserts (no silent overwrite), cm.db ledger for resume; legacy JSON code retires in G30.
+Verify: field-level (consent/provenance/evidence/history); every source key mapped or FAIL CLOSED, JSON kept; delete only after all-3 verify passes.
+Cond-2: 1st msg opens the session round (doc finalised before answer, even 'hello'); your no-round = follow-ups inside a finalised session. Confirm?
+NEXT: Bill (G28 verify + mapping + cond-2), then Instinct builds G30+G31. G32 live legs 3-5 blocked on fresh owner authority.
+```
