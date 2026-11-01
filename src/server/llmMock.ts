@@ -32,6 +32,24 @@ export const mockProvider: LlmProvider = {
     if (tools.some((t) => t.name === 'proposeEntries')) {
       return { calls: [call('proposeEntries', { kind: 'notes', summary: 'Your travel notes.', items: [{ type: 'goal', title: 'Trip to Japan', quote: 'Japan next spring, about 4000', sensitive: false, targetAmount: 4000, targetDate: '2027-04-30' }] })] };
     }
+    // G4/V4: the arch agents' planning tools get deterministic mock plans, so tests drive
+    // the LLM path end to end (real providers answer the same tools live).
+    if (tools.some((t) => t.name === 'finishRetrievalPlan')) {
+      const titles = (lastUserText(turns).match(/goal titles: (.+)$/mi)?.[1] ?? '').split(';').map((s) => s.trim()).filter(Boolean);
+      const firstTurn = turns.find((x) => x.role === 'user');
+      if (turns.some((x) => x.role === 'tool_results')) {
+        return { calls: [call('finishRetrievalPlan', { goalTitles: titles, reason: 'mock: every goal needs fresh evidence' })] };
+      }
+      void firstTurn;
+      return { calls: [call('listMyEntries', {})] };
+    }
+    if (tools.some((t) => t.name === 'finishMatchTerms')) {
+      const titles = (lastUserText(turns).match(/goal titles: (.+)$/mi)?.[1] ?? '').split(';').map((s) => s.trim()).filter(Boolean);
+      if (turns.some((x) => x.role === 'tool_results')) {
+        return { calls: [call('finishMatchTerms', { terms: Object.fromEntries(titles.map((g) => [g, ['wash']])) })] };
+      }
+      return { calls: [call('listMyCategories', {})] };
+    }
     const u = lastUserText(turns);
     if (last.role === 'user') {
       if (/make up a number/.test(u)) return { calls: [call('finishReply', { text: 'You have 99 999 € hidden somewhere.', suggestions: [], usedEntryIds: [], topic: 'other', couldHelp: true })] };

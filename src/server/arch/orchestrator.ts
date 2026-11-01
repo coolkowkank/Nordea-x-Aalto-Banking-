@@ -6,6 +6,7 @@
  */
 import { ArchError, newId, now } from './types.js';
 import type { AgentId, ArchEntry, BuildRound, Goal } from './types.js';
+import { overlaps, words } from './text.js';
 import { dispatchPending } from './dispatcher.js';
 import { runRound } from './rounds.js';
 import {
@@ -72,7 +73,7 @@ function saveSession(uid: string, session: ChatSession) { busKvSet(uid, 'chatSes
  * has nothing from the Context Memory agent for a follow-up, a top-up round adds rows to the
  * same document (never a fresh one).
  */
-export function chat(uid: string, text: string, clientSessionId?: string): { reply: string; used: string[]; sessionId: string } {
+export async function chat(uid: string, text: string, clientSessionId?: string): Promise<{ reply: string; used: string[]; sessionId: string }> {
   const parked = getCabinetParkedMirror(uid); // the personal agent's parked gate, no status ping
   const { session, isNew } = resolveSession(uid, clientSessionId);
   // F17: direct input (a typed goal) is saved BEFORE any round opens, so the session round's
@@ -83,7 +84,7 @@ export function chat(uid: string, text: string, clientSessionId?: string): { rep
     // no round can run (agent off, parked), an earlier session's rows must not leak in.
     resetContextForSession(uid, session.id);
     if (!parked && !getOff(uid).some((a) => a === 'personal' || a === 'cm' || a === 'nordea')) {
-      const round = runRound(uid, 'session', { question: text, sessionId: session.id });
+      const round = runRound(uid, 'session', { question: text, sessionId: session.id, llm: await planRoundLlm(uid, text) });
       session.roundId = round.id;
     }
   }
@@ -109,7 +110,7 @@ export function chat(uid: string, text: string, clientSessionId?: string): { rep
  * build round when the agents can run one - and is otherwise simply not served (never wiped,
  * never leaked across sessions). Nothing here opens an agent's store for fact assembly.
  */
-export function abelSharedContext(uid: string, sessionId: string, question: string): { userDbFacts?: string; sharedContext?: string; provenance: string[] } {
+export async function abelSharedContext(uid: string, sessionId: string, question: string): Promise<{ userDbFacts?: string; sharedContext?: string; provenance: string[] }> {
   const out: { userDbFacts?: string; sharedContext?: string; provenance: string[] } = { provenance: [] };
   if (!nordeaFileExists(uid)) return out; // the architecture is not in use for this customer
   const off = getOff(uid);
@@ -131,7 +132,7 @@ export function abelSharedContext(uid: string, sessionId: string, question: stri
     if (!doc || doc.sessionId !== sessionId || !doc.finalisedAt) {
       // AC2: this session has no finished document - build one (fresh, stamped with its id).
       resetContextForSession(uid, sessionId);
-      runRound(uid, 'session', { question, sessionId });
+      runRound(uid, 'session', { question, sessionId, llm: await planRoundLlm(uid, question) });
     }
     const fresh = loadContext(uid);
     if (fresh && fresh.sessionId === sessionId && fresh.finalisedAt) {
@@ -167,7 +168,35 @@ export function agentQuery(uid: string, to: 'cm' | 'nordea', question: string): 
 
 // ---------- Goal-filtered bank contributions as a build round (AC6) ----------
 
-export function contribute(uid: string) {
+
+/**
+ * G4/V4 pre-step: the CM and Nordea agents' models propose the round's retrieval plan and
+ * match terms (their own-store tools only); code validates and the round consumes them.
+ * Any failure or missing provider = scripted fallback (null), so tests and the no-AI path
+ * behave exactly as before.
+ */
+async function planRoundLlm(uid: string, question: string): Promise<NonNullable<BuildRound['llm']> | undefined> {
+  const { archLlmEnabled } = await import('./llm.js');
+  if (!archLlmEnabled()) return undefined;
+  if (getOff(uid).some((a) => a === 'personal' || a === 'cm' || a === 'nordea')) return undefined;
+  if (getCabinetParkedMirror(uid)) return undefined;
+  // The goal titles the personal agent will share this round (same code rule as the
+  // scripted round: question-relevant for a session, all for a contribution). The models
+  // receive them exactly as they would via the in-round inform message - titles only.
+  const u = loadUserDb(uid);
+  const qw = question ? words(question) : [];
+  const relevant = question ? u.goals.filter((g) => overlaps(qw, words(`${g.title} ${g.detail}`))) : u.goals;
+  const titles = relevant.map((g) => g.title);
+  if (!titles.length) return undefined;
+  const { llmPlanRetrieval } = await import('./agents/cm.js');
+  const { llmProposeMatchTerms } = await import('./agents/nordea.js');
+  const [goalTitles, terms] = await Promise.all([llmPlanRetrieval(uid, question, titles), llmProposeMatchTerms(uid, titles)]);
+  if (!goalTitles && !terms) return undefined;
+  appendMessage(uid, { from: 'cm', to: 'app', type: 'inform', summary: `LLM round plan: ${goalTitles ? goalTitles.length + '/' + titles.length + ' goals for fresh evidence' : 'scripted retrieval'}, ${terms ? Object.keys(terms).length + ' goal(s) with extra match terms' : 'scripted matching'}.`, payload: { llm: true } });
+  return { ...(goalTitles ? { goalTitles } : {}), ...(terms ? { terms } : {}) };
+}
+
+export async function contribute(uid: string) {
   requireAgentOn(uid, 'nordea');
   requireAgentOn(uid, 'cm');
   // The agents report their own state by control message; the app never opens their DBs (F12).
@@ -180,7 +209,7 @@ export function contribute(uid: string) {
     const pStatus = controlRoundTrip(uid, 'personal', 'Personal agent status before a contribution round.', { control: 'status' }) as { goals?: number };
     goalCount = pStatus.goals ?? null;
   }
-  const round = runRound(uid, 'contribution');
+  const round = runRound(uid, 'contribution', { llm: await planRoundLlm(uid, '') });
   return {
     askedVia: round.id,
     proposals: round.proposals,

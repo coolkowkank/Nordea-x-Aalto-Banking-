@@ -63,7 +63,7 @@ check('disconnect returns Abel as the in-app personal agent', S.loadUserDb(UID).
 
 // --- Decision 5: goal-filtered contribution -> merge review -> explain/dispute
 const decideFirstNordea = (uid: string) => A.decideProposal(uid, A.reviewQueue(uid).find((m) => m.from === 'nordea')!.id, true); // G3: the reactive round may already have proposed
-const c1 = A.contribute(UID);
+const c1 = await A.contribute(UID);
 const actPending = A.reviewQueue(UID).filter((m) => m.from === 'nordea' && m.summary.includes('Activity related to goal'));
 check('contribution proposes only goal-matching entries (G3: the reactive round may have proposed first)', c1.proposals.length + actPending.length === 1 && (c1.proposals[0]?.matched ?? ((actPending[0]?.payload as { transactionIds?: string[] })?.transactionIds?.length ?? 0)) === 2, JSON.stringify(c1.proposals));
 
@@ -74,7 +74,7 @@ check('AC2: sections are structured rows with provenance, rendered to markdown (
 check('AC2: the Customer section shares goal titles only - the detail stays in the User DB', !!doc1 && !doc1.sections.customer.rows.some((r) => `${r.title} ${r.detail}`.includes('12 000 EUR')));
 check('AC2: the CM agent stored a snapshot of the finished document at finalise', (S.loadContextSnapshot(UID) ?? '').includes('## Nordea'));
 check('no cabinet entry before review', S.loadCmDb(UID).entries.length === 0);
-const c2 = A.contribute(UID);
+const c2 = await A.contribute(UID);
 check('re-running contribution does not duplicate pending proposals', c2.proposals.length === 0);
 
 const busMsgs = S.loadBus(UID).messages;
@@ -87,7 +87,7 @@ check('accepting writes the cabinet entry to the Context Memory DB', S.loadCmDb(
 check('the entry carries provenance (proposedBy + viaMessageId)', S.loadCmDb(UID).entries[0].proposedBy === 'nordea' && !!S.loadCmDb(UID).entries[0].viaMessageId);
 check('F4: the personal agent proposed the customer goal to the cabinet (pending review)', queue.some((m) => m.from === 'personal' && (m.payload as { observed?: string } | undefined)?.observed === 'observed'));
 
-const docChat = A.chat(UID, 'how much have I saved for the car?');
+const docChat = await A.chat(UID, 'how much have I saved for the car?');
 check('B1c: chat answers from the finished context.md', docChat.reply.includes('83.5') && docChat.used.includes('context-memory-db'), docChat.reply);
 
 const explained = A.explainEntry(UID, entry.id);
@@ -97,24 +97,24 @@ const disputed = A.disputeEntry(UID, entry.id, 'Car wash is not saving for a car
 check('dispute marks the entry and keeps it visible', disputed.status === 'disputed' && (disputed.disputeReason ?? '').includes('Car wash'));
 
 // --- Decision 5: answer guardrails, honest thin-context answers
-const bankAnswer = A.chat(UID, 'what is my account balance?');
+const bankAnswer = await A.chat(UID, 'what is my account balance?');
 check('personal agent never reads the Nordea DB (guardrail)', bankAnswer.reply.includes("don't have your bank data"), bankAnswer.reply);
-const thin = A.chat(UID, 'what should I cook for a village festival?');
+const thin = await A.chat(UID, 'what should I cook for a village festival?');
 check('unknown topics get an honest thin-context answer', thin.reply.includes("don't have enough context"), thin.reply);
-const chatGoal = A.chat(UID, 'my goal is to visit Japan next summer');
+const chatGoal = await A.chat(UID, 'my goal is to visit Japan next summer');
 check('a goal typed in chat is direct input (no airlock)', S.loadUserDb(UID).goals.length === 2 && S.loadBus(UID).airlock.length === 2);
 
 // --- Decision 5: separate off / disconnect / delete
 A.setAgentOff(UID, 'nordea', true);
 threw = '';
-try { A.contribute(UID); } catch (e) { threw = (e as Error).message; }
+try { await A.contribute(UID); } catch (e) { threw = (e as Error).message; }
 check('turning the Nordea agent off stops contributions without deleting data', threw.includes('off'), threw);
 check('the Nordea DB still exists while the agent is off', S.nordeaFileExists(UID));
 A.setAgentOff(UID, 'nordea', false);
 
 A.setAgentOff(UID, 'personal', true);
 threw = '';
-try { A.chat(UID, 'hello'); } catch (e) { threw = (e as Error).message; }
+try { await A.chat(UID, 'hello'); } catch (e) { threw = (e as Error).message; }
 check('turning the personal agent off stops chat', threw.includes('off'), threw);
 A.setAgentOff(UID, 'personal', false);
 
@@ -143,14 +143,14 @@ S.saveNordeaDb({
 A.addGoalDirect(UID2, 'Save for a car');
 // G3: the reactive user-change round already proposed the goal-relevant activity, so the
 // contribution round dedupes - take whichever proposal the rounds left pending.
-const sc = A.contribute(UID2);
+const sc = await A.contribute(UID2);
 const firstId = sc.proposals[0]?.messageId ?? A.reviewQueue(UID2).find((m) => m.summary.includes('Activity related to goal'))!.id;
 A.decideProposal(UID2, firstId, true);
 check('staleness setup: entry active with 100 EUR evidence', S.loadCmDb(UID2).entries[0].status === 'active' && S.loadCmDb(UID2).entries[0].evidence?.total === 100);
 const nd = S.loadNordeaDb(UID2)!;
 nd.transactions.push({ id: 's2', userId: UID2, date: '2026-10-02', category: 'transport', amount: -50, account: 'current', description: 'Car wash' });
 S.saveNordeaDb(nd);
-const sc2 = A.contribute(UID2);
+const sc2 = await A.contribute(UID2);
 check('changed facts flag the accepted entry stale', S.loadCmDb(UID2).entries[0].status === 'stale');
 const staleBus = S.loadBus(UID2).messages;
 check('flag-stale and refresh messages were exchanged', staleBus.some((m) => m.type === 'flag-stale' && m.from === 'cm' && m.to === 'personal') && staleBus.some((m) => m.type === 'refresh' && m.from === 'cm' && m.to === 'nordea'));
@@ -204,14 +204,14 @@ check('the server\'s agent-query reply carries facts only, no composed wording',
 const UID3 = 'disputeuser';
 S.saveNordeaDb({ userId: UID3, accounts: [], transactions: [{ id: 'd1', userId: UID3, date: '2026-10-01', category: 'transport', amount: -100, account: 'current', description: 'Fuel' }] });
 A.addGoalDirect(UID3, 'Save for a car');
-A.contribute(UID3);
+await A.contribute(UID3);
 const dEntry = A.decideProposal(UID3, A.reviewQueue(UID3).find((m) => m.from === 'nordea')!.id, true);
 A.disputeEntry(UID3, (dEntry as { id: string }).id, 'savings transfers are not car spending');
 const nd3 = S.loadNordeaDb(UID3)!;
 nd3.transactions.push({ id: 'd2', userId: UID3, date: '2026-10-02', category: 'transport', amount: -50, account: 'current', description: 'Car wash' });
 S.saveNordeaDb(nd3);
-A.contribute(UID3);
-A.contribute(UID3);
+await A.contribute(UID3);
+await A.contribute(UID3);
 const dAfter = S.loadCmDb(UID3).entries;
 check('a disputed entry is never silently re-accepted by contribute/refresh cycles',
   dAfter.length === 1 && dAfter[0].status === 'disputed', JSON.stringify(dAfter.map((e) => e.status)));
@@ -228,7 +228,7 @@ check('the guardrail still rejects numbers absent from the retrieved facts', inv
 const UID4 = 'parkuser';
 S.saveNordeaDb({ userId: UID4, accounts: [], transactions: [{ id: 'p1', userId: UID4, date: '2026-10-01', category: 'transport', amount: -100, account: 'current', description: 'Fuel for the car' }] });
 A.addGoalDirect(UID4, 'Save for a car');
-A.contribute(UID4);
+await A.contribute(UID4);
 const parkPropId = A.reviewQueue(UID4).find((m) => m.from === 'nordea')!.id;
 A.parkCabinet(UID4, true);
 check('parking keeps every cabinet entry (nothing deleted)', S.loadCmDb(UID4).entries.length === 0 && S.loadCmDb(UID4).parked === true);
@@ -236,7 +236,7 @@ threw = '';
 try { A.agentQuery(UID4, 'cm', 'car'); } catch (e) { threw = (e as Error).message; }
 check('a parked cabinet denies agent reads (no disclosure)', threw.includes('parked'), threw);
 threw = '';
-try { A.contribute(UID4); } catch (e) { threw = (e as Error).message; }
+try { await A.contribute(UID4); } catch (e) { threw = (e as Error).message; }
 check('a parked cabinet denies new contributions', threw.includes('parked'), threw);
 threw = '';
 try { A.decideProposal(UID4, parkPropId, true); } catch (e) { threw = (e as Error).message; }
@@ -253,7 +253,7 @@ check('only the explicit reconnect resumes the cabinet', S.loadCmDb(UID4).parked
 A.connectExternalAgent(UID4, 'Meta Muse');
 A.disconnectPersonalAgent(UID4);
 check('the connect/disconnect swap never parks the cabinet by itself', !S.loadCmDb(UID4).parked);
-const pc2 = A.contribute(UID4);
+const pc2 = await A.contribute(UID4);
 check('after reconnect, contributions and agent reads work again', pc2.proposals.length === 1 && (A.agentQuery(UID4, 'cm', 'car').reply as { matchedEntries: unknown[] }).matchedEntries.length >= 0);
 
 // --- Bank import triggers the source-owner DB refresh + staleness detection (no manual contribution press)
@@ -269,7 +269,7 @@ S.deleteDb(UID5, 'nordea');
 S.saveBus(UID5, { messages: [], airlock: [] }); // clean slate: the legacy demo file now migrates into the three DBs on init
 S.saveNordeaDb({ userId: UID5, accounts: [], transactions: [{ id: 'i1', userId: UID5, date: '2026-10-01', category: 'transport', amount: -100, account: 'current', description: 'Fuel for the car' }] });
 A.addGoalDirect(UID5, 'Save for a car');
-const ic = A.contribute(UID5);
+const ic = await A.contribute(UID5);
 const iEntry = decideFirstNordea(UID5) as { id: string };
 check('import-test setup: entry active with 100 EUR evidence', S.loadCmDb(UID5).entries[0].status === 'active' && S.loadCmDb(UID5).entries[0].evidence?.total === 100);
 const applied = applyNordeaData(UID5, { mode: 'incremental', transactions: [{ date: '2026-10-20', amount: -42, category: 'transport', description: 'Extra fuel for the car', bankId: 'IMP-TEST-1' }] } as Parameters<typeof applyNordeaData>[1], 'test import');
@@ -294,7 +294,7 @@ S.deleteDb(UID6, 'nordea');
 S.saveBus(UID6, { messages: [], airlock: [] }); // clean slate: the legacy demo file now migrates into the three DBs on init
 S.saveNordeaDb({ userId: UID6, accounts: [], transactions: [{ id: 'e1', userId: UID6, date: '2026-10-01', category: 'transport', amount: -100, account: 'current', description: 'Fuel for the car' }] });
 A.addGoalDirect(UID6, 'Save for a car');
-const ec = A.contribute(UID6);
+const ec = await A.contribute(UID6);
 decideFirstNordea(UID6);
 A.parkCabinet(UID6, true);
 applyNordeaData(UID6, { mode: 'incremental', transactions: [{ date: '2026-10-21', amount: -55, category: 'transport', description: 'Extra fuel for the car', bankId: 'IMP-TEST-2' }] } as Parameters<typeof applyNordeaData>[1], 'test import while parked');
@@ -312,7 +312,7 @@ S.deleteDb(UID7, 'nordea');
 S.saveBus(UID7, { messages: [], airlock: [] }); // clean slate: the legacy demo file now migrates into the three DBs on init
 S.saveNordeaDb({ userId: UID7, accounts: [], transactions: [{ id: 'x1', userId: UID7, date: '2026-10-01', category: 'transport', amount: -100, account: 'current', description: 'Fuel for the car' }] });
 A.addGoalDirect(UID7, 'Save for a car');
-const xc = A.contribute(UID7);
+const xc = await A.contribute(UID7);
 decideFirstNordea(UID7);
 A.setAgentOff(UID7, 'nordea', true);
 applyNordeaData(UID7, { mode: 'incremental', transactions: [{ date: '2026-10-22', amount: -77, category: 'transport', description: 'More fuel for the car', bankId: 'IMP-TEST-3' }] } as Parameters<typeof applyNordeaData>[1], 'test import while off');
@@ -330,7 +330,7 @@ S.deleteDb(UID8, 'nordea');
 S.saveBus(UID8, { messages: [], airlock: [] }); // clean slate for this customer (earlier scenarios left a pending proposal)
 S.saveNordeaDb({ userId: UID8, accounts: [], transactions: [{ id: 'l1', userId: UID8, date: '2026-10-01', category: 'transport', amount: -100, account: 'current', description: 'Fuel for the car' }] });
 A.addGoalDirect(UID8, 'Save for a car');
-const lc = A.contribute(UID8);
+const lc = await A.contribute(UID8);
 decideFirstNordea(UID8);
 A.setAgentOff(UID8, 'cm', true);
 applyNordeaData(UID8, { mode: 'incremental', transactions: [{ date: '2026-10-23', amount: -33, category: 'transport', description: 'Even more fuel for the car', bankId: 'IMP-TEST-4' }] } as Parameters<typeof applyNordeaData>[1], 'test import while cm off');
@@ -349,7 +349,7 @@ const nordeaSrc = readSrc('../src/server/arch/agents/nordea.ts');
 // dispatcher, the round engine, text helpers and shared types. No agent imports the app layer -
 // no agent may import the app layer (../../db.js) - each agent's own DB is its only data source.
 const importsOf = (src: string) => [...src.matchAll(/from\s+['"]([^'"]+)['"]/g)].map((m) => m[1]);
-const AGENT_SHARED = ['../types.js', '../text.js', '../store/busStore.js', '../store/contextStore.js', '../dispatcher.js', '../rounds.js', '../risk.js']; // contextStore = the AC2 shared document, section writers pinned below
+const AGENT_SHARED = ['../types.js', '../text.js', '../store/busStore.js', '../store/contextStore.js', '../dispatcher.js', '../rounds.js', '../risk.js', '../llm.js']; // llm.js = the G4 bounded reasoning driver, not the app LLM // contextStore = the AC2 shared document, section writers pinned below
 const onlyAllowed = (src: string, ownStore: string, extra: string[] = []) => importsOf(src).every((spec) => [...AGENT_SHARED, ownStore, ...extra].includes(spec));
 check('AC1: the personal agent module imports only its own store plus shared bus/round infra', onlyAllowed(personalSrc, '../store/userStore.js'), importsOf(personalSrc).join(','));
 check('AC1: the CM agent module imports only its own store plus shared bus/round infra', onlyAllowed(cmSrc, '../store/cmStore.js'), importsOf(cmSrc).join(','));
@@ -373,7 +373,7 @@ check('AC11: Abel reads its cabinet through the access gateway, and only there',
 const UID9 = 'rounduser';
 S.saveNordeaDb({ userId: UID9, accounts: [], transactions: [{ id: 'r1', userId: UID9, date: '2026-10-01', category: 'transport', amount: -100, account: 'current', description: 'Fuel for the car' }] });
 A.addGoalDirect(UID9, 'Save for a car');
-const rc = A.contribute(UID9) as { round: { id: string; state: string; steps: number; maxSteps: number } };
+const rc = await A.contribute(UID9) as { round: { id: string; state: string; steps: number; maxSteps: number } };
 check('AC6: the build round finalised and stored within its step limit', rc.round.state === 'stored' && rc.round.steps > 0 && rc.round.steps <= rc.round.maxSteps, JSON.stringify(rc.round));
 check("AC6: the round is 'stored' only on the CM agent's own finalise confirmation (F13)",
   S.loadBus(UID9).messages.some((m) => m.from === 'cm' && m.to === 'app' && (m.payload as { roundId?: string; stored?: boolean } | undefined)?.roundId === rc.round.id && (m.payload as { stored?: boolean }).stored === true));
@@ -389,7 +389,7 @@ check('AC6: the CM agent stores the round record in its own DB at finalise', cmD
 const UID10 = 'limituser';
 S.saveNordeaDb({ userId: UID10, accounts: [], transactions: [{ id: 'l1', userId: UID10, date: '2026-10-01', category: 'transport', amount: -100, account: 'current', description: 'Fuel' }] });
 A.addGoalDirect(UID10, 'Save for a car');
-const lc10 = A.contribute(UID10);
+const lc10 = await A.contribute(UID10);
 decideFirstNordea(UID10);
 const limited = R.runRound(UID10, 'decay', { maxSteps: 1 });
 check('AC6: a round that cannot finish ends at its step limit', limited.state === 'step-limit', limited.state);
@@ -400,7 +400,7 @@ check('AC6: a round that cannot finish ends at its step limit', limited.state ==
 const accepted = A.decideProposal(UID9, A.reviewQueue(UID9).find((m) => m.from === 'nordea')!.id, true) as { id: string };
 const docBefore = S.loadContext(UID9)!;
 check('F15-8: accepting a proposal does NOT patch the finished document between rounds', !docBefore.sections.memory.rows.some((r) => r.id === accepted.id));
-const chatAns = A.chat(UID9, 'what do you know about my car saving?');
+const chatAns = await A.chat(UID9, 'what do you know about my car saving?');
 const doc9 = S.loadContext(UID9)!;
 check('F15: the first chat question opened a session round (new document)', doc9.roundId !== docBefore.roundId && !!chatAns.sessionId, doc9.roundId + ' vs ' + docBefore.roundId);
 check('F15: the session round is visible on the bus with the question', S.loadBus(UID9).messages.some((m) => m.type === 'round-start' && (m.payload as { trigger?: string; question?: string } | undefined)?.trigger === 'session' && (m.payload as { question?: string } | undefined)?.question === 'what do you know about my car saving?'));
@@ -408,19 +408,19 @@ check('the chat answer draws on the CM-written memory section of the finished co
 check('the memory section carries the accepted entry with provenance', doc9.sections.memory.rows.some((r) => r.id === accepted.id && r.source === 'cm' && typeof r.evidence?.total === 'number'));
 
 // --- F15: a follow-up question in the same session is answered from the SAME document.
-const follow = A.chat(UID9, 'tell me about the car saving again');
+const follow = await A.chat(UID9, 'tell me about the car saving again');
 const docFollow = S.loadContext(UID9)!;
 check('F15: a same-session follow-up keeps the same document (no new round)', docFollow.roundId === doc9.roundId && follow.sessionId === chatAns.sessionId, docFollow.roundId + ' vs ' + doc9.roundId);
 
 // --- F15-7: a follow-up the document has no memory row for triggers a top-up round on the
 // SAME document (a new round id, never a fresh document).
-const topupAns = A.chat(UID9, 'any grocery insights?');
+const topupAns = await A.chat(UID9, 'any grocery insights?');
 const docTop = S.loadContext(UID9)!;
 check('F15-7: an unanswered follow-up runs a top-up round on the same document', docTop.roundId !== doc9.roundId && docTop.trigger === 'topup' && S.loadBus(UID9).messages.some((m) => m.type === 'round-start' && (m.payload as { trigger?: string } | undefined)?.trigger === 'topup'), docTop.roundId + ' trigger ' + docTop.trigger);
 void topupAns;
 
 // --- F15: a different client session id ends the session and rebuilds the document.
-const other = A.chat(UID9, 'what do you know about my car saving?', 'client-session-2');
+const other = await A.chat(UID9, 'what do you know about my car saving?', 'client-session-2');
 const docNew = S.loadContext(UID9)!;
 check('F15: a new client session id starts a new session document', other.sessionId === 'client-session-2' && docNew.roundId !== docTop.roundId && docNew.trigger === 'session');
 
@@ -428,7 +428,7 @@ check('F15: a new client session id starts a new session document', other.sessio
 const UID12 = 'cmretrieve';
 A.addGoalDirect(UID12, 'Save for a car');
 S.saveNordeaDb({ userId: UID12, accounts: [], transactions: [{ id: 'c1', userId: UID12, date: '2026-10-01', category: 'transport', amount: -100, account: 'current', description: 'Fuel for the car' }] });
-const c12 = A.contribute(UID12);
+const c12 = await A.contribute(UID12);
 A.decideProposal(UID12, c12.proposals[0].messageId, true); // Nordea insight: 100 EUR
 const q12 = A.reviewQueue(UID12);
 const pEntryRes = A.decideProposal(UID12, q12.find((m) => m.from === 'personal')!.id, true) as { id: string };
@@ -463,19 +463,19 @@ check('F5: retrieval ranks the best question match first', hits5.length >= 3 && 
 const UID13 = 'sessionleak';
 A.addGoalDirect(UID13, 'Save for a car');
 S.saveNordeaDb({ userId: UID13, accounts: [], transactions: [{ id: 'x1', userId: UID13, date: '2026-10-01', category: 'transport', amount: -100, account: 'current', description: 'Fuel for the car' }] });
-const c13 = A.contribute(UID13);
+const c13 = await A.contribute(UID13);
 A.decideProposal(UID13, c13.proposals[0].messageId, true);
-const s13a = A.chat(UID13, 'what do you know about my car saving?');
+const s13a = await A.chat(UID13, 'what do you know about my car saving?');
 check('F16 setup: the first session answers from its document', s13a.reply.includes('Shared context'), s13a.reply.slice(0, 100));
 A.setAgentOff(UID13, 'cm', true);
-const s13b = A.chat(UID13, 'what do you know about my car saving?', 'fresh-session');
+const s13b = await A.chat(UID13, 'what do you know about my car saving?', 'fresh-session');
 check('F16: an agent off at session start gives NO rows from the old session', !s13b.reply.includes('Shared context (via') && s13b.reply.toLowerCase().includes('shared context is unavailable this session'), s13b.reply.slice(0, 140));
 check('F16: the new session document is empty and stamped with the new session id', S.loadContext(UID13)!.sessionId === 'fresh-session' && S.loadContext(UID13)!.sections.memory.rows.length === 0);
 A.setAgentOff(UID13, 'cm', false);
 
 // --- F17: "my goal is ..." as a session's first message is saved BEFORE the round opens.
 const UID14 = 'goalfirst';
-const g14 = A.chat(UID14, 'my goal is to visit Japan next summer');
+const g14 = await A.chat(UID14, 'my goal is to visit Japan next summer');
 check('F17: the goal reply still comes back', g14.reply.includes('Saved "to visit Japan next summer"'), g14.reply.slice(0, 80));
 const doc14 = S.loadContext(UID14)!;
 check('F17: the session round already contains the just-typed goal', doc14.sections.customer.rows.some((r) => r.title.toLowerCase().includes('japan')), JSON.stringify(doc14.sections.customer.rows.map((r) => r.title)));
@@ -485,7 +485,7 @@ check('F17: the session round already contains the just-typed goal', doc14.secti
 const UID15 = 'riskuser';
 S.saveNordeaDb({ userId: UID15, accounts: [], transactions: [{ id: 'k1', userId: UID15, date: '2026-10-01', category: 'transport', amount: -100, account: 'current', description: 'Fuel for the car' }] });
 A.addGoalDirect(UID15, 'Save for a car');
-A.contribute(UID15);
+await A.contribute(UID15);
 check('F7: first start defaults to review-everything (no standing permissions set yet)', A.reviewQueue(UID15).length === 2 && S.loadCmDb(UID15).entries.length === 0, `queue ${A.reviewQueue(UID15).length}`);
 A.setStandingPermissions(UID15, 'high');
 const cm15 = S.loadCmDb(UID15);
@@ -503,7 +503,7 @@ const UID16 = 'riskhigh';
 S.saveNordeaDb({ userId: UID16, accounts: [], transactions: [{ id: 'h1', userId: UID16, date: '2026-10-01', category: 'groceries', amount: -20, account: 'current', description: 'Weekly groceries' }] });
 A.addGoalDirect(UID16, 'therapy fund');
 A.setStandingPermissions(UID16, 'high');
-A.contribute(UID16);
+await A.contribute(UID16);
 check('F7: a sensitive-topic proposal is HIGH risk and waits for the customer', S.loadCmDb(UID16).entries.length === 0 && A.reviewQueue(UID16).length === 1, `entries ${S.loadCmDb(UID16).entries.length} queue ${A.reviewQueue(UID16).length}`);
 
 
@@ -531,33 +531,53 @@ const g51 = A.addGoalDirect(UID51, 'Save for a car');
 A.appWrites.updateGoal(UID51, g51.id, { title: 'Save for a boat' });
 check('G7: editing a goal on /arch.html updates the User DB through the personal agent', S.loadUserDb(UID51).goals[0]?.title === 'Save for a boat');
 check('G7: the edit is reactive - a user-change round runs', R.loadLatestRound(UID51)?.trigger === 'user-change', R.loadLatestRound(UID51)?.trigger);
-check('G7: Abel\'s shared context carries the edited goal', (A.abelSharedContext(UID51, 'conv-g51', 'boat').userDbFacts ?? '').includes('Save for a boat'), A.abelSharedContext(UID51, 'conv-g51', 'boat').userDbFacts);
+check('G7: Abel\'s shared context carries the edited goal', ((await A.abelSharedContext(UID51, 'conv-g51', 'boat')).userDbFacts ?? '').includes('Save for a boat'), (await A.abelSharedContext(UID51, 'conv-g51', 'boat')).userDbFacts);
 A.appWrites.removeGoal(UID51, g51.id);
 check('G7: deleting a goal removes it from the User DB', S.loadUserDb(UID51).goals.length === 0);
 check('G7: the delete is reactive too', R.loadLatestRound(UID51)?.trigger === 'user-change', R.loadLatestRound(UID51)?.trigger);
-check('G7: the deleted goal leaves Abel\'s knowledge', !(A.abelSharedContext(UID51, 'conv-g51b', 'boat').userDbFacts ?? '').includes('Save for a boat'));
+check('G7: the deleted goal leaves Abel\'s knowledge', !((await A.abelSharedContext(UID51, 'conv-g51b', 'boat')).userDbFacts ?? '').includes('Save for a boat'));
+
+// --- G4/V4: LLM-driven planning (mock provider) - the model proposes, code checks and writes
+const LL = await import('../src/server/llm.js');
+const LM = await import('../src/server/llmMock.js');
+const UID53 = 'llmuser';
+S.saveNordeaDb({ userId: UID53, accounts: [], transactions: [{ id: 'lt1', userId: UID53, date: '2026-10-01', category: 'other', amount: -30, account: 'current', description: 'wash and wax service' }] });
+A.addGoalDirect(UID53, 'Save for a car');
+const scripted53 = await A.contribute(UID53);
+check('G4: the scripted fallback misses what only a synonym would catch', scripted53.proposals.length === 0, JSON.stringify(scripted53.proposals));
+LL.setProviderForTests(LM.mockProvider);
+const llm53 = await A.contribute(UID53);
+const round53 = R.loadRound(UID53, llm53.round.id)!;
+check('G4: the CM model\'s retrieval plan rides the round (validated subset of shared titles)', (round53.llm?.goalTitles ?? []).includes('Save for a car'), JSON.stringify(round53.llm));
+check('G4: the Nordea model\'s match terms are validated and recorded', (round53.llm?.terms?.['Save for a car'] ?? []).includes('wash'), JSON.stringify(round53.llm?.terms));
+check('G4: the LLM term catches the transaction - code still owns matching, totals and evidence', llm53.proposals.length === 1 && llm53.proposals[0].total === 30 && llm53.proposals[0].matched === 1, JSON.stringify(llm53.proposals));
+check('G4: the plan is auditable on the bus', S.loadBus(UID53).messages.some((m) => m.type === 'inform' && (m.payload as { llm?: boolean } | undefined)?.llm === true));
+LL.setProviderForTests({ ...LM.mockProvider, step: async () => { throw new Error('provider down'); } });
+const down53 = await A.contribute(UID53);
+check('G4: a failing provider falls back to the scripted path (round still runs)', R.loadRound(UID53, down53.round.id)?.llm === undefined, JSON.stringify(R.loadRound(UID53, down53.round.id)?.llm));
+LL.setProviderForTests(null);
 
 // --- F18: maintenance rounds merge into the open session's document - no row is dropped.
 const UID17 = 'mergeround';
 A.addGoalDirect(UID17, 'Save for a car');
 S.saveNordeaDb({ userId: UID17, accounts: [], transactions: [{ id: 'm1', userId: UID17, date: '2026-10-01', category: 'transport', amount: -100, account: 'current', description: 'Fuel for the car' }] });
-const c17 = A.contribute(UID17);
+const c17 = await A.contribute(UID17);
 A.decideProposal(UID17, c17.proposals[0].messageId, true);
-A.chat(UID17, 'what do you know about my car saving?'); // opens the session; Nordea adds a question row
+await A.chat(UID17, 'what do you know about my car saving?'); // opens the session; Nordea adds a question row
 const doc17a = S.loadContext(UID17)!;
 const qRow = doc17a.sections.nordea.rows.find((r) => r.id.startsWith('nq-'));
 check('F18 setup: the session document has a question-relevant Nordea row', !!qRow, JSON.stringify(doc17a.sections.nordea.rows.map((r) => r.id)));
 R.runRound(UID17, 'decay'); // maintenance DURING the session
 const doc17b = S.loadContext(UID17)!;
 check('F18: a decay round keeps the session question row and the memory rows', doc17b.sections.nordea.rows.some((r) => r.id === qRow!.id) && doc17b.sections.memory.rows.length >= doc17a.sections.memory.rows.length, JSON.stringify(doc17b.sections.nordea.rows.map((r) => r.id)));
-A.contribute(UID17); // the Contribute button mid-session
+await A.contribute(UID17); // the Contribute button mid-session
 const doc17c = S.loadContext(UID17)!;
 check('F18: a contribution round mid-session merges instead of rewriting', doc17c.sections.nordea.rows.some((r) => r.id === qRow!.id), JSON.stringify(doc17c.sections.nordea.rows.map((r) => r.id)));
 
 // --- F19: the "shared context unavailable" reply is reachable (no goals, agent off at start).
 const UID18 = 'unavail';
 A.setAgentOff(UID18, 'cm', true);
-const unavail = A.chat(UID18, 'any grocery insights?');
+const unavail = await A.chat(UID18, 'any grocery insights?');
 check('F19: with no document and no user-db hit, chat plainly says shared context is unavailable this session', unavail.reply.includes('shared context is unavailable this session'), unavail.reply.slice(0, 120));
 A.setAgentOff(UID18, 'cm', false);
 
@@ -592,11 +612,11 @@ const UID21 = 'churnuser';
 S.saveNordeaDb({ userId: UID21, accounts: [], transactions: [{ id: 'c1', userId: UID21, date: '2026-10-01', category: 'transport', amount: -60, account: 'current', description: 'Fuel for the car' }, { id: 'c2', userId: UID21, date: '2026-10-02', category: 'transport', amount: -40, account: 'current', description: 'Car wash' }] });
 A.addGoalDirect(UID21, 'Save for a car');
 A.setStandingPermissions(UID21, 'high');
-A.contribute(UID21);
+await A.contribute(UID21);
 const churnEntry = S.loadCmDb(UID21).entries.find((e) => e.proposedBy === 'nordea')!;
 check('F8 setup: Nordea aggregate auto-stored with transaction evidence', !!churnEntry && churnEntry.evidence?.total === 100 && (churnEntry.evidence?.transactionIds?.length ?? 0) > 0, JSON.stringify(churnEntry?.evidence));
 S.saveNordeaDb({ userId: UID21, accounts: [], transactions: [{ id: 'c9', userId: UID21, date: '2026-10-03', category: 'transport', amount: -100, account: 'current', description: 'Fuel for the car' }] });
-const churnRound = A.contribute(UID21);
+const churnRound = await A.contribute(UID21);
 check('F8: churned transactions flag the entry stale even when the total is unchanged', S.loadCmDb(UID21).entries.find((e) => e.id === churnEntry.id)?.status === 'stale' && churnRound.staleFlags.some((f) => f.entryId === churnEntry.id), JSON.stringify(churnRound.staleFlags));
 check('F8: the churn flag says the underlying transactions changed', S.loadBus(UID21).messages.some((m) => m.type === 'flag-stale' && m.summary.includes('underlying transactions changed')));
 
@@ -604,36 +624,36 @@ const UID22 = 'ageduser';
 S.saveNordeaDb({ userId: UID22, accounts: [], transactions: [{ id: 'a1', userId: UID22, date: '2026-10-01', category: 'transport', amount: -50, account: 'current', description: 'Fuel for the car' }] });
 A.addGoalDirect(UID22, 'Save for a car');
 A.setStandingPermissions(UID22, 'high');
-A.contribute(UID22);
+await A.contribute(UID22);
 const cm19 = S.loadCmDb(UID22);
 const agedEntry = cm19.entries.find((e) => e.proposedBy === 'nordea')!;
 agedEntry.createdAt = new Date(Date.now() - 40 * 24 * 60 * 60 * 1000).toISOString();
 agedEntry.evidence = { total: 50 }; // legacy entry: a total but no transaction ids to verify
 S.saveCmDb(cm19);
-const agedRound = A.contribute(UID22);
+const agedRound = await A.contribute(UID22);
 check('F8: an aged entry without verifiable transaction ids is flagged even though the total still matches', S.loadCmDb(UID22).entries.find((e) => e.id === agedEntry.id)?.status === 'stale' && agedRound.staleFlags.some((f) => f.entryId === agedEntry.id && f.reason === 'aged'), JSON.stringify(agedRound.staleFlags));
 
 const UID23 = 'agedokuser';
 S.saveNordeaDb({ userId: UID23, accounts: [], transactions: [{ id: 'b1', userId: UID23, date: '2026-10-01', category: 'transport', amount: -50, account: 'current', description: 'Fuel for the car' }] });
 A.addGoalDirect(UID23, 'Save for a car');
 A.setStandingPermissions(UID23, 'high');
-A.contribute(UID23);
+await A.contribute(UID23);
 const cm19b = S.loadCmDb(UID23);
 cm19b.entries.forEach((e) => { e.createdAt = new Date(Date.now() - 40 * 24 * 60 * 60 * 1000).toISOString(); });
 S.saveCmDb(cm19b);
-const agedOkRound = A.contribute(UID23);
+const agedOkRound = await A.contribute(UID23);
 check('F8: an aged entry whose ids and total still match is CONFIRMED, not flagged', agedOkRound.staleFlags.length === 0 && S.loadCmDb(UID23).entries.every((e) => e.status === 'active'), JSON.stringify(agedOkRound.staleFlags));
 
 const UID24 = 'noevuser';
 S.saveNordeaDb({ userId: UID24, accounts: [], transactions: [{ id: 'n1', userId: UID24, date: '2026-10-01', category: 'transport', amount: -75, account: 'current', description: 'Fuel for the car' }] });
 A.addGoalDirect(UID24, 'Save for a car');
 A.setStandingPermissions(UID24, 'high');
-A.contribute(UID24);
+await A.contribute(UID24);
 const cm20 = S.loadCmDb(UID24);
 const noevEntry = cm20.entries.find((e) => e.proposedBy === 'nordea')!;
 noevEntry.evidence = undefined; // stored without any evidence
 S.saveCmDb(cm20);
-const noevRound = A.contribute(UID24);
+const noevRound = await A.contribute(UID24);
 check('F8: an entry stored without evidence is flagged when bank data gives a picture', S.loadCmDb(UID24).entries.find((e) => e.id === noevEntry.id)?.status === 'stale' && noevRound.staleFlags.some((f) => f.entryId === noevEntry.id && f.reason === 'missing-evidence'), JSON.stringify(noevRound.staleFlags));
 
 
@@ -643,11 +663,11 @@ const manyTx = Array.from({ length: 30 }, (_, i) => ({ id: `m${i + 1}`, userId: 
 S.saveNordeaDb({ userId: UID40, accounts: [], transactions: manyTx });
 A.addGoalDirect(UID40, 'Save for a car');
 A.setStandingPermissions(UID40, 'high');
-A.contribute(UID40);
+await A.contribute(UID40);
 const manyEntry = S.loadCmDb(UID40).entries.find((e) => e.proposedBy === 'nordea')!;
 check('F26 setup: aggregate stores a full-set id hash plus the 25-id display sample', typeof manyEntry.evidence?.transactionIdsHash === 'string' && manyEntry.evidence?.transactionIds?.length === 25, JSON.stringify(manyEntry.evidence).slice(0, 120));
-const manyR2 = A.contribute(UID40);
-const manyR3 = A.contribute(UID40);
+const manyR2 = await A.contribute(UID40);
+const manyR3 = await A.contribute(UID40);
 check('F26: >25 matches and no bank change - the aggregate stays ACTIVE over three rounds, no stale duplicate', manyR2.staleFlags.length === 0 && manyR3.staleFlags.length === 0 && S.loadCmDb(UID40).entries.filter((e) => e.title.includes('Activity related')).length === 1 && S.loadCmDb(UID40).entries.every((e) => e.status === 'active'), `round2 flags: ${manyR2.staleFlags.length}, round3 flags: ${manyR3.staleFlags.length}, entries: ${S.loadCmDb(UID40).entries.map((e) => e.status + ':' + e.title.slice(0, 30)).join(' | ')}`);
 
 // --- F27: a saving-goal aggregate is labelled as SPENDING, not as savings.
@@ -658,9 +678,9 @@ const UID41 = 'noticeuser';
 S.saveNordeaDb({ userId: UID41, accounts: [], transactions: [{ id: 'w1', userId: UID41, date: '2026-10-01', category: 'transport', amount: -60, account: 'current', description: 'Fuel for the car' }] });
 A.addGoalDirect(UID41, 'Save for a car');
 A.setStandingPermissions(UID41, 'high');
-A.contribute(UID41);
+await A.contribute(UID41);
 S.saveNordeaDb({ userId: UID41, accounts: [], transactions: [{ id: 'w1', userId: UID41, date: '2026-10-01', category: 'transport', amount: -60, account: 'current', description: 'Fuel for the car' }, { id: 'w2', userId: UID41, date: '2026-10-02', category: 'transport', amount: -40, account: 'current', description: 'Car wash' }] });
-A.contribute(UID41);
+await A.contribute(UID41);
 const noticeAuto = S.loadBus(UID41).messages.filter((m) => m.type === 'inform' && m.summary.startsWith('Re-check before reuse')).pop();
 check('F28: under standing permissions the notice says the refresh was stored automatically', !!noticeAuto && noticeAuto.summary.includes('stored automatically under your standing permissions') && !noticeAuto.summary.includes('wait in merge review'), noticeAuto?.summary ?? 'no notice');
 
@@ -668,10 +688,10 @@ const UID42 = 'noticeuser2';
 S.saveNordeaDb({ userId: UID42, accounts: [], transactions: [{ id: 'v1', userId: UID42, date: '2026-10-01', category: 'transport', amount: -60, account: 'current', description: 'Fuel for the car' }] });
 A.addGoalDirect(UID42, 'Save for a car');
 A.setStandingPermissions(UID42, 'high');
-A.contribute(UID42);
+await A.contribute(UID42);
 A.setStandingPermissions(UID42, 'all');
 S.saveNordeaDb({ userId: UID42, accounts: [], transactions: [{ id: 'v1', userId: UID42, date: '2026-10-01', category: 'transport', amount: -60, account: 'current', description: 'Fuel for the car' }, { id: 'v2', userId: UID42, date: '2026-10-02', category: 'transport', amount: -40, account: 'current', description: 'Car wash' }] });
-A.contribute(UID42);
+await A.contribute(UID42);
 const noticeReview = S.loadBus(UID42).messages.filter((m) => m.type === 'inform' && m.summary.startsWith('Re-check before reuse')).pop();
 check('F28: under review-everything the notice still says the refresh waits in merge review', !!noticeReview && noticeReview.summary.includes('wait in merge review'), noticeReview?.summary ?? 'no notice');
 
@@ -690,13 +710,13 @@ const UID25 = 'goalgoneuser';
 S.saveNordeaDb({ userId: UID25, accounts: [], transactions: [{ id: 'g1', userId: UID25, date: '2026-10-01', category: 'transport', amount: -100, account: 'current', description: 'Fuel for the car' }] });
 A.addGoalDirect(UID25, 'Save for a car');
 A.setStandingPermissions(UID25, 'high');
-A.contribute(UID25);
+await A.contribute(UID25);
 const goalEntry = S.loadCmDb(UID25).entries.find((e) => e.proposedBy === 'personal')!;
 check('F24 setup: the goal entry is active in the cabinet', !!goalEntry && goalEntry.status === 'active' && goalEntry.goalIds.length === 1);
 const u25 = S.loadUserDb(UID25);
 u25.goals = []; // the customer drops the goal
 S.saveUserDb(u25);
-const goneRound = A.contribute(UID25);
+const goneRound = await A.contribute(UID25);
 check('F24: removing the goal flags the customer-side entry stale in the next decay round', S.loadCmDb(UID25).entries.find((e) => e.id === goalEntry.id)?.status === 'stale' && goneRound.staleFlags.some((f) => f.entryId === goalEntry.id && f.reason === 'goal-removed'), JSON.stringify(goneRound.staleFlags));
 check('F24: the flag and the customer notice name the removed goal', S.loadBus(UID25).messages.some((m) => m.type === 'flag-stale' && m.summary.includes('no longer exists in the User DB')) && S.loadBus(UID25).messages.some((m) => m.type === 'inform' && m.summary.includes('goal behind')));
 
@@ -704,8 +724,8 @@ const UID26 = 'goalkeptuser';
 S.saveNordeaDb({ userId: UID26, accounts: [], transactions: [{ id: 'k1', userId: UID26, date: '2026-10-01', category: 'transport', amount: -100, account: 'current', description: 'Fuel for the car' }] });
 A.addGoalDirect(UID26, 'Save for a car');
 A.setStandingPermissions(UID26, 'high');
-A.contribute(UID26);
-const keptRound = A.contribute(UID26); // goal still exists
+await A.contribute(UID26);
+const keptRound = await A.contribute(UID26); // goal still exists
 check('F24: an existing goal is confirmed - no false stale flag', !keptRound.staleFlags.some((f) => f.reason === 'goal-removed') && S.loadCmDb(UID26).entries.find((e) => e.proposedBy === 'personal')?.status === 'active', JSON.stringify(keptRound.staleFlags));
 
 
@@ -714,17 +734,17 @@ check('F24: an existing goal is confirmed - no false stale flag', !keptRound.sta
 const UID27 = 'ac3user';
 A.addGoalDirect(UID27, 'Save for a laptop', 'from my summer job savings');
 S.saveNordeaDb({ userId: UID27, accounts: [], transactions: [{ id: 'l1', userId: UID27, date: '2026-10-01', category: 'shopping', amount: -200, account: 'current', description: 'Laptop store' }] });
-A.contribute(UID27);
+await A.contribute(UID27);
 const custRows = S.readSectionRows(UID27, 'customer');
 check('AC3: the Customer section carries every goal by title from the User DB', custRows.some((r) => r.title === 'Save for a laptop'), JSON.stringify(custRows).slice(0, 120));
 const ctxMd27 = S.renderContextMd(UID27, S.loadContext(UID27)!);
 check('AC3: goal details and personal facts stay in the User DB until the customer allows sharing', custRows.every((r) => !r.detail) && !ctxMd27.includes('summer job'), ctxMd27.slice(0, 80));
-const ac3Chat = A.chat(UID27, 'what do you know about my laptop goal?');
+const ac3Chat = await A.chat(UID27, 'what do you know about my laptop goal?');
 check('AC3: the personal agent answers from its own DB and the session document', ac3Chat.reply.length > 0 && ac3Chat.used.includes('user-db'), ac3Chat.used.join(','));
 
 // AC4: stored cabinet entries are structured: source agent, evidence, observed|inferred, timestamp.
 A.setStandingPermissions(UID27, 'high');
-A.contribute(UID27);
+await A.contribute(UID27);
 const ac4Entry = S.loadCmDb(UID27).entries.find((e) => e.proposedBy === 'nordea')!;
 check('AC4: a stored entry records source agent, evidence, observed|inferred and a timestamp', !!ac4Entry && ac4Entry.evidence?.total != null && (ac4Entry.observed === 'observed' || ac4Entry.observed === 'inferred') && !!ac4Entry.createdAt, JSON.stringify(ac4Entry).slice(0, 160));
 
@@ -748,9 +768,11 @@ check('AC9: an automatic store is explainable', (A.explainEntry(UID27, ac9Entry.
 A.disputeEntry(UID27, ac9Entry.id, 'not mine');
 check('AC9: an automatic store is disputable', S.loadCmDb(UID27).entries.find((e) => e.id === ac9Entry.id)?.status === 'disputed');
 
-// AC10: the architecture runs without an AI key - no arch module imports the LLM layer.
+// AC10+V4: the scripted path still runs without an AI key; the ONLY LLM touchpoint is the
+// bounded G4 driver arch/llm.ts (agents/orchestrator reach it, never the app LLM layer).
 const archSrcs = ['orchestrator.ts', 'rounds.ts', 'dispatcher.ts', 'agents/personal.ts', 'agents/cm.ts', 'agents/nordea.ts'].map((f) => readSrc(`../src/server/arch/${f}`));
-check('AC10: no architecture module imports the LLM layer - the whole flow is deterministic', archSrcs.every((src) => !/llm\.js|getProvider|openai|anthropic/i.test(src)));
+check('AC10+V4: no architecture module touches the app LLM layer directly (only the bounded G4 driver)', archSrcs.every((src) => !/\.\.\/\.\.\/llm\.js|getProvider|openai|anthropic/i.test(src)));
+check('AC10+V4: arch/llm.ts is the single sanctioned bridge to the app LLM provider', /from '\.\.\/llm\.js'/.test(readSrc('../src/server/arch/llm.ts')));
 
 
 // --- F25: a removed goal also flags the NORDEA-side entries on that goal, not just the customer's own.
@@ -758,18 +780,18 @@ const UID28 = 'goalgone2';
 S.saveNordeaDb({ userId: UID28, accounts: [], transactions: [{ id: 'x1', userId: UID28, date: '2026-10-01', category: 'transport', amount: -100, account: 'current', description: 'Fuel for the car' }] });
 A.addGoalDirect(UID28, 'Save for a car');
 A.setStandingPermissions(UID28, 'high');
-A.contribute(UID28);
+await A.contribute(UID28);
 const nordeaOnGoal = S.loadCmDb(UID28).entries.find((e) => e.proposedBy === 'nordea' && e.goalIds.length > 0)!;
 check('F25 setup: a Nordea entry tied to the goal is active', !!nordeaOnGoal && nordeaOnGoal.status === 'active');
 const u28 = S.loadUserDb(UID28);
 u28.goals = [];
 S.saveUserDb(u28);
-const goneRound2 = A.contribute(UID28);
+const goneRound2 = await A.contribute(UID28);
 check('F25: removing the goal flags the Nordea-side entry on it stale too', S.loadCmDb(UID28).entries.find((e) => e.id === nordeaOnGoal.id)?.status === 'stale' && goneRound2.staleFlags.some((f) => f.entryId === nordeaOnGoal.id && f.reason === 'goal-removed'), JSON.stringify(goneRound2.staleFlags));
 
 
 // --- F10 phase 2 / AC11: the in-app Abel reads user.db VIA the personal agent and context.md by session rules.
-const shared27 = A.abelSharedContext(UID27, 'conv-abel-1', 'laptop');
+const shared27 = await A.abelSharedContext(UID27, 'conv-abel-1', 'laptop');
 check('F10p2: User DB facts come from the personal agent by message, with provenance', !!shared27.userDbFacts && shared27.userDbFacts.includes('Save for a laptop') && shared27.provenance.some((p) => p.includes('user-db via the personal agent')), JSON.stringify(shared27).slice(0, 140));
 check('F10p2: a fresh session gets its own FINALISED document, stamped with its exact session id', !!shared27.sharedContext && S.loadContext(UID27)?.sessionId === 'conv-abel-1' && !!S.loadContext(UID27)?.finalisedAt, (shared27.sharedContext ?? '').slice(0, 80));
 check('F10p2: the document was built by a session round for this exact session', S.loadBus(UID27).messages.some((m) => m.type === 'round-start' && (m.payload as { sessionId?: string }).sessionId === 'conv-abel-1'));
@@ -778,10 +800,10 @@ check('F10p2: the document was built by a session round for this exact session',
 const UID29 = 'sessuser';
 A.addGoalDirect(UID29, 'Save for a van');
 S.saveNordeaDb({ userId: UID29, accounts: [], transactions: [{ id: 'v1', userId: UID29, date: '2026-10-01', category: 'transport', amount: -100, account: 'current', description: 'Van parts' }] });
-A.chat(UID29, 'van', 'session-A');
+await A.chat(UID29, 'van', 'session-A');
 check('F10p2 setup: session A has a finalised document', S.loadContext(UID29)?.sessionId === 'session-A' && !!S.loadContext(UID29)?.finalisedAt);
 A.setAgentOff(UID29, 'cm', true);
-const wrongSess = A.abelSharedContext(UID29, 'session-B', 'anything');
+const wrongSess = await A.abelSharedContext(UID29, 'session-B', 'anything');
 check('F10p2: finalised != current - another session\'s document is NOT served', !wrongSess.sharedContext, (wrongSess.sharedContext ?? '').slice(0, 60));
 check('F10p2: and the other session\'s document is NOT wiped when no round can run', S.loadContext(UID29)?.sessionId === 'session-A' && !!S.loadContext(UID29)?.finalisedAt);
 check('F10p2: facts are always the requesting customer\'s own (no cross-customer assembly)', !(wrongSess.userDbFacts ?? '').includes('laptop') && (wrongSess.userDbFacts ?? '').includes('van'), (wrongSess.userDbFacts ?? '').slice(0, 80));
@@ -791,15 +813,15 @@ const UID30 = 'nodocuser';
 A.addGoalDirect(UID30, 'Save for a boat');
 S.saveNordeaDb({ userId: UID30, accounts: [], transactions: [{ id: 'bt1', userId: UID30, date: '2026-10-01', category: 'transport', amount: -100, account: 'current', description: 'Boat parts' }] });
 A.setAgentOff(UID30, 'cm', true);
-const noDoc = A.abelSharedContext(UID30, 'conv-x', 'boat');
+const noDoc = await A.abelSharedContext(UID30, 'conv-x', 'boat');
 check('F10p2: no document and no way to build one -> no shared context, User DB facts still served', !noDoc.sharedContext && (noDoc.userDbFacts ?? '').includes('boat'), JSON.stringify(noDoc).slice(0, 100));
 S.resetContextForSession(UID30, 'conv-y');
-const unfinalised = A.abelSharedContext(UID30, 'conv-y', 'boat');
+const unfinalised = await A.abelSharedContext(UID30, 'conv-y', 'boat');
 check('F10p2: an UNFINALISED document is never served, even for the matching session', !unfinalised.sharedContext);
 
 // Parked negative: parking the cabinet silences the document half only.
 A.parkCabinet(UID27, true);
-const parkedShared = A.abelSharedContext(UID27, 'conv-abel-2', 'laptop');
+const parkedShared = await A.abelSharedContext(UID27, 'conv-abel-2', 'laptop');
 check('F10p2: a parked cabinet serves no document; the customer\'s own User DB facts still reach Abel', !parkedShared.sharedContext && !!parkedShared.userDbFacts);
 
 // --- F30: stale and disputed rows never reach Abel as facts (only Abel's copy is filtered).
@@ -807,14 +829,14 @@ const UID33 = 'abeldisp';
 S.saveNordeaDb({ userId: UID33, accounts: [], transactions: [{ id: 'dd1', userId: UID33, date: '2026-10-01', category: 'transport', amount: -1234, account: 'current', description: 'Fuel for the car' }] });
 A.addGoalDirect(UID33, 'Save for a car');
 A.setStandingPermissions(UID33, 'high');
-A.contribute(UID33);
-check('F30 setup: the active aggregate reaches Abel', (A.abelSharedContext(UID33, 'f30-s1', 'car').sharedContext ?? '').includes('1234 EUR'));
+await A.contribute(UID33);
+check('F30 setup: the active aggregate reaches Abel', ((await A.abelSharedContext(UID33, 'f30-s1', 'car')).sharedContext ?? '').includes('1234 EUR'));
 S.saveNordeaDb({ userId: UID33, accounts: [], transactions: [{ id: 'dd2', userId: UID33, date: '2026-10-02', category: 'transport', amount: -999, account: 'current', description: 'Car wash' }] });
-A.contribute(UID33); // churn: the 1234 entry goes stale, the refreshed 999 is stored automatically
+await A.contribute(UID33); // churn: the 1234 entry goes stale, the refreshed 999 is stored automatically
 const f30Active = S.loadCmDb(UID33).entries.find((e) => e.status === 'active' && e.proposedBy === 'nordea')!;
 A.disputeEntry(UID33, f30Active.id, 'not mine');
 S.saveNordeaDb({ userId: UID33, accounts: [], transactions: [{ id: 'dd3', userId: UID33, date: '2026-10-03', category: 'transport', amount: -50, account: 'current', description: 'Parking' }] });
-const f30 = A.abelSharedContext(UID33, 'f30-s2', 'car');
+const f30 = await A.abelSharedContext(UID33, 'f30-s2', 'car');
 check('F30: the stale figure and the disputed figure are both absent from the context Abel receives', !(f30.sharedContext ?? '').includes('1234 EUR') && !(f30.sharedContext ?? '').includes('999 EUR'), (f30.sharedContext ?? '').slice(0, 200));
 check('F30: the fresh bank figure still reaches Abel (filtering drops marks, not data)', (f30.sharedContext ?? '').includes('50 EUR'));
 const f30Doc = S.loadContext(UID33)!;
@@ -836,7 +858,7 @@ check('F10p2: the chat route assembles shared context for the SAME customer and 
 // --- F10 phase 2, Bill's condition: the Abel shared-context path reads context.md only -
 // user.db facts arrive BY MESSAGE from the personal agent; cm.db/nordea.db/user.db are never opened for Abel.
 const orchSrc = readSrc('../src/server/arch/orchestrator.ts');
-const fnStart = orchSrc.indexOf('export function abelSharedContext');
+const fnStart = orchSrc.indexOf('export async function abelSharedContext');
 const fnBody = orchSrc.slice(fnStart, orchSrc.indexOf('\n}\n', fnStart) + 3);
 check('F10p2: the Abel path opens no agent store at all - only the shared context.md and bus messages',
   !/loadUserDb|loadCmDb|loadNordeaDb|userStore|cmStore|nordeaStore/.test(fnBody) && fnBody.includes('loadContext') && fnBody.includes("controlRoundTrip(uid, 'personal'"), '');

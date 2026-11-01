@@ -13,8 +13,8 @@ import type { AgentId } from './types.js';
  * which agent acts; agents only touch their own DB and talk via messages.
  */
 export function registerArchRoutes(app: Express) {
-  const h = (fn: (req: Request, res: Response) => void) => (req: Request, res: Response) => {
-    try { fn(req, res); } catch (err) {
+  const h = (fn: (req: Request, res: Response) => unknown | Promise<unknown>) => async (req: Request, res: Response) => {
+    try { await fn(req, res); } catch (err) {
       if (err instanceof ArchError) { res.status(err.status).json({ error: err.message }); return; }
       console.error('arch route failed:', err);
       res.status(500).json({ error: 'Something went wrong in the three-agent architecture.' });
@@ -36,11 +36,11 @@ export function registerArchRoutes(app: Express) {
     res.json(setStandingPermissions(uid(req), reviewLevel));
   }));
 
-  app.post('/api/arch/:uid/chat', h((req, res) => {
+  app.post('/api/arch/:uid/chat', h(async (req, res) => {
     const text = String(req.body?.text ?? '').trim();
     if (!text) { res.status(400).json({ error: 'Say something first.' }); return; }
     const sessionId = typeof req.body?.sessionId === 'string' && req.body.sessionId.trim() ? req.body.sessionId.trim() : undefined;
-    res.json(chat(uid(req), text, sessionId));
+    res.json(await chat(uid(req), text, sessionId));
   }));
 
   // Agent-to-agent query transport: the personal agent (in-app or the separate demo client
@@ -77,7 +77,7 @@ export function registerArchRoutes(app: Express) {
   app.post('/api/arch/:uid/airlock/:batchId/reject', h((req, res) => res.json(decideAirlock(uid(req), String(req.params.batchId), false))));
 
   // Goal-filtered bank contributions + merge review.
-  app.post('/api/arch/:uid/nordea/contribute', h((req, res) => res.json(contribute(uid(req)))));
+  app.post('/api/arch/:uid/nordea/contribute', h(async (req, res) => res.json(await contribute(uid(req)))));
   app.get('/api/arch/:uid/review', h((req, res) => res.json({ proposals: reviewQueue(uid(req)) })));
   app.post('/api/arch/:uid/review/:messageId/accept', h((req, res) => res.json(decideProposal(uid(req), String(req.params.messageId), true))));
   app.post('/api/arch/:uid/review/:messageId/reject', h((req, res) => res.json(decideProposal(uid(req), String(req.params.messageId), false))));

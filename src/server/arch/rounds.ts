@@ -58,7 +58,7 @@ export function recordStaleFlags(uid: string, roundId: string, flags: StaleFlag[
  * Run one build round to completion (or to its step limit). The kickoff message goes to the
  * first actor; the dispatcher then delivers every message the agents post to each other.
  */
-export function runRound(uid: string, trigger: BuildRound['trigger'], opts?: { maxSteps?: number; question?: string; sessionId?: string }): BuildRound {
+export function runRound(uid: string, trigger: BuildRound['trigger'], opts?: { maxSteps?: number; question?: string; sessionId?: string; llm?: BuildRound['llm'] }): BuildRound {
   const round: BuildRound = {
     id: newId('round'),
     trigger,
@@ -70,6 +70,7 @@ export function runRound(uid: string, trigger: BuildRound['trigger'], opts?: { m
     proposals: [],
     staleFlags: [],
     startedAt: now(),
+    ...(opts?.llm ? { llm: opts.llm } : {}),
     ...(opts?.sessionId ? { sessionId: opts.sessionId } : {}),
     ...(opts?.question ? { question: opts.question } : {}),
   };

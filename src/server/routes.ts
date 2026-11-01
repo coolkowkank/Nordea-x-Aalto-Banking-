@@ -138,7 +138,7 @@ export function registerV14Routes(app: Express) {
     if (!conv || conv.userId !== userId) conv = newConversation(userId, helperId);
     const u = userMsg(userId, conv.id, conv.helperId, text.slice(0, 2000));
     // F10 phase 2 / AC11: Abel mode - the architecture hands Abel this session's facts (by message; empty when unused).
-    const shared = abelSharedContext(userId, conv.id, u.text);
+    const shared = await abelSharedContext(userId, conv.id, u.text);
     const reply = await abelTurn(userId, conv.id, conv.helperId, u.text, shared);
     db.addTopicLogEntry({ id: id('topic'), timestamp: now(), userId, topic: reply.topic, couldHelp: reply.couldHelp });
     const a = agentMsg(userId, conv.id, conv.helperId, reply.text, {

@@ -87,6 +87,7 @@ Open **http://localhost:3000/arch.html** for the three-agent demo UI. The develo
 | `npm test` | Run the bank-records tests |
 | `npm run check:feed` | Validate the Nordea feed CSV applies cleanly |
 | `npm run test:arch` | Run the three-agent architecture checks |
+| `npm run test:e2e` | End-to-end proof the app, `/arch.html` and the monitor are one machine (boots a real server on a scratch dataset) |
 
 ## 🔄 How a session works
 
@@ -94,6 +95,8 @@ Open **http://localhost:3000/arch.html** for the three-agent demo UI. The develo
 2. The **personal agent** writes the Customer section: the shareable part of the User DB (goals by title, never raw detail).
 3. The **Context Memory agent** retrieves what is relevant from `cm.db` and writes the Context memory section.
 4. The **Nordea agent** adds relevant aggregates from `nordea.db`.
+
+With a provider configured (`GEMINI_API_KEY` or `LLM_PROVIDER=openai`), the CM and Nordea agents also **reason with an LLM**: each model gets tools for its own database only, proposes the round's retrieval plan and match terms, and code validates the proposal and owns numbers, evidence, risk and every write. Without a key the scripted behaviour runs unchanged (that is also what the tests use).
 5. The Context Memory agent **finalises** the document and stamps it with the session id. Every later question in that session is answered from that document.
 6. If an agent is off or the cabinet is parked, no round runs and no other session's document is served - the app says plainly that shared context is unavailable.
 7. Accepted knowledge is stored in `cm.db`; decay maintenance re-checks it before reuse (below).
@@ -165,7 +168,8 @@ All under `/api/arch/:uid/` (`src/server/arch/routes.ts`):
 
 | Check | Command | Covers |
 |---|---|---|
-| Architecture tests | `npm run test:arch` | 188 assertions: the one-database rule (source scan), per-session documents, rounds, risk rules, permissions, decay, undo, the Abel integration and its negative cases |
+| Architecture tests | `npm run test:arch` | 207 assertions: the one-database rule (source scan), per-session documents, reactive rounds, risk rules, permissions, decay, undo, the Abel integration, the G4 LLM planning path (mock provider) and the negative cases |
+| End-to-end | `npm run test:e2e` | 19 checks over a real booted server: a goal shows in all views, a review decision changes what the chat answers from, a bank import updates app + arch + monitor, session and top-up rounds run, and no code reads the old store |
 | Type check | `npm run lint` | `tsc --noEmit` across the app |
 | Bank records | `npm test` | Feed loading and bank-record maths |
 | Feed CSV | `npm run check:feed` | The Nordea feed CSV applies cleanly |

@@ -13,7 +13,7 @@ import { readSectionRows, writeNordeaSection } from '../store/contextStore.js';
 import type { ContextRow } from '../store/contextStore.js';
 import { appendMessage, loadBus, updateMessage } from '../store/busStore.js';
 import { registerHandler } from '../dispatcher.js';
-import { recordProposals, roundDone } from '../rounds.js';
+import { recordProposals, loadRound, roundDone } from '../rounds.js';
 
 /** F26: evidence carries a hash of the FULL sorted id set, so churn checks compare like
  * with like. The 25-id sample stays for display/risk only - never for comparison.
@@ -55,7 +55,10 @@ function handleMessage(uid: string, msg: AgentMessage) {
     // The Nordea agent reads the shared context.md - never the User DB - to decide what is
     // relevant (F6): the goals arrive via the Customer section, not inside the message. A
     // session/top-up query may also carry the customer's question to match against.
-    const goals = readSectionRows(uid, 'customer').map((r) => ({ id: r.id, title: r.title }));
+    const round = loadRound(uid, payload.roundId);
+    const plannedTitles = Array.isArray(payload.goalTitles) ? new Set((payload.goalTitles as unknown[]).filter((x): x is string => typeof x === 'string')) : null;
+    const goals = readSectionRows(uid, 'customer').map((r) => ({ id: r.id, title: r.title })).filter((g) => !plannedTitles || plannedTitles.has(g.title));
+    const llmTerms = round?.llm?.terms ?? {}; // G4: the Nordea model's validated match terms
     const questionWords = typeof payload.question === 'string' ? words(payload.question as string) : [];
     const nordea = nordeaDbOrEmpty(uid);
     const alreadyPending = pendingProposalSummaries(uid);
@@ -68,7 +71,7 @@ function handleMessage(uid: string, msg: AgentMessage) {
       if (qm.length) sectionRows.push({ id: `nq-${payload.roundId as string}`, title: 'Relevant to your question', detail: `${qm.length} transaction${qm.length === 1 ? '' : 's'} totalling ${totalOf(qm)} EUR of related spending`, source: 'nordea', observed: 'observed', evidence: { total: totalOf(qm), matched: qm.length, transactionIds: qm.slice(0, 25).map((t) => t.id), transactionIdsHash: hashIds(qm.map((t) => t.id)) }, at: now() });
     }
     for (const goal of goals) {
-      const matches = matchForTitles(nordea, [goal.title]);
+      const matches = matchForTitles(nordea, [goal.title, ...(llmTerms[goal.title] ?? [])]);
       if (!matches.length) continue;
       const total = totalOf(matches);
       sectionRows.push({ id: `nagg-${goal.id}`, title: goal.title, detail: `${matches.length} transaction${matches.length === 1 ? '' : 's'} totalling ${total} EUR of related spending`, source: 'nordea', evidence: { total, matched: matches.length, transactionIds: matches.slice(0, 25).map((t) => t.id), transactionIdsHash: hashIds(matches.map((t) => t.id)) }, at: now() });
@@ -277,3 +280,54 @@ function handleMessage(uid: string, msg: AgentMessage) {
 }
 
 registerHandler('nordea', handleMessage);
+
+/**
+ * G4/V4: the Nordea agent's LLM match-term proposal. The model reads only its OWN Nordea
+ * DB (categories + anonymised description words) and PROPOSES extra keywords per goal
+ * title; code validates them and still does the matching, totals and evidence itself.
+ * null = scripted fallback (title words + category hints only).
+ */
+export async function llmProposeMatchTerms(uid: string, goalTitles: string[]): Promise<Record<string, string[]> | null> {
+  const { archLlmEnabled, runAgentReasoning, cleanTerms } = await import('../llm.js');
+  if (!archLlmEnabled() || !goalTitles.length) return null;
+  const out = await runAgentReasoning({
+    agent: 'nordea',
+    system: [
+      'You are the Nordea agent of a banking assistant. You own the Nordea DB (accounts and transactions). You propose, you never decide.',
+      'You may read ONLY your own database through the tools. Amounts, matching, evidence and every write stay with code.',
+      'For each goal title, propose up to 6 extra lowercase keywords or category names that would identify RELATED transactions (synonyms, typical merchants, fitting categories).',
+      'End with finishMatchTerms.',
+    ].join(' '),
+    prompt: `Goal titles: ${goalTitles.join('; ')}`,
+    tools: [
+      { name: 'listMyCategories', description: 'List the transaction categories in your Nordea DB with counts.', parameters: { type: 'object', properties: {} } },
+      { name: 'sampleMyDescriptionWords', description: 'List frequent description words in your transactions (no amounts, no counterparties).', parameters: { type: 'object', properties: {} } },
+      { name: 'finishMatchTerms', description: 'Finish with the extra match terms per goal title.', parameters: { type: 'object', properties: { terms: { type: 'object' } }, required: ['terms'] } },
+    ],
+    runTool: (call) => {
+      const db = loadNordeaDb(uid);
+      if (!db) return { error: 'no data' };
+      if (call.name === 'listMyCategories') {
+        const counts = new Map<string, number>();
+        for (const t of db.transactions) counts.set(t.category, (counts.get(t.category) ?? 0) + 1);
+        return [...counts.entries()].map(([category, n]) => ({ category, transactions: n }));
+      }
+      if (call.name === 'sampleMyDescriptionWords') {
+        const freq = new Map<string, number>();
+        for (const t of db.transactions) for (const w of words(t.description ?? '')) freq.set(w, (freq.get(w) ?? 0) + 1);
+        return [...freq.entries()].sort((a, b) => b[1] - a[1]).slice(0, 40).map(([word, n]) => ({ word, n }));
+      }
+      return { error: 'unknown tool' };
+    },
+    finishTool: 'finishMatchTerms',
+  });
+  if (!out || typeof out.terms !== 'object' || !out.terms) return null;
+  const terms: Record<string, string[]> = {};
+  for (const title of goalTitles) {
+    const raw = out.terms as Record<string, unknown>;
+    const v = raw[title] ?? raw[title.toLowerCase()];
+    const cleaned = cleanTerms(v, 6);
+    if (cleaned.length) terms[title] = cleaned;
+  }
+  return Object.keys(terms).length ? terms : null;
+}

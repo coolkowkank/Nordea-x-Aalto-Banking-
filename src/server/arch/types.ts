@@ -87,6 +87,8 @@ export interface BuildRound {
   maxSteps: number;
   proposals: { messageId: string; title: string; detail: string; matched: number; total: number }[];
   staleFlags: StaleFlag[];
+  /** G4/V4: the agents' LLM proposals for this round (validated by code before use). */
+  llm?: { goalTitles?: string[]; terms?: Record<string, string[]> };
   startedAt: string;
   closedAt?: string;
   note?: string;

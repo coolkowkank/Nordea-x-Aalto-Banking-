@@ -285,13 +285,14 @@ function handleMessage(uid: string, msg: AgentMessage) {
     const round = loadRound(uid, payload.roundId);
     const isSession = round?.trigger === 'session';
     const question = round?.question ?? '';
+    const llmTitles = round?.llm?.goalTitles; // G4: the CM model's validated retrieval plan
     writeMemoryFromEntries(uid, { roundId: payload.roundId, trigger: round?.trigger ?? 'contribution' }, isSession && question ? words(question) : [], true); // F18: merge; session docs start empty
     appendMessage(uid, {
       from: 'cm', to: 'nordea', type: 'query', status: 'pending',
       summary: isSession
         ? 'Context Memory agent asks the Nordea agent for aggregates relevant to the session question and the Customer section.'
         : 'Context Memory agent asks the Nordea agent for transaction insights relevant to the Customer section of context.md.',
-      payload: { purpose: 'contribute', roundId: payload.roundId, trigger: round?.trigger ?? 'contribution', ...(isSession && question ? { question } : {}) },
+      payload: { purpose: 'contribute', roundId: payload.roundId, trigger: round?.trigger ?? 'contribution', ...(isSession && question ? { question } : {}), ...(llmTitles?.length ? { goalTitles: llmTitles } : {}) },
     });
     return;
   }
@@ -687,4 +688,37 @@ registerHandler('cm', handleMessage);
 /** Park/resume publishing: keep the bus mirror in sync when state is loaded elsewhere. */
 export function publishParkState(uid: string) {
   setCabinetParkedMirror(uid, !!loadCmDb(uid).parked);
+}
+
+/**
+ * G4/V4: the CM agent's LLM retrieval plan. The model reads only its OWN cabinet (tool
+ * below), sees the question and the goal titles the personal agent shares in-round, and
+ * PROPOSES which goals need fresh Nordea evidence. Code validates (subset, cap 3) before
+ * the round uses it; null = scripted fallback (all goals).
+ */
+export async function llmPlanRetrieval(uid: string, question: string, goalTitles: string[]): Promise<string[] | null> {
+  const { archLlmEnabled, runAgentReasoning, cleanTerms } = await import('../llm.js');
+  if (!archLlmEnabled() || !goalTitles.length) return null;
+  const out = await runAgentReasoning({
+    agent: 'cm',
+    system: [
+      'You are the Context Memory agent of a banking assistant. You own the cabinet (the shared context between the customer and Nordea).',
+      'You may read ONLY your own cabinet through the listMyEntries tool. You never see the User DB or the Nordea DB.',
+      'The personal agent shared the customer\'s goal titles for this round. Decide which of them need FRESH evidence from the Nordea agent: skip goals your cabinet already answers well.',
+      'End with finishRetrievalPlan.',
+    ].join(' '),
+    prompt: `Question: ${question || '(contribution round - no explicit question)'}\nGoal titles: ${goalTitles.join('; ')}`,
+    tools: [
+      { name: 'listMyEntries', description: 'List the active entries in your own cabinet: title, status and detail.', parameters: { type: 'object', properties: {} } },
+      { name: 'finishRetrievalPlan', description: 'Finish with the goal titles that need fresh bank evidence.', parameters: { type: 'object', properties: { goalTitles: { type: 'array', items: { type: 'string' } }, reason: { type: 'string' } }, required: ['goalTitles'] } },
+    ],
+    runTool: (call) => call.name === 'listMyEntries'
+      ? loadCmDb(uid).entries.filter((e) => e.status === 'active').map((e) => ({ title: e.title, status: e.status, detail: e.detail.slice(0, 120) }))
+      : { error: 'unknown tool' },
+    finishTool: 'finishRetrievalPlan',
+  });
+  if (!out) return null;
+  const original = new Map(goalTitles.map((g) => [g.toLowerCase(), g]));
+  const picked = cleanTerms(out.goalTitles, 3).map((g) => original.get(g)).filter((g): g is string => !!g);
+  return picked.length ? picked : null;
 }
