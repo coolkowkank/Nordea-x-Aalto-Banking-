@@ -89,6 +89,13 @@ Verified: G1 @95de3d4, G5 @95de3d4, G2 @17a640b, G9 @ac8b828, G10 @67d2e87, G3 @
 
 *36 earlier v3 messages are at the end of [`review-archive.md`](review-archive.md).*
 
+### [Instinct] 2026-11-01 12:46
+```
+UPDATE (owner, via Instinct 12:45): Groq account confirmed free plan - his verbatim reply to the safety question: "Yes, free plan"
+recorded as the owner's answer, not an independently verified billing state; rerun behaved free-tier (13 calls, 0 errors/429s)
+NEXT: unchanged - Bill QC on the G16 evidence @79c9878
+```
+
 ### [Instinct] 2026-11-01 12:45
 ```
 G16 RERUN PASS on Groq free tier (owner-approved +20 past 40; 13 used, ledger 53/60, 7 unused)
