@@ -196,7 +196,7 @@ $('bank-file').onchange = async () => {
   say('agent', `Bank file "${f.name}": ${j.result.added ?? 0} new transaction(s), ${j.result.skipped ?? 0} already known.`);
   $('bank-file').value = ''; refresh();
 };
-$('btn-feed').onclick = async () => { const j = await api('/api/nordea-data/check', { body: { userId: uid } }); say('agent', j.applied.length ? `Feed check applied ${j.applied.length} update(s).` : `Feed check: ${j.feed?.status ?? 'nothing new'}.`); refresh(); };
+$('btn-feed').onclick = async () => { const j = await api('/api/nordea-data/check', { body: { userId: uid } }); say('agent', j.applied.length ? `Feed check applied ${j.applied.length} update(s).` : `Feed check: ${j.feed?.message ?? 'nothing new'}`); refresh(); };
 $('btn-park-cm').onclick = async () => { const parked = $('btn-park-cm').textContent === 'Reconnect cabinet'; await api(`/api/arch/${uid}/cabinet/${parked ? 'resume' : 'park'}`, {}); refresh(); };
 $('btn-newsession').onclick = async () => { const j = await api(`/api/arch/${uid}/session/new`, {}); sessionId = j.sessionId; say('agent', 'New session started - the next question opens a fresh context.md.'); refresh(); };
 for (const a of ['personal', 'cm', 'nordea']) $(`btn-off-${a}`).onclick = async () => { const off = $(`btn-off-${a}`).textContent === 'Turn off'; await api(`/api/arch/${uid}/agents/${a}/${off ? 'off' : 'on'}`, {}); refresh(); };
