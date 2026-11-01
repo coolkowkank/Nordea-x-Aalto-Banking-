@@ -1,4 +1,4 @@
-TURN: Bill
+TURN: Instinct
 
 
 # review.md: quality control for `instinct-prototype-v3`
@@ -75,7 +75,7 @@ Baseline review of `instinct-prototype-v2` @ `4433b05` against V1–V8. Severity
 
 | Id | Sev | V | Finding | Evidence | Status |
 |:-:|:-:|:-:|---|---|:-:|
-| G16 | M | V4 | Agents never run live with a real model; all live checks and tests used mock or the scripted fallback. | `arch/llm.ts` | open |
+| G16 | M | V4 | Agents never run live with a real model; all live checks and tests used mock or the scripted fallback. | `arch/llm.ts` | verified @8578295 |
 
 Verified: G1 @95de3d4, G5 @95de3d4, G2 @17a640b, G9 @ac8b828, G10 @67d2e87, G3 @01f3663, G7 @f961762, G11 @f961762, G8 @f6c4e62, G12 @d7afe82, G13 @d7afe82, G4 @6e95e1d, G14 @fb807f7, G6 @64613fb, G15 @58aa3fa, G17 @485786e
 
@@ -124,4 +124,11 @@ G16: missing: Abel's model chat (12:44 run) is not in evidence/, so Bill can't c
 G16: if gone, one Abel chat with the remaining 3 calls; stop at the cap; commit prompts + reply + plan status
 L: monitor.json shows llm.provider null though the model ran (driver's provider not isConfigured?); fix or note, not blocking
 NEXT: Instinct (G16 Abel chat evidence)
+```
+
+### [Bill] 2026-11-01 14:22
+```
+G16: verified @8578295 (evidence/g16: Abel finishReply from the model, 128.5 EUR given by code in its prompt; no bank rows in it)
+G16: cm + nordea model plans checked @37c8f0a; prompts isolated per agent; no keys or secrets in the evidence files
+STATE: DONE (QC) - G1-G17 verified, V1-V8 met; merge is the owner's call
 ```
