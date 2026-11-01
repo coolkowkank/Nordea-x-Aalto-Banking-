@@ -46,7 +46,7 @@ This branch starts from `instinct-prototype-v2` @ `4433b05`. The v2 review is ke
 ---
 
 ## 🧠 Context memory
-*Joe, updated 2026-11-01 03:27.*
+*Joe, updated 2026-11-01 03:36.*
 
 - **Goal:** one system: the three agents and their DBs are the only home for customer data; Abel, `/arch.html` (rw) and `/dev-monitor.html` (ro) on one server. Done = V1–V8.
 - **Base:** `instinct-prototype-v2` @4433b05 (F1–F30 verified, `test:arch` 188/188).
@@ -54,10 +54,10 @@ This branch starts from `instinct-prototype-v2` @ `4433b05`. The v2 review is ke
 - **Owner, via Instinct (02:29):** all three agents LLM-driven (G4/V4 core); `/arch.html` agent messages bounded + scrollable (V5); on conflict Instinct follows Bill.
 - **OWNER (03:24): asleep, back 09:00.** Owner-only steps (e.g. running `three-agents.sql`) and OWNER-Q wait; keep working.
 - **OWNER (03:02):** line guard for Messages: verified @29eaf05 (`npm run check:review`, in test:arch). It checks width only; ≤ 8 lines is on the author.
-- **Verified:** G1, G5 @95de3d4; G2 @17a640b; G9 @ac8b828; G10 @67d2e87 (one pending proposal per entry id; confirm = `decideProposal`; gateway `reviewed` flag kept as enforcement).
-- **Now (Bill): QC** G7 edit+delete + G11 @f961762 (held copy reviewed=false; accept re-reviews), G8 @f6c4e62, G3 @01f3663, V7 e2e @913a728. Tests: arch 200/200, adapter 43/43, e2e 19/19.
+- **Verified:** G1, G5 @95de3d4; G2 @17a640b; G9 @ac8b828; G10 @67d2e87 (gateway `reviewed` flag kept as enforcement); G3, G7, G11 @f961762/@01f3663; G8 @f6c4e62.
+- **Now (Instinct): G12 (M)** goal delete must withdraw pending proposals carrying that goal id (`arch/routes.ts:69`). **G13 (M)** e2e must assert V3 A (user-change round after goal add) + B (decay round after import #2) over HTTP.
 - **G6:** code done @df3b637; real pg grants/RLS unsmoked, waits for Habibil (09:00): run `supabase/three-agents.sql`, set 3 role secrets.
-- **Next:** QC verdicts → G4 (LLM agents) → G6 live smoke at 09:00.
+- **Next:** G12 + G13 → G4 hand-over (LLM slices off-turn @8100de2, @2e4b3de, @9aed445; mock provider labelled as mock @91250eb) → G6 live smoke at 09:00.
 - **Accepted (Bill 02:50):** off-switch gates reasoning only, control writes still land (noted on `/arch.html` + README). Init migration and `load_data.py` write stores directly (bulk approved data).
 - **Settled from v2:** Node 22.13+; per-session `context.md`, one writer per section; risk by code rules (`assessEntryRisk`); Abel sees active rows only.
 
@@ -74,18 +74,14 @@ Baseline review of `instinct-prototype-v2` @ `4433b05` against V1–V8. Severity
 
 | Id | Sev | V | Finding | Evidence | Status |
 |:-:|:-:|:-:|---|---|:-:|
-| G3 | H | V3 | A User DB change starts no round: adding a goal only posts a note to the customer, so nothing reaches the CM or Nordea agent until the next contribution or session. | `agents/personal.ts` `addGoalDirect` (line 34) | verified @01f3663 |
 | G4 | H | V4 | All three agents are scripted (no LLM; v2's AC10 test pins that). | `scripts/test-arch.ts:705` | open |
 | G6 | M | V1 | The three databases are SQLite only; there are no Supabase tables or per-agent credentials for them. | `arch/store/*` | open |
-| G7 | M | V5 | `/arch.html` still has the simulated external-agent mode, "Connect (simulated)", the demo sync endpoint, no connection lines and no session view. | `public/arch.html:53`, `:64`, `:101`, `:121`; `routes.ts` sync | verified @f961762 |
-| G8 | M | V6 | The monitor's main panels are the legacy model (Nordea shown on `abel_records`, Collaborative context with "no own database"); the three databases sit in one compact panel. | `public/dev-monitor.html:93`, `:260–276` | verified @f6c4e62 |
-| G11 | M | V8 | A changed Nordea observation queues, but the stored version stays reviewed, so Abel keeps the stale figure (v2 hid it until re-checked). Fix: hold the stored copy (reviewed=false) while its update waits. | `nordeaData.ts:411-414`; `agents/cm.ts` put-entry | verified @f961762 |
 | G12 | M | V3 | Deleting a goal leaves its pending "Customer goal" proposals in review, so accepting one stores an entry for a goal that no longer exists. Fix: the delete withdraws pending proposals carrying that goal id. | `arch/routes.ts:69`; live probe (eeva) | open |
 | G13 | M | V7 | The e2e "round A/B" checks run the session and top-up rounds (situation C), not V3 A (User DB change) and B (Nordea DB change). Fix: assert a user-change round after the goal add and a decay round after import #2, over HTTP. | `scripts/test-e2e.ts:116-122` | open |
 
-Verified: G1 @95de3d4, G5 @95de3d4, G2 @17a640b, G9 @ac8b828, G10 @67d2e87
+Verified: G1 @95de3d4, G5 @95de3d4, G2 @17a640b, G9 @ac8b828, G10 @67d2e87, G3 @01f3663, G7 @f961762, G11 @f961762, G8 @f6c4e62
 
-**Suggested order:** G7 + G11 + G8 + G3 + V7 (QC) → G4 → G6 smoke (owner).
+**Suggested order:** G12 + G13 → G4 (QC) → G6 smoke (owner).
 
 ---
 
