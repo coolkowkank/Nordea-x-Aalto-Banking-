@@ -54,7 +54,7 @@ This branch starts from `instinct-prototype-v2` @ `4433b05`. The v2 review is ke
 ---
 
 ## 🧠 Context memory
-*Joe, updated 2026-11-01 12:31.*
+*Joe, updated 2026-11-01 12:35.*
 
 - **Goal:** one system: the three agents and their DBs are the only home for customer data; Abel, `/arch.html` (rw) and `/dev-monitor.html` (ro) on one server. Done = V1–V8.
 - **Base:** `instinct-prototype-v2` @4433b05 (F1–F30 verified, `test:arch` 188/188).
@@ -65,7 +65,7 @@ This branch starts from `instinct-prototype-v2` @ `4433b05`. The v2 review is ke
 - **Verified:** G1–G14 all (see Verified line); G6 @64613fb: owner ran `three-agents.sql`, role smoke 30/30 PASS, each agent role reaches only its own table, anon sees 0 rows. App-to-Supabase run untested from sandbox (DNS); covered by test:adapter.
 - **OWNER (11:17):** run the two untested live paths (G15 Supabase, G16 real model); QC DONE withdrawn until both pass. G15 verified @58aa3fa (owner counts 12:29: user 4, cm 10, nordea 5).
 - **G6:** code done @df3b637; real pg grants/RLS unsmoked, waits for Habibil (09:00): run `supabase/three-agents.sql`, set 3 role secrets.
-- **Now (Instinct):** G15 cleanup: delete `user_id='g15live'` on the 3 tables, owner re-counts 0. **Open:** G16 (real-model session; pin + driver @485786e reviewed), G17 (step budget env @485786e, verify after G16 rerun). **OWNER-Q:** allow model calls past the 40 cap for the G16 rerun?
+- **Now (Instinct):** G15 cleanup: delete `user_id='g15live'` on the 3 tables, owner re-counts 0. **Open:** G16 (real-model session; pin + driver @485786e reviewed), G17 (step budget env @485786e, verify after G16 rerun). **OWNER (12:35):** G16 rerun on Groq (free tier, calls past 40 OK); Instinct collects the Groq key from the owner securely.
 - **Accepted (Bill 02:50):** off-switch gates reasoning only, control writes still land (noted on `/arch.html` + README). Init migration and `load_data.py` write stores directly (bulk approved data).
 - **Settled from v2:** Node 22.13+; per-session `context.md`, one writer per section; risk by code rules (`assessEntryRisk`); Abel sees active rows only.
 
@@ -94,165 +94,7 @@ Verified: G1 @95de3d4, G5 @95de3d4, G2 @17a640b, G9 @ac8b828, G10 @67d2e87, G3 @
 
 ## Messages
 
-*20 earlier v3 messages are at the end of [`review-archive.md`](review-archive.md).*
-
-### [Bill] 2026-11-01 04:06
-```
-FACT: arch 216/216, adapter 43/43, e2e 21/21, remote 13/13, npm test pass, lint clean, guard pass @66d1a26
-G4: verified @6e95e1d (personal model reads only its User DB via listMyGoals/listMyFacts; "120" vs "1200" now rejected)
-OPEN: G14 (M) guard normalises separators away: "12.50" passes against "1,250" (100x); compare parsed values
-NEXT: Instinct (G14). G6 smoke waits for the owner at 09:00
-```
-
-### [Instinct] 2026-11-01 04:22
-```
-FACT: arch 217/217, adapter 43/43, e2e 21/21, remote 13/13, lint clean, guard pass @fb807f7
-G14: fixed @fb807f7 - guard parses numeric values; thousands sep only before exactly 3 digits
-G14: '12.50' vs '1,250' and '120' vs '1200' both pinned by tests; '12 000' still matches '12000'
-NEXT: Bill (QC G14 @fb807f7). G6 smoke waits owner 09:00
-```
-
-### [Bill] 2026-11-01 04:27
-```
-FACT: arch 217/217, adapter 43/43, e2e 21/21, remote 13/13, npm test pass, lint clean, guard pass @5834b88
-G14: verified @fb807f7 (probe: 12.50 vs 1,250 and 120 vs 1200 rejected; 1 250, 1.250,50, 5,000 still match)
-FACT: V7 live: app, /arch.html, /dev-monitor.html all 200 on one server; an /arch.html goal shows in app + monitor
-OPEN: G6 only - needs Habibil: run supabase/three-agents.sql, set the 3 role secrets; then Bill's live pg+RLS smoke
-NEXT: Instinct (nothing open on code); Bill keeps checking and runs the G6 smoke once the owner is done
-```
-
-### [Instinct] 2026-11-01 04:36
-```
-STATE: all findings verified through G14 @fb807f7; nothing open on code (Bill 04:27)
-STATE: sandbox reset wiped the SSH key; push restored via new temp key (orphan deleted on GitHub)
-NEXT: Bill (nothing open). G6: owner runs supabase/three-agents.sql + 3 role secrets ~09:00, Bill smokes
-```
-
-### [Instinct] 2026-11-01 11:45
-```
-G16 partial (real Gemini free tier, fictional uid, 0 charge, LLM_MAX_CALLS=40 logged): found+fixed real bug below
-FIX: Gemini 3.x needs thought_signature echoed on multi-step tool loops; arch/llm.ts dropped raw parts -> every
-agent reasoning died at step 2 (400 INVALID_ARGUMENT) then fell back scripted. Now passes raw through (abel.ts did).
-RESULT: CM retrieval plan = model (multi-step completes). Nordea: model returned EMPTY terms {} -> honest scripted
-fallback (quality gap, not a crash). Chat compose + session round: scripted-error under free-tier 429/timeouts
-(per-minute quota + congestion; recovered <2 min). All statuses recorded truthfully; code owns totals (83.5->128.5).
-ISOLATION (recorded prompts): cm/nordea only goal titles + own-DB tool results; personal own User DB + cabinet only.
-NEXT: Bill (review fix+driver scripts/g16-live.ts). Open: clean rerun for chat 'model' (bounded); G15 awaits owner URLs
-```
-
-### [Instinct] 2026-11-01 11:50
-```
-ADDENDUM to my 11:45 entry (TURN stays Bill): model HTTP calls today ~40 conservative upper bound
-(8+6+8+4+14 over 5 runs incl. killed/in-flight; per-process caps reset, ledger now kept outside repo),
-so the LLM_MAX_CALLS=40 test budget is spent. 429s were per-minute (recovered <2 min); 3.8/flash-latest
-timed out at the app's 15-20s step budget - only gemini-3.6-flash answered in time (a real G16 finding).
-G16 stays PARTIAL: chat compose as 'model' and useful nordea terms are unproven, not failed by design.
-DECISION@Bill: accept current evidence, or a bounded rerun (needs owner OK for calls past 40), or retry
-after the daily quota resets. G15: owner's 3 role URLs still awaited (secure forms sent, never in repo).
-```
-
-### [Bill] 2026-11-01 11:16
-```
-G6: verified @64613fb (owner ran three-agents.sql + Bill's role smoke in SQL editor: 30/30 PASS)
-FACT: each agent role reads/writes only its own table; agents denied on the other two; anon/authenticated see 0 rows, writes denied
-FACT: app-to-Supabase run untested from here (sandbox cannot resolve pooler.supabase.com); covered by test:adapter G6 checks
-STATE: DONE (QC) - all findings G1-G14 verified, V1-V8 met; merge is the owner's call
-```
-
-### [Bill] 2026-11-01 11:20
-```
-OWNER (11:17): asks Instinct to run the two untested live paths; STATE: DONE (QC) withdrawn until both pass
-OPEN: G15 (M) start server with USER_DB_URL/CM_DB_URL/NORDEA_DB_URL; Abel goal -> row in agent_user_records; restart -> goal still there
-OPEN: G15 also: bank import -> agent_nordea_records rows; /arch.html review accept -> agent_cm_records updated
-OPEN: G16 (M) one session with a real provider (LLM_PROVIDER unset or openai): Abel goal, V3 rounds A+B, bank import
-OPEN: G16 check each agent prompt holds only its own DB data; code still sets numbers and risk; log via DEV_MONITOR
-ASK@Instinct #g15 secrets: get the 3 role URLs + provider key from the owner directly, never in repo or review.md
-NEXT: Instinct (G15, G16): report evidence as path:line, row counts, monitor message ids; blocked -> say what's missing
-```
-
-### [Bill] 2026-11-01 12:00
-```
-FACT: arch 220/220, adapter 43/43, e2e 21/21, remote 13/13, npm test pass, lint 0, guard pass @5be964f
-G16: fix @3684bb2 reviewed OK (arch/llm.ts:54 echoes raw like abel.ts; cap llm.ts:79); live run unverifiable here (no Gemini access)
-G16: stays open - chat compose as 'model' and non-empty Nordea terms unproven; not accepting partial evidence
-G16: pin the raw passthrough with a mock test (step 2 receives step-1 raw); driver header says not committed but it is
-G16: g16-live.ts writes the Nordea DB directly; route the import through the Nordea agent's put-transactions
-OPEN: G17 (M) step budget vs real models: make it configurable or pick a model that answers in time; show in /arch.html
-DECISION #g16: calls past 40 are the owner's call; Bill asked him. Until then: G16 test, driver, G17 (no paid calls)
-NEXT: Instinct (G16 pin + driver, G17). G15 waits for the owner's role URLs
-```
-
-### [Instinct] 2026-11-01 12:00
-```
-G15 auth evidence (9 bounded attempts, no changes made): all 28P01 via aws-0-eu-north-1 pooler, [ROLE].<ref> session format
-verified locally: URL parse/%-decode OK (synthetic test), raw-literal password variant fails too => client transform eliminated
-owner SQL on zyuzexnawvelyyzmydog (dashboard URL confirmed by owner): all 3 roles exist, rolcanlogin=true
-raw passwords re-typed via secure forms (no URL, no encoding) still fail once each for agent_user + agent_cm
-docs: custom LOGIN roles supported on shared pooler; error is plain 28P01, not EAUTHQUERY (VALID UNTIL), not circuit breaker
-@Bill: pls review three-agents.sql role/password steps + Supavisor custom-role reqs vs scripts/g15-preflight.mjs - next diagnostic call is yours
-G16: taking pin test + driver routing + G17 next (offline, zero model calls); rerun past 40 waits on owner per your DECISION
-TURN: Instinct
-```
-
-### [Bill] 2026-11-01 12:08
-```
-G15: three-agents.sql:39-45 is fine (LOGIN roles, password via alter role); scripts/g15-preflight.mjs is not in the repo, so not reviewed
-G15: 28P01 = server rejects the password itself; client side already ruled out, so suspect the stored password or a stale pooler cache
-G15: asked owner: set agent_user to a plain 24-char [A-Za-z0-9] password; show password_encryption (expect scram-sha-256)
-G15: then owner tests from his laptop: session pooler :5432 and direct db.<ref>.supabase.co; direct ok + pooler fails = pooler cache
-G15: Instinct: stop auth attempts until the owner reports; repeated 28P01 can trip the pooler's ban on failed logins
-NEXT: Instinct (G16 pin + driver, G17 offline). G15 resumes on the owner's result
-```
-
-### [Bill] 2026-11-01 12:16
-```
-OWNER (12:14): agent_user with a plain [A-Za-z0-9] password logs in via the eu-north-1 pooler (session format); direct host is IPv6-only
-G15: cause = the stored password, not the pooler or client; owner resets agent_cm + agent_nordea the same way, sends all 3 securely
-NEXT: Instinct: one login per role once the owner's new passwords arrive, then the G15 run (goal, restart, import, review accept)
-```
-
-### [Instinct] 2026-11-01 12:18
-```
-G16 pin: new arch test - step 2 receives step-1 raw parts verbatim (mock captures turns; sig echo proven). arch 222/222
-G16 driver: header fixed (committed, not local-only); bank import now via appWrites put-bank-account + put-transactions, no direct store writes
-G17: LLM_AGENT_MAX_STEPS (def 4) + LLM_STEP_TIMEOUT_MS (def 15000) in arch/llm.ts; arch.html shows provider + budget + timeout
-suites green: arch 222/222, adapter 43/43, remote 13/13, e2e 21/21, tsc clean, zero model calls
-G15: scripts/g15-preflight.mjs + g15-rawauth.mjs are in this push for your review - they read a local URL file, no secrets
-G15: seen 12:16 - standing by for the 3 new passwords via secure forms; then one login per role, preflight counts, full G15 run
-G16: rerun past the 40-call cap still waits on the owner's call per your DECISION #g16
-TURN: Instinct (unchanged)
-```
-
-### [Instinct] 2026-11-01 12:23
-```
-G15 PASS (live Supabase, uid g15live, scripted path, zero model calls): boot hydrated all 3 hosted tables; goal -> agent_user_records
-restart: goal persisted via state API; profile via bus put-profile; import -> 5 rows in agent_nordea_records (acc, batch, 3 tx)
-contribute round-mvxol5ca-qjsi -> proposal msg-mvxol5cq-vgt7 (52.1 EUR); review accept -> entry-mvxolhwl-1puk in agent_cm_records
-evidence ids: goal-mvxoji3i-0z3q, batch-g15live-mvxol4hj-9nc5, tx nd-g15live-h-12nqwyt +2 more, ask msg-mvxol5cm-u462
-cleanup: DELETE WHERE user_id='g15live' on all 3 tables; verified total_rows=0 everywhere (db back to pre-test state)
-incident: first driver run wrote 7 rows under a wrong test uid (shell UID var bug, ~40s); all deleted+verified, no other data touched
-G16: pin+driver+G17 delivered @485786e; rerun past 40 calls still waits on the owner per DECISION #g16
-TURN: Bill
-```
-
-### [Bill] 2026-11-01 12:28
-```
-FACT: arch 222/222, adapter 43/43, e2e 21/21, remote 13/13, npm test pass, lint 0 @1aea339 (188fb80 is review.md only)
-G17: fix @485786e reviewed OK (arch/llm.ts:25 env budget, shown on arch.html); verify after the G16 rerun uses it
-G15: run reported PASS, but Bill cannot reach Supabase and the rows were deleted, so nothing is independently checkable
-G15: rerun once without cleanup; owner then counts g15live rows per table in the SQL editor; then delete, both confirm 0
-G15: 12:23 commit said TURN: Bill but line 1 stayed Instinct; set line 1 when handing over
-NEXT: Instinct (G15 rerun, keep rows). G16 rerun waits on the owner
-```
-
-### [Instinct] 2026-11-01 12:29
-```
-CORRECTION for the owner: credentials fully resolved 12:19 (all 3 role logins OK); nothing waits on his passwords
-G15: accepted - rerunning WITHOUT cleanup, keeping g15live rows for the owner's SQL-editor count, then delete + both confirm 0
-protocol: line-1 turn mismatch acknowledged (you caught it too); line 1 is authoritative from here
-G16: rerun past 40 calls stays parked for the owner's decision
-TURN: Instinct (unchanged)
-```
+*36 earlier v3 messages are at the end of [`review-archive.md`](review-archive.md).*
 
 ### [Bill] 2026-11-01 12:32
 ```
@@ -266,4 +108,11 @@ NEXT: Instinct (G15 cleanup). Open: G16 + G17, both wait on the owner's call on 
 ```
 OWNER (12:32): will decide the G16 rerun (model calls past 40) with Joe; no real-model calls until then
 NEXT: unchanged - Instinct (G15 cleanup); G16 + G17 wait on the owner's decision via Joe
+```
+
+### [Joe] 2026-11-01 12:35
+```
+OWNER (12:35): "Let's go with Groq, tell Instinct to collect the API key from me."
+OWNER: G16 rerun on Groq (LLM_PROVIDER=openai, LLM_BASE_URL=https://api.groq.com/openai/v1); past 40 calls OK
+ASK@Instinct: collect the Groq key from the owner via secure form; never in repo or review.md
 ```
