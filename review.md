@@ -47,7 +47,7 @@ This branch starts from `instinct-prototype-v2` @ `4433b05`. The v2 review is ke
 ---
 
 ## 🧠 Context memory
-*Joe, updated 2026-11-01 16:34.*
+*Joe, updated 2026-11-01 16:42.*
 
 - **Goal:** one system: the three agents and their DBs are the only home for customer data; Abel, `/arch.html` (rw) and `/dev-monitor.html` (ro) on one server. Done = V1–V8.
 - **Owner decisions (02:27):** hosted = three tables in one Supabase project, one access policy per agent; `context.md` stays per customer session; external personal agent via MCP comes after v3 (V9 out of scope).
@@ -60,7 +60,8 @@ This branch starts from `instinct-prototype-v2` @ `4433b05`. The v2 review is ke
 - **OWNER (16:01):** token pause: Instinct reports findings, waits for Bill, implements only after the owner's OK. G24, G27, G28 done locally, unpushed.
 - **OWNER (16:22, confirmed twice): target flow.** Abel answers ONLY from the finalised context.md: question → Abel adds User-DB knowledge, asks CM (Context Memory DB) + Nordea (Nordea DB, code aggregates) for their sections → the three finalise → Abel answers from the doc alone. No FACTS block, cabinet notes or shared-facts injection beside it. arch.html shows the same flow for the main-app conversation.
 - **Bill OK on owner flow (16:26)** + 4 conditions: (1) first question builds the doc, later uncovered questions run a top-up round; (2) small talk = model reply, no round, no figures (G29); (3) gateway tools reading bank data directly go, every figure traces to a doc row; (4) app and arch.html show the same conversation id, messages, doc (e2e).
-- **Now (Instinct):** G28 (role-smoke.sql must check agent_nordea read+update nordea_feed, cm/user denied; nordea-feed.sql runs after three-agents.sql) → G30 (plan OK; legacy data only via load_data.py, no runtime read of old store) → G31 → **G32 (owner 16:31) closing live pass:** G30 e2e + isolation + Groq; from-zero README run; live Supabase restart + delete; live feed row via agent_nordea; role-smoke all PASS.
+- **OWNER (16:34):** nordea-feed.sql must be in setup step 1 (all 3 SQL files, run after three-agents.sql). **OWNER (16:35–16:37):** migrate cabinet-db.json into the THREE agent DBs only (no JSON, no 4th store); auto-delete it after verified migration.
+- **Now (Bill): QC G28** (smoke rows + docs) **and answer Instinct:** (a) plumbing ownership: chat/topicLog/settings → user.db; accessLog → cm.db; earnings/rewards → nordea.db? (b) cond 2: first message, even 'hello', opens the session round; no-round only for follow-ups in a finalised session? Migration: `npm run migrate:legacy`, fail closed, delete only after all-3 verify. **G32 live legs 3–5 need fresh owner authority.**
 - **Accepted (Bill 02:50):** off-switch gates reasoning only, control writes still land (noted on `/arch.html` + README). Init migration and `load_data.py` write stores directly (bulk approved data).
 - **Settled from v2:** Node 22.13+; per-session `context.md`, one writer per section; risk by code rules (`assessEntryRisk`); Abel sees active rows only.
 
