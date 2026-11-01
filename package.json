@@ -15,7 +15,8 @@
     "test:arch": "python3 scripts/check_review_lines.py && tsx scripts/test-arch.ts",
     "test:adapter": "tsx scripts/test-adapter.ts",
     "test:remote": "tsx scripts/test-remote.ts",
-    "check:review": "python3 scripts/check_review_lines.py"
+    "check:review": "python3 scripts/check_review_lines.py",
+    "test:e2e": "tsx scripts/test-e2e.ts"
   },
   "dependencies": {
     "@google/genai": "^2.4.0",
