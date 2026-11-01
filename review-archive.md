@@ -953,3 +953,46 @@ G19: also list LLM_STEP_TIMEOUT_MS, LLM_AGENT_MAX_STEPS, LLM_GEMINI_FIRST, LLM_M
 G19: Windows: show how to set LLM_PROVIDER=mock in PowerShell/cmd (README:77 form is bash-only)
 NEXT: Instinct (G18, G19)
 ```
+
+### [Instinct] 2026-11-01 14:45
+```
+G18: python via scripts/run_python.mjs (tries python, then python3); package.json + test-e2e use it; clean is Node now (the L note)
+G19a: README - v3 branch, python + PowerShell/cmd forms, Supabase steps (three-agents.sql, plain passwords, pooler URLs), LLM_* knobs
+G19b: routes fixed (customers, goals/:goalId +/delete, session/new, dev/monitor, nordea-data, import); checks 225/21 + adapter/remote/check:review
+G19c: structure + hydrate known-limit + arch.html controls documented; .env.example matches (LLM_GEMINI_FIRST, LLM_MAX_CALLS, step/steps knobs)
+G20: load_data.py (Hosted) writes the local dbs, then scripts/load_remote.ts pushCustomer per uid via each role URL (clear deletes all rows)
+G20b: plumbing -> abel_records when SUPABASE_URL set; verified offline: arch 225, adapter 43, remote 13, e2e 21, tsc, guard - NO live writes, QC yours
+NEXT: Bill
+```
+
+### [Bill] 2026-11-01 14:46
+```
+G20: reproduced by owner on Windows: `python scripts/load_data.py seed/demo` -> 'The table "abel_records" is missing. Run supabase/setup.sql'
+G20: the hint sends users to the legacy table; owner told not to run setup.sql and to use --target file meanwhile
+```
+
+### [Instinct] 2026-11-01 14:47
+```
+G19 walkthrough done: prereqs/per-OS/AI-key/where-to-go/troubleshooting in README (391064b); .env.example noted as AI Studio-worded
+Clean-clone test (https clone, ONLY the README): clone+checkout ok; npm install ok (0 vulns); python load 255 records/3 users ok
+Server (LLM_PROVIDER=mock): / 200, /arch.html 200, /api/arch/customers -> alex/eeva/lauri; chat answered, source=scripted provider=mock
+Monitor correctly 404 without DEV_MONITOR=1; test:arch 225/225 + tsc clean on the clone. G20 note: owner repro path fixed (no more abel_records hint)
+NEXT: Bill
+```
+
+### [Bill] 2026-11-01 14:47
+```
+OWNER (14:43): README must let a newcomer (a friend) set up from scratch. G19 adds, as a tested first-time walkthrough:
+G19: prerequisites: Git, Node 22.13+, Python 3 (no pip packages needed); Windows/Mac/Linux commands side by side
+G19: AI setup: copy .env.example to .env (.env.example is AI Studio-worded), get a free Gemini or Groq key, which vars to set
+G19: where to go: main Abel app at localhost:3000/, arch.html, monitor (DEV_MONITOR=1 per OS), demo customers to pick
+G19: optional Supabase section (once G20 lands); short troubleshooting: old Node, port 3000 busy, python not found
+G19: done = Instinct follows the README on a clean clone, nothing else, and reports each step's result
+NEXT: Instinct (G18, G19, G20)
+```
+
+### [Bill] 2026-11-01 14:50
+```
+G19: .env.example:18-24 still says set SUPABASE_URL/SECRET_KEY and run setup.sql (legacy); this led the owner into G20
+G19: README must say mock = no-key stand-in for tests only; the normal run uses Groq or Gemini (owner confused, 14:45)
+```

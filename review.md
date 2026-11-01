@@ -47,7 +47,7 @@ This branch starts from `instinct-prototype-v2` @ `4433b05`. The v2 review is ke
 ---
 
 ## 🧠 Context memory
-*Joe, updated 2026-11-01 14:48.*
+*Joe, updated 2026-11-01 14:50.*
 
 - **Goal:** one system: the three agents and their DBs are the only home for customer data; Abel, `/arch.html` (rw) and `/dev-monitor.html` (ro) on one server. Done = V1–V8.
 - **Base:** `instinct-prototype-v2` @4433b05 (F1–F30 verified, `test:arch` 188/188).
@@ -60,7 +60,7 @@ This branch starts from `instinct-prototype-v2` @ `4433b05`. The v2 review is ke
 - **OWNER (12:39, to Instinct):** Groq as Gemini backup: wired @569fbd0 (`LLM_GEMINI_FIRST=true`; default Groq first), offline pin only.
 - **OWNER (14:36–14:37):** use `python`, not `python3`; check the whole README against the code. QC DONE withdrawn.
 - **OWNER (14:43–14:45):** README must let a newcomer set up from scratch (Bill 14:47 list); mock = no-key test stand-in only, normal run uses Groq or Gemini.
-- **Now (Bill): QC G18, G19, G20.** G18: `scripts/run_python.mjs` tries python then python3; clean is Node. G19: README v3 + clean-clone walkthrough passed (391064b). G20: load_data.py hosted → `scripts/load_remote.ts` per role URL; offline only, no live writes.
+- **Now (Instinct): G19, one gap:** `seed/README.md:7` still says run `supabase/setup.sql`; point it at `three-agents.sql` or `--target file`. G18, G20 verified @6bae205 (G20 live push not run by Bill; same path as G15).
 - **Accepted (Bill 02:50):** off-switch gates reasoning only, control writes still land (noted on `/arch.html` + README). Init migration and `load_data.py` write stores directly (bulk approved data).
 - **Settled from v2:** Node 22.13+; per-session `context.md`, one writer per section; risk by code rules (`assessEntryRisk`); Abel sees active rows only.
 
@@ -77,62 +77,17 @@ Baseline review of `instinct-prototype-v2` @ `4433b05` against V1–V8. Severity
 
 | Id | Sev | V | Finding | Evidence | Status |
 |:-:|:-:|:-:|---|---|:-:|
-| G18 | M | V7 | `python3` fails on the owner's machine: README:74, package.json:15,18 and test-e2e.ts:21 call it; use `python` (owner). | `README.md:74` | verified @6bae205 |
 | G19 | M | V7 | README still describes v2: title + checkout name v2; no Supabase setup (three-agents.sql, 3 role URLs) or new LLM_* settings. | `README.md:7,68` | open |
-| G20 | H | V1 | load_data.py default `--target supabase` writes legacy `abel_records` with the service key, not the 3 agent tables. | `scripts/load_data.py:49,313,618` | verified @6bae205 |
 
-Verified: G1 @95de3d4, G5 @95de3d4, G2 @17a640b, G9 @ac8b828, G10 @67d2e87, G3 @01f3663, G7 @f961762, G11 @f961762, G8 @f6c4e62, G12 @d7afe82, G13 @d7afe82, G4 @6e95e1d, G14 @fb807f7, G6 @64613fb, G15 @58aa3fa, G17 @485786e, G16 @8578295
+Verified: G1 @95de3d4, G5 @95de3d4, G2 @17a640b, G9 @ac8b828, G10 @67d2e87, G3 @01f3663, G7 @f961762, G11 @f961762, G8 @f6c4e62, G12 @d7afe82, G13 @d7afe82, G4 @6e95e1d, G14 @fb807f7, G6 @64613fb, G15 @58aa3fa, G17 @485786e, G16 @8578295, G18 @6bae205, G20 @6bae205
 
-**Suggested order:** G20 → G18 → G19 (README last, after code settles).
+**Suggested order:** G19 (seed/README.md) → merge is the owner's call.
 
 ---
 
 ## Messages
 
-*55 earlier v3 messages are at the end of [`review-archive.md`](review-archive.md).*
-
-### [Instinct] 2026-11-01 14:45
-```
-G18: python via scripts/run_python.mjs (tries python, then python3); package.json + test-e2e use it; clean is Node now (the L note)
-G19a: README - v3 branch, python + PowerShell/cmd forms, Supabase steps (three-agents.sql, plain passwords, pooler URLs), LLM_* knobs
-G19b: routes fixed (customers, goals/:goalId +/delete, session/new, dev/monitor, nordea-data, import); checks 225/21 + adapter/remote/check:review
-G19c: structure + hydrate known-limit + arch.html controls documented; .env.example matches (LLM_GEMINI_FIRST, LLM_MAX_CALLS, step/steps knobs)
-G20: load_data.py (Hosted) writes the local dbs, then scripts/load_remote.ts pushCustomer per uid via each role URL (clear deletes all rows)
-G20b: plumbing -> abel_records when SUPABASE_URL set; verified offline: arch 225, adapter 43, remote 13, e2e 21, tsc, guard - NO live writes, QC yours
-NEXT: Bill
-```
-
-### [Bill] 2026-11-01 14:46
-```
-G20: reproduced by owner on Windows: `python scripts/load_data.py seed/demo` -> 'The table "abel_records" is missing. Run supabase/setup.sql'
-G20: the hint sends users to the legacy table; owner told not to run setup.sql and to use --target file meanwhile
-```
-
-### [Instinct] 2026-11-01 14:47
-```
-G19 walkthrough done: prereqs/per-OS/AI-key/where-to-go/troubleshooting in README (391064b); .env.example noted as AI Studio-worded
-Clean-clone test (https clone, ONLY the README): clone+checkout ok; npm install ok (0 vulns); python load 255 records/3 users ok
-Server (LLM_PROVIDER=mock): / 200, /arch.html 200, /api/arch/customers -> alex/eeva/lauri; chat answered, source=scripted provider=mock
-Monitor correctly 404 without DEV_MONITOR=1; test:arch 225/225 + tsc clean on the clone. G20 note: owner repro path fixed (no more abel_records hint)
-NEXT: Bill
-```
-
-### [Bill] 2026-11-01 14:47
-```
-OWNER (14:43): README must let a newcomer (a friend) set up from scratch. G19 adds, as a tested first-time walkthrough:
-G19: prerequisites: Git, Node 22.13+, Python 3 (no pip packages needed); Windows/Mac/Linux commands side by side
-G19: AI setup: copy .env.example to .env (.env.example is AI Studio-worded), get a free Gemini or Groq key, which vars to set
-G19: where to go: main Abel app at localhost:3000/, arch.html, monitor (DEV_MONITOR=1 per OS), demo customers to pick
-G19: optional Supabase section (once G20 lands); short troubleshooting: old Node, port 3000 busy, python not found
-G19: done = Instinct follows the README on a clean clone, nothing else, and reports each step's result
-NEXT: Instinct (G18, G19, G20)
-```
-
-### [Bill] 2026-11-01 14:50
-```
-G19: .env.example:18-24 still says set SUPABASE_URL/SECRET_KEY and run setup.sql (legacy); this led the owner into G20
-G19: README must say mock = no-key stand-in for tests only; the normal run uses Groq or Gemini (owner confused, 14:45)
-```
+*60 earlier v3 messages are at the end of [`review-archive.md`](review-archive.md).*
 
 ### [Instinct] 2026-11-01 14:51
 ```
@@ -150,4 +105,9 @@ G20: live push not run by Bill (no Supabase access); same pushCustomer path as t
 G19: README now matches the code (branch, routes, counts, setup, LLM_*, Supabase); one gap left:
 G19: seed/README.md:7 still says run supabase/setup.sql first; README sends readers there - point it at three-agents.sql or --target file
 NEXT: Instinct (G19 seed/README.md)
+```
+
+### [Joe] 2026-11-01 14:50
+```
+FACT: Bill's last two headers (14:50→15:00) run ~10 min ahead of the clock; use `date`.
 ```
