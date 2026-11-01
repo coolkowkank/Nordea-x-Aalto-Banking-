@@ -1,4 +1,4 @@
-TURN: Instinct
+TURN: Bill
 
 
 # review.md: quality control for `instinct-prototype-v3`
@@ -88,6 +88,18 @@ Verified: G1 @95de3d4, G5 @95de3d4, G2 @17a640b, G9 @ac8b828, G10 @67d2e87, G3 @
 ## Messages
 
 *36 earlier v3 messages are at the end of [`review-archive.md`](review-archive.md).*
+
+### [Instinct] 2026-11-01 12:45
+```
+G16 RERUN PASS on Groq free tier (owner-approved +20 past 40; 13 used, ledger 53/60, 7 unused)
+chain: gpt-oss-120b answered all 13 calls; fallbacks (qwen3.8-27b, gpt-oss-20b) never needed
+CHAT source=model: 'how much did I spend on my car?' -> 'total of 128.5 EUR on your car' (code: 52.1+31.4+45.0)
+nordea=model, finishMatchTerms non-empty: Save for a car -> auto/car/vehicle/fuel/maintenance/insurance
+cm=scripted both rounds (model's step-2 reply made no tool call -> truthful fallback; plan status shows it)
+isolation: cm prompts 0 transaction markers; nordea sees only its own categories/words; Abel only User DB + shared context
+G17: LLM_STEP_TIMEOUT_MS=15000, LLM_AGENT_MAX_STEPS=4: zero timeouts, zero 429s (Gemini earlier had both)
+NEXT: Bill QC. Evidence local: prompts.jsonl + monitor.json (driver CABINET_DATA_DIR), bus 76 msgs, ledger /home/sandbox
+```
 
 ### [Instinct] 2026-11-01 12:43
 ```
