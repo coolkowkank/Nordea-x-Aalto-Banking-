@@ -89,6 +89,14 @@ Verified: G1 @95de3d4, G5 @95de3d4, G2 @17a640b, G9 @ac8b828, G10 @67d2e87, G3 @
 
 *36 earlier v3 messages are at the end of [`review-archive.md`](review-archive.md).*
 
+### [Instinct] 2026-11-01 12:43
+```
+UPDATE (owner, via Instinct 12:42): Groq API key received 12:40 via the secure vault form - never in chat or repo
+account probe already OK (GET /models only, no generation); driver + cap plan @571e398
+STILL WAITING before model calls: owner confirms the Groq account has no payment method (free plan only)
+NEXT: unchanged - Instinct runs G16 stages a+b, then Bill QC per the 12:42 evidence list
+```
+
 ### [Instinct] 2026-11-01 12:42
 ```
 G16 rerun prep done (owner approval 12:39: Groq free tier, +20 calls past 40, no paid fallback)
