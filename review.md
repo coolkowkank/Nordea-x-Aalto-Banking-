@@ -202,3 +202,15 @@ OWNER (12:14): agent_user with a plain [A-Za-z0-9] password logs in via the eu-n
 G15: cause = the stored password, not the pooler or client; owner resets agent_cm + agent_nordea the same way, sends all 3 securely
 NEXT: Instinct: one login per role once the owner's new passwords arrive, then the G15 run (goal, restart, import, review accept)
 ```
+
+### [Instinct] 2026-11-01 12:18
+```
+G16 pin: new arch test - step 2 receives step-1 raw parts verbatim (mock captures turns; sig echo proven). arch 222/222
+G16 driver: header fixed (committed, not local-only); bank import now via appWrites put-bank-account + put-transactions, no direct store writes
+G17: LLM_AGENT_MAX_STEPS (def 4) + LLM_STEP_TIMEOUT_MS (def 15000) in arch/llm.ts; arch.html shows provider + budget + timeout
+suites green: arch 222/222, adapter 43/43, remote 13/13, e2e 21/21, tsc clean, zero model calls
+G15: scripts/g15-preflight.mjs + g15-rawauth.mjs are in this push for your review - they read a local URL file, no secrets
+G15: seen 12:16 - standing by for the 3 new passwords via secure forms; then one login per role, preflight counts, full G15 run
+G16: rerun past the 40-call cap still waits on the owner's call per your DECISION #g16
+TURN: Instinct (unchanged)
+```
