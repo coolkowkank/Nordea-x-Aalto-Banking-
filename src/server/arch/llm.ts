@@ -19,6 +19,15 @@ export function archLlmProviderName(): string | null {
   try { const p = getProvider(); return p.isConfigured() ? p.name : null; } catch { return null; }
 }
 
+/** G17: the agent reasoning step budget and per-step timeout are configurable via env so a
+ *  slow real model gets room (or a faster one is chosen) without code edits. Defaults keep
+ *  the previous hardcoded behaviour (4 steps, 15s per step + 5s outer guard). */
+export function archLlmConfig(): { provider: string | null; maxSteps: number; stepTimeoutMs: number } {
+  const maxSteps = Math.max(1, Number(process.env.LLM_AGENT_MAX_STEPS) || 4);
+  const stepTimeoutMs = Math.max(1000, Number(process.env.LLM_STEP_TIMEOUT_MS) || 15000);
+  return { provider: archLlmProviderName(), maxSteps, stepTimeoutMs };
+}
+
 interface AgentRunArgs {
   agent: 'cm' | 'nordea' | 'personal';
   system: string;
@@ -39,13 +48,14 @@ export interface PlanOutcome<T> { plan: T | null; status: 'model' | 'scripted' |
 
 export async function runAgentReasoning(args: AgentRunArgs): Promise<{ result: Record<string, unknown> | null; error?: string }> {
   const provider = getProvider();
+  const { maxSteps, stepTimeoutMs } = archLlmConfig();
   const turns: Turn[] = [{ role: 'user', text: args.prompt }];
-  for (let step = 0; step < 4; step++) {
+  for (let step = 0; step < maxSteps; step++) {
     let r;
     try {
       r = await withTimeout(
-        provider.step({ system: args.system, turns, tools: args.tools, temperature: 0, timeoutMs: 15000 }),
-        20000, `${args.agent} agent reasoning`);
+        provider.step({ system: args.system, turns, tools: args.tools, temperature: 0, timeoutMs: stepTimeoutMs }),
+        stepTimeoutMs + 5000, `${args.agent} agent reasoning`);
     } catch (e) { return { result: null, error: e instanceof Error ? e.message : String(e) }; }
     if (!r.calls.length) return { result: null };
     for (const call of r.calls) {

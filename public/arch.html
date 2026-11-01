@@ -168,6 +168,7 @@ async function refresh() {
   $('ctx-meta').innerHTML = c
     ? `Session: <b>${esc(c.sessionId ?? 'none')}</b> · trigger: ${esc(c.trigger ?? '-')} · round: ${esc(c.roundId ?? '-')} · ${c.finalisedAt ? 'finalised ' + esc(c.finalisedAt.slice(0, 19).replace('T', ' ')) : 'open'}<br>Sections and their owners: <b>customer</b> (personal agent) · <b>memory</b> (Context Memory agent) · <b>nordea</b> (Nordea agent) - one writer per section.`
     : 'No session document yet - ask the agent something to open one.';
+  if (s.llm) $('ctx-meta').innerHTML += `<br>Reasoning: <b>${esc(s.llm.provider ?? 'scripted (no provider)')}</b> · step budget ${s.llm.maxSteps} · step timeout ${Math.round(s.llm.stepTimeoutMs / 1000)}s <span style="opacity:.6">(env LLM_AGENT_MAX_STEPS / LLM_STEP_TIMEOUT_MS)</span>`;
   $('ctx-md').textContent = s.contextMd ?? '';
   const entries = await api(`/api/arch/${uid}/entries`);
   $('cm-entries').innerHTML = entries.entries.length ? entries.entries.map((e) =>

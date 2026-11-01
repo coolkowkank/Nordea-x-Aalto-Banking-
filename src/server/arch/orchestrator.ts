@@ -13,6 +13,7 @@ import {
   beginChat, finishChat, postAgentQuery, readAgentReply, personalLabel,
 } from './agents/personal.js';
 import { PARKED_WORDING, publishParkState } from './agents/cm.js';
+import { archLlmConfig } from './llm.js';
 import './agents/nordea.js'; // side effect: registers the Nordea agent's bus handler
 import { loadUserDb, saveUserDb, deleteUserDb } from './store/userStore.js';
 import { loadCmDb, deleteCmDb } from './store/cmStore.js';
@@ -516,6 +517,7 @@ export function archState(uid: string) {
     userId: uid,
     stores: { user: storeLine(uid, 'user'), cm: storeLine(uid, 'cm'), nordea: storeLine(uid, 'nordea') },
     context: ctxDoc ? { sessionId: ctxDoc.sessionId, roundId: ctxDoc.roundId, trigger: ctxDoc.trigger, openedAt: ctxDoc.openedAt, finalisedAt: ctxDoc.finalisedAt } : null,
+    llm: archLlmConfig(),
     sessionId: session?.id ?? null,
     agents: {
       personal: { mode: u.personalAgent.mode, name: personalLabel(u), simulated: u.personalAgent.mode === 'external', off: off.includes('personal') },

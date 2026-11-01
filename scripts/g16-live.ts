@@ -1,5 +1,5 @@
 /**
- * G16 live evidence run (LOCAL ONLY - not committed): one session with the REAL provider
+ * G16 live evidence run (local evidence driver, committed): one session with the REAL provider
  * (Gemini, free tier) instead of the mock. Mirrors Bill's G16 ask:
  *   Abel goal -> V3 round A (user change) -> bank import -> decay round B;
  *   each agent prompt must hold only its own DB data; code still owns numbers/risk;
@@ -47,16 +47,19 @@ const line = (s: string) => console.log(s);
 line(`provider: ${LL.getProvider().name} (real, recorded)`);
 
 // Fictional bank data (Nordea DB only) with distinctive markers for the isolation check.
-S.saveNordeaDb({
-  userId: UID,
-  accounts: [{ id: 'a1', userId: UID, key: 'current', type: 'current account' }],
-  transactions: [
-    { id: 't1', userId: UID, date: '2026-10-01', category: 'transport', amount: -52.1, account: 'current', description: 'Fuel for the car', counterparty: 'NestE' },
-    { id: 't2', userId: UID, date: '2026-10-05', category: 'transport', amount: -31.4, account: 'current', description: 'Car wash', counterparty: 'WashCo' },
-    { id: 't3', userId: UID, date: '2026-10-07', category: 'groceries', amount: -64.2, account: 'current', description: 'Weekly groceries', counterparty: 'K-Market' },
-    { id: 't4', userId: UID, date: '2026-10-09', category: 'salary', amount: 3900, account: 'current', description: 'Salary', counterparty: 'Employer Oy' },
-  ],
-});
+// Writes go through the Nordea agent (bus put-* controls), never the store directly.
+const ACCTS = [{ id: 'a1', userId: UID, key: 'current', type: 'current account' }];
+const TX_BASE = [
+  { id: 't1', userId: UID, date: '2026-10-01', category: 'transport', amount: -52.1, account: 'current', description: 'Fuel for the car', counterparty: 'NestE' },
+  { id: 't2', userId: UID, date: '2026-10-05', category: 'transport', amount: -31.4, account: 'current', description: 'Car wash', counterparty: 'WashCo' },
+  { id: 't3', userId: UID, date: '2026-10-07', category: 'groceries', amount: -64.2, account: 'current', description: 'Weekly groceries', counterparty: 'K-Market' },
+  { id: 't4', userId: UID, date: '2026-10-09', category: 'salary', amount: 3900, account: 'current', description: 'Salary', counterparty: 'Employer Oy' },
+];
+const importViaNordeaAgent = (txs: typeof TX_BASE) => {
+  for (const a of ACCTS) A.appWrites.putBankAccount(UID, a);
+  A.appWrites.putTransactions(UID, txs, 'replace');
+};
+importViaNordeaAgent(TX_BASE);
 
 if (STAGE === 'a') {
 // 1) Abel goal (user change) -> round A
@@ -70,17 +73,9 @@ line(`ROUND A proposals=${JSON.stringify(roundA.proposals.map((p) => ({ total: p
 }
 if (STAGE === 'b') {
 // 2) Bank import -> decay round B
-S.saveNordeaDb({
-  userId: UID,
-  accounts: [{ id: 'a1', userId: UID, key: 'current', type: 'current account' }],
-  transactions: [
-    { id: 't1', userId: UID, date: '2026-10-01', category: 'transport', amount: -52.1, account: 'current', description: 'Fuel for the car', counterparty: 'NestE' },
-    { id: 't2', userId: UID, date: '2026-10-05', category: 'transport', amount: -31.4, account: 'current', description: 'Car wash', counterparty: 'WashCo' },
-    { id: 't3', userId: UID, date: '2026-10-07', category: 'groceries', amount: -64.2, account: 'current', description: 'Weekly groceries', counterparty: 'K-Market' },
-    { id: 't4', userId: UID, date: '2026-10-09', category: 'salary', amount: 3900, account: 'current', description: 'Salary', counterparty: 'Employer Oy' },
-    { id: 't5', userId: UID, date: '2026-10-12', category: 'transport', amount: -45.0, account: 'current', description: 'Tyre change', counterparty: 'TyreShop' },
-  ],
-});
+importViaNordeaAgent([...TX_BASE,
+  { id: 't5', userId: UID, date: '2026-10-12', category: 'transport', amount: -45.0, account: 'current', description: 'Tyre change', counterparty: 'TyreShop' },
+]);
 const imp = A.applyBankImportToArch(UID);
 line(`IMPORT updated=${imp.updated} staleFlags=${JSON.stringify(imp.staleFlags)}`);
 

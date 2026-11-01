@@ -593,6 +593,40 @@ delete process.env.LLM_MAX_CALLS;
 LL.resetModelForTests();
 check('G16: the counter resets and the cap lifts when unset', LL.llmCallCount() === 0, String(LL.llmCallCount()));
 
+// G16 pin (Bill): step 2 of the agent reasoning loop must receive step 1's raw parts
+// verbatim - Gemini 3.x rejects multi-step tool loops without the thought_signature echo.
+{
+  const AL = await import('../src/server/arch/llm.js');
+  const seenTurns: { role: string; raw?: unknown }[][] = [];
+  const rawParts = [{ thought_signature: 'sig-1', text: 'thinking' }];
+  LL.setProviderForTests({
+    name: 'mock (tests only)', isConfigured: () => true,
+    step: async (args: { turns: { role: string; raw?: unknown }[] }) => {
+      seenTurns.push(args.turns);
+      if (seenTurns.length === 1) return { calls: [{ id: 'r1', name: 'readOwn', args: {} }], raw: rawParts };
+      return { calls: [{ id: 'f1', name: 'finishPlan', args: { ok: true } }] };
+    },
+  } as never);
+  const pinned = await AL.runAgentReasoning({
+    agent: 'cm', system: 's', prompt: 'p',
+    tools: [{ name: 'readOwn', description: 'd', parameters: {} }, { name: 'finishPlan', description: 'd', parameters: {} }],
+    runTool: () => ({}), finishTool: 'finishPlan',
+  });
+  const echoed = seenTurns[1]?.find((t) => t.role === 'model_calls')?.raw;
+  check('G16 pin: step 2 receives step 1 raw parts verbatim (thought_signature passthrough)', pinned.result !== null && JSON.stringify(echoed) === JSON.stringify(rawParts), JSON.stringify(echoed));
+  LL.setProviderForTests(null);
+}
+
+// G17: the agent step budget and step timeout are configurable via env; defaults unchanged.
+{
+  const AL = await import('../src/server/arch/llm.js');
+  const dflt = AL.archLlmConfig();
+  process.env.LLM_AGENT_MAX_STEPS = '7'; process.env.LLM_STEP_TIMEOUT_MS = '45000';
+  const custom = AL.archLlmConfig();
+  delete process.env.LLM_AGENT_MAX_STEPS; delete process.env.LLM_STEP_TIMEOUT_MS;
+  check('G17: step budget/timeout configurable via env (defaults 4 steps / 15s)', dflt.maxSteps === 4 && dflt.stepTimeoutMs === 15000 && custom.maxSteps === 7 && custom.stepTimeoutMs === 45000, JSON.stringify({ dflt: { maxSteps: dflt.maxSteps, stepTimeoutMs: dflt.stepTimeoutMs }, custom: { maxSteps: custom.maxSteps, stepTimeoutMs: custom.stepTimeoutMs } }));
+}
+
 // G4 (Bill 03:45): the figure guard must match whole numbers - '120' must not pass against '1200'.
 const goal53 = S.loadUserDb(UID53).goals[0];
 A.appWrites.updateGoal(UID53, goal53.id, { detail: 'budget 1200 EUR' });
