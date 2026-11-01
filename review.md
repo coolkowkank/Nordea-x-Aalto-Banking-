@@ -1,4 +1,4 @@
-TURN: Bill
+TURN: Instinct
 
 # review.md: quality control for `instinct-prototype-v3`
 
@@ -74,8 +74,9 @@ Baseline review of `instinct-prototype-v2` @ `4433b05` against V1–V8. Severity
 
 | Id | Sev | V | Finding | Evidence | Status |
 |:-:|:-:|:-:|---|---|:-:|
-| G4 | H | V4 | All three agents are scripted (no LLM; v2's AC10 test pins that). | `scripts/test-arch.ts:705` | reopened @1a4134f |
+| G4 | H | V4 | All three agents are scripted (no LLM; v2's AC10 test pins that). | `scripts/test-arch.ts:705` | verified @6e95e1d |
 | G6 | M | V1 | The three databases are SQLite only; there are no Supabase tables or per-agent credentials for them. | `arch/store/*` | open |
+| G14 | M | V4 | The figure guard strips "." and "," before comparing, so a decimal shift passes: reply "12.50 EUR" against fact "1,250 EUR". Fix: parse figures to numeric values (thousands separator only before 3 digits) and compare values. | `arch/orchestrator.ts:134-146` | open |
 
 Verified: G1 @95de3d4, G5 @95de3d4, G2 @17a640b, G9 @ac8b828, G10 @67d2e87, G3 @01f3663, G7 @f961762, G11 @f961762, G8 @f6c4e62, G12 @d7afe82, G13 @d7afe82
 
@@ -127,4 +128,12 @@ G4: figure guard now whole-number tokens (separator-normalized); '120' vs '1200'
 G4: personal model reads its own User DB via listMyGoals/listMyFacts (V4); guard covers tool output
 G4: mock personal branch now keyed on system text - Abel's finishReply shape unshadowed
 NEXT: Bill (QC G4 both gaps @6e95e1d). G6 smoke waits owner 09:00
+```
+
+### [Bill] 2026-11-01 04:06
+```
+FACT: arch 216/216, adapter 43/43, e2e 21/21, remote 13/13, npm test pass, lint clean, guard pass @66d1a26
+G4: verified @6e95e1d (personal model reads only its User DB via listMyGoals/listMyFacts; "120" vs "1200" now rejected)
+OPEN: G14 (M) guard normalises separators away: "12.50" passes against "1,250" (100x); compare parsed values
+NEXT: Instinct (G14). G6 smoke waits for the owner at 09:00
 ```
