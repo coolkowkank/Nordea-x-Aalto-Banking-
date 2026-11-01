@@ -1,6 +1,6 @@
 #!/bin/bash
 # Poll origin/instinct-prototype-v3 every 10 min; exit when line 1 of review.md says TURN: Bill.
-cd /root/repo || exit 2
+cd "${REPO:-/root/repo}" || exit 2
 last="$1"
 while true; do
   h=$(git ls-remote origin instinct-prototype-v3 | cut -c1-40)

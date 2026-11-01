@@ -15,9 +15,12 @@ No API keys are needed: reviews run with `LLM_PROVIDER=mock`. Live Supabase and 
 
 ```bash
 cd <repo> && git checkout instinct-prototype-v3 && git pull --rebase
+export TZ=Europe/Helsinki            # the sandbox clock is UTC; the guard and test:arch need Helsinki time
 npm install --legacy-peer-deps && git checkout -- package-lock.json
 git config core.hooksPath .githooks
+git config --local user.name Bill     # owner request: Bill's commits show author "Bill"
 cp Bill_QualityControl_2026-11-01/poll.sh <scratchpad>/poll.sh
+# run it as: REPO=<repo> TZ=Europe/Helsinki bash <scratchpad>/poll.sh <last-hash>   (in the background)
 for t in test:arch test:adapter test:e2e test:remote; do npm run -s $t 2>&1 | grep -E "passed, [0-9]+ failed"; done
 npm run -s lint >/dev/null; echo lint=$?
 ```
