@@ -16,7 +16,7 @@
 import fs from 'fs';
 import path from 'path';
 import crypto from 'crypto';
-import { DATA_DIR } from './store/common.js';
+import { DATA_DIR, remoteConfigured, remoteUrl, hydrateAgentStoresDetailed, rowsOf, fileFor, type DbKind } from './store/common.js';
 import { saveProfile, putGoal, putDocument, putAppRows, loadProfile, loadUserDb, loadDocuments, loadAppRows } from './store/userStore.js';
 import { putEntry, addHistoryEvent, putShare, putUndoRecord, putAppAccessLog, putMigrationLedger, loadCmDb, loadHistory, loadShares, listUndoRecords, loadAppAccessLog, type MigrationLedgerRow } from './store/cmStore.js';
 import { saveBalances, putTransactions, putBankAccount, putBalanceSnapshot, putImportBatch, putAppBankRows, putAppRewards, loadNordeaDb, loadBalances, loadBalanceSnapshots, loadImportBatches, loadAppBankRows, loadAppRewards } from './store/nordeaStore.js';
@@ -116,13 +116,15 @@ export interface MigrationResult {
   alreadyDone: boolean;
   failures: string[];
   ledger: MigrationLedgerRow[];
+  /** Set only on a deferred-delete pass (hosted mode finishes the delete itself). */
+  sourceHash?: string;
 }
 
 /**
  * Migrate data/cabinet-db.json into the three agent databases, verify field-by-field, and only
  * then delete the file. Safe to re-run: upserts are idempotent and verification runs every time.
  */
-export function runLegacyMigration(): MigrationResult {
+export function runLegacyMigration(opts?: { deferDelete?: boolean }): MigrationResult {
   const failures: string[] = [];
   if (!fs.existsSync(DB_FILE)) {
     return { ok: true, deleted: false, alreadyDone: true, failures: [], ledger: [] };
@@ -247,8 +249,14 @@ export function runLegacyMigration(): MigrationResult {
     return { ok: false, deleted: false, alreadyDone: false, failures, ledger };
   }
 
-  // ---- Verified. Last guard: the source must be the same bytes we migrated from (crash-resume
-  // safety: a file that changed mid-migration is a NEW source - never delete it) ----
+  if (opts?.deferDelete) return { ok: true, deleted: false, alreadyDone: false, failures: [], ledger, sourceHash };
+  return finalizeLegacyDelete(sourceHash, ledger);
+}
+
+/** The last step, separated so hosted mode can push + verify remotely before anything is deleted.
+ *  The source must still be the same bytes we migrated from (crash-resume safety: a file that
+ *  changed mid-migration is a NEW source - never delete it). */
+export function finalizeLegacyDelete(sourceHash: string, ledger: MigrationLedgerRow[] = []): MigrationResult {
   const nowHash = crypto.createHash('sha256').update(fs.readFileSync(DB_FILE)).digest('hex');
   if (nowHash !== sourceHash) {
     return { ok: false, deleted: false, alreadyDone: false,
@@ -256,4 +264,91 @@ export function runLegacyMigration(): MigrationResult {
   }
   fs.unlinkSync(DB_FILE);
   return { ok: true, deleted: true, alreadyDone: false, failures: [], ledger };
+}
+
+const HOSTED_KINDS: DbKind[] = ['user', 'cm', 'nordea'];
+
+/**
+ * G34: hosted-safe migration. In hosted mode (any store has a remote URL) the legacy file is
+ * deleted only after EVERY migrated row is durably hosted: hydrate first (a failed pull stops
+ * everything - local files may be stale), write + verify locally, AWAIT the push of every
+ * customer database, read the hosted tables back and compare every row, and only then delete.
+ * All three role URLs are required: a store without one would leave its migrated data local-only
+ * while claiming verified, so that fails closed. A failed push or read-back keeps the file.
+ */
+export async function runLegacyMigrationHostedSafe(): Promise<MigrationResult> {
+  const configured = HOSTED_KINDS.filter(remoteConfigured);
+  if (!configured.length) return runLegacyMigration(); // local-only mode: unchanged
+  if (!fs.existsSync(DB_FILE)) return { ok: true, deleted: false, alreadyDone: true, failures: [], ledger: [] };
+  const missing = HOSTED_KINDS.filter((k) => !remoteConfigured(k));
+  if (missing.length) {
+    return { ok: false, deleted: false, alreadyDone: false, ledger: [],
+      failures: [`hosted mode is partially configured (missing ${missing.join(', ')} DB URL) - refusing to migrate; migrated data would sit local-only while claiming verified`] };
+  }
+  // 1. Hydrate: the hosted tables are the source of truth; a failed pull stops the migration.
+  const h = await hydrateAgentStoresDetailed();
+  if (h.failed.length) {
+    return { ok: false, deleted: false, alreadyDone: false, ledger: [],
+      failures: [`hosted pull failed for ${h.failed.join(', ')} - cabinet-db.json kept; fix the connection and run again`] };
+  }
+  // 2. Local write + field-level verify (fail-closed, conflicts, pre-scan) - no delete yet.
+  const core = runLegacyMigration({ deferDelete: true });
+  if (!core.ok) return core;
+  // 3. Awaited push of every customer's three databases (never the fire-and-forget flush timer).
+  const R = await import('./store/remote.js');
+  const uids = listMigratedUids();
+  for (const uid of uids) {
+    for (const kind of configured) {
+      const url = remoteUrl(kind)!;
+      try {
+        const file = fileFor(uid, kind);
+        await R.assertReplaceSafe(kind, url, uid, fs.existsSync(file));
+        await R.pushCustomer(kind, url, uid, rowsOf(file, kind).map((r) => ({ user_id: uid, ...r })));
+      } catch (err) {
+        return { ok: false, deleted: false, alreadyDone: false, ledger: core.ledger,
+          failures: [`hosted push failed for ${uid}/${kind}: ${err instanceof Error ? err.message : err} - cabinet-db.json kept; local rows are intact, run again`] };
+      }
+    }
+  }
+  // 4. Hosted read-back: every local row of every mapped namespace must exist hosted, identical.
+  for (const uid of uids) {
+    for (const kind of configured) {
+      let hosted: Map<string, string>;
+      try {
+        const rows = (await R.pullStore(kind, remoteUrl(kind)!)).filter((r) => r.user_id === uid);
+        hosted = new Map(rows.map((r) => [`${r.table_name}:${r.id}`, JSON.stringify(r.data)]));
+      } catch (err) {
+        return { ok: false, deleted: false, alreadyDone: false, ledger: core.ledger,
+          failures: [`hosted read-back failed for ${uid}/${kind}: ${err instanceof Error ? err.message : err} - cabinet-db.json kept`] };
+      }
+      const local = rowsOf(fileFor(uid, kind), kind);
+      const failures: string[] = [];
+      for (const r of local) {
+        const cur = hosted.get(`${r.table_name}:${r.id}`);
+        if (cur === undefined) failures.push(`missing hosted: ${kind}/${r.table_name} "${r.id}"`);
+        else if (cur !== JSON.stringify(r.data)) failures.push(`hosted mismatch: ${kind}/${r.table_name} "${r.id}"`);
+      }
+      const extra = [...hosted.keys()].filter((k) => !local.some((r) => `${r.table_name}:${r.id}` === k));
+      for (const k of extra) failures.push(`unexpected hosted row: ${kind}/${k}`);
+      if (failures.length) {
+        failures.unshift(`hosted verification FAILED for ${uid}/${kind} - cabinet-db.json kept; push is idempotent, run again`);
+        return { ok: false, deleted: false, alreadyDone: false, failures, ledger: core.ledger };
+      }
+    }
+  }
+  // 5. Only now the source may go (with the same unchanged-source guard).
+  return finalizeLegacyDelete(core.sourceHash!, core.ledger);
+}
+
+/** Every customer with at least one local store file (post-write, pre-delete set). */
+function listMigratedUids(): string[] {
+  const dir = DATA_DIR;
+  const archDir = path.join(dir, 'arch');
+  if (!fs.existsSync(archDir)) return [];
+  const set = new Set<string>();
+  for (const f of fs.readdirSync(archDir)) {
+    const m = f.match(/^(.+)\.(user|cm|nordea)\.db$/);
+    if (m) set.add(m[1]);
+  }
+  return [...set];
 }

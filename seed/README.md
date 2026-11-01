@@ -31,7 +31,7 @@ Useful options:
 - `--clear` deletes **all** data first. `python scripts/load_data.py --clear` on its own empties the app
   (with the hosted setup it also deletes every row of the hosted agent tables - that full wipe is
   guarded behind an explicit `--all` inside `scripts/load_remote.ts`).
-- `--target file` writes `data/cabinet-db.json` instead, for running without Supabase.
+- `--target file` keeps everything in the local agent databases (`data/arch/*.db`), for running without Supabase.
 
 ## What a file needs
 - **users**: `id` and `name`. Everything else has a default. Nested fields as dotted headers, e.g.

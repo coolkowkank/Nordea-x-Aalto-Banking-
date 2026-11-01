@@ -200,5 +200,99 @@ console.log('test-migrate: legacy cabinet-db.json -> three agent databases');
   fs.rmSync(dir, { recursive: true, force: true });
 }
 
+// ---- G34: hosted mode (fake pg pool, no live database) ----
+// hydrate -> write+verify local -> AWAITED push -> hosted read-back -> only then delete.
+function runHostedCase(name: string, setup: object | null, flags: { urls?: string[]; failPushKind?: string; failPull?: boolean } = {}) {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), `migrate-${name}-`));
+  if (setup) fs.writeFileSync(path.join(dir, 'cabinet-db.json'), JSON.stringify(setup));
+  const urls = flags.urls ?? ['user', 'cm', 'nordea'];
+  const runner = `
+    process.env.CABINET_DATA_DIR = ${JSON.stringify(dir)};
+    ${urls.map((u) => `process.env.${u.toUpperCase()}_DB_URL = 'fake://${u}';`).join('\n    ')}
+    const TABLES = { 'fake://user': 'agent_user_records', 'fake://cm': 'agent_cm_records', 'fake://nordea': 'agent_nordea_records' };
+    const hosted = { agent_user_records: [], agent_cm_records: [], agent_nordea_records: [] };
+    const FAIL_PUSH = ${JSON.stringify(flags.failPushKind ?? null)};
+    const FAIL_PULL = ${JSON.stringify(flags.failPull ?? false)};
+    const pool = (url) => ({
+      query: async (text, params) => {
+        const t = TABLES[url];
+        if (/^SELECT user_id, table_name, id, data FROM/.test(text)) {
+          if (FAIL_PULL) throw new Error('pull boom');
+          return { rows: hosted[t].map((r) => ({ ...r })) };
+        }
+        if (/^SELECT 1 FROM .* WHERE user_id/.test(text)) return { rows: hosted[t].some((r) => r.user_id === params[0]) ? [{ one: 1 }] : [] };
+        throw new Error('unexpected query: ' + text);
+      },
+      connect: async () => {
+        const t = TABLES[url];
+        let staging = null;
+        return {
+          query: async (text, params) => {
+            if (text === 'BEGIN') { staging = null; return {}; }
+            if (/^DELETE FROM/.test(text)) { staging = hosted[t].filter((r) => r.user_id !== params[0]); return {}; }
+            if (/^INSERT INTO/.test(text)) {
+              if (FAIL_PUSH && t === 'agent_' + FAIL_PUSH + '_records') throw new Error('push boom');
+              staging.push({ user_id: params[0], table_name: params[1], id: params[2], data: JSON.parse(params[3]) });
+              return {};
+            }
+            if (text === 'COMMIT') { hosted[t] = staging; return {}; }
+            if (text === 'ROLLBACK') { staging = null; return {}; }
+            throw new Error('unexpected tx query: ' + text);
+          },
+          release: () => {},
+        };
+      },
+    });
+    import(${JSON.stringify(path.resolve('src/server/arch/store/remote.ts'))}).then(async (R) => {
+      R.setPoolFactoryForTests((url) => pool(url));
+      const m = await import(${JSON.stringify(path.resolve('src/server/arch/legacyMigrate.ts'))});
+      const result = await m.runLegacyMigrationHostedSafe();
+      const summary = Object.fromEntries(Object.entries(hosted).map(([t, rows]) => [t, rows.length]));
+      const tables = [...new Set(Object.values(hosted).flat().map((r) => r.table_name))].sort();
+      console.log('RESULT:' + JSON.stringify({ result, summary, tables }));
+    });
+  `;
+  const out = execFileSync('npx', ['tsx', '--eval', runner], { encoding: 'utf-8' });
+  const line = out.trim().split('\n').find((l) => l.startsWith('RESULT:'))!;
+  return { dir, ...JSON.parse(line.slice(7)) };
+}
+
+// Case 8: hosted full migration - pushed + read back before delete, all namespaces hosted
+{
+  const { dir, result, summary, tables } = runHostedCase('hosted-full', fixture());
+  check('hosted full: migration ok', result.ok === true, JSON.stringify(result.failures).slice(0, 300));
+  check('hosted full: legacy file deleted', result.deleted === true && !fs.existsSync(path.join(dir, 'cabinet-db.json')));
+  check('hosted full: all three hosted tables written', summary.agent_user_records > 0 && summary.agent_cm_records > 0 && summary.agent_nordea_records > 0, JSON.stringify(summary));
+  check('hosted full: app namespaces hosted (messages, access log, earnings, rewards)',
+    ['app_messages', 'app_conversations', 'app_topic_log', 'app_access_log', 'app_earnings', 'app_data_rewards', 'app_rewards'].every((t) => tables.includes(t)), tables.join(','));
+  fs.rmSync(dir, { recursive: true, force: true });
+}
+
+// Case 9: hosted push failure keeps the file (no silent local-only "success")
+{
+  const { dir, result } = runHostedCase('hosted-push-fail', fixture(), { failPushKind: 'nordea' });
+  check('hosted push fail: not ok', result.ok === false);
+  check('hosted push fail: file kept', fs.existsSync(path.join(dir, 'cabinet-db.json')));
+  check('hosted push fail: names the failed push', result.failures.some((f: string) => f.includes('hosted push failed')), JSON.stringify(result.failures).slice(0, 200));
+  fs.rmSync(dir, { recursive: true, force: true });
+}
+
+// Case 10: partially configured hosted mode fails closed
+{
+  const { dir, result } = runHostedCase('hosted-partial', fixture(), { urls: ['user'] });
+  check('hosted partial: fails closed', result.ok === false && fs.existsSync(path.join(dir, 'cabinet-db.json')));
+  check('hosted partial: names missing URLs', result.failures.some((f: string) => f.includes('partially configured')), JSON.stringify(result.failures).slice(0, 200));
+  fs.rmSync(dir, { recursive: true, force: true });
+}
+
+// Case 11: failed hydrate stops before any write
+{
+  const { dir, result } = runHostedCase('hosted-pull-fail', fixture(), { failPull: true });
+  check('hosted pull fail: not ok, file kept', result.ok === false && fs.existsSync(path.join(dir, 'cabinet-db.json')));
+  check('hosted pull fail: names the pull', result.failures.some((f: string) => f.includes('hosted pull failed')), JSON.stringify(result.failures).slice(0, 200));
+  check('hosted pull fail: nothing written locally', !fs.existsSync(path.join(dir, 'arch', 'lauri.user.db')));
+  fs.rmSync(dir, { recursive: true, force: true });
+}
+
 console.log(`\ntest-migrate: ${passed} passed, ${failed} failed`);
 process.exit(failed ? 1 : 0);

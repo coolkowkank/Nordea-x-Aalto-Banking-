@@ -1,8 +1,9 @@
-// Where the data lives. With SUPABASE_URL and SUPABASE_SECRET_KEY set (AI Studio → Settings → Secrets),
-// every record is a row in the Supabase table "abel_records" and kept files go to the private bucket
-// "abel-documents". Without them, the app keeps working on the local file data/cabinet-db.json
-// (fine for testing, but it resets when the hosting restarts the app). Neither comes with data:
-// load it with scripts/load_data.py.
+// LEGACY store - retired by G30. The app reads and writes the three agent databases only
+// (data/arch/*.db); this module's cabinet-db.json remains solely as the INPUT for
+// `npm run migrate:legacy`, which verifies every record into the agent databases and then
+// deletes the file. Kept documents still use the private "abel-documents" bucket when
+// SUPABASE_URL and SUPABASE_SECRET_KEY are set. Neither comes with data: load it with
+// scripts/load_data.py (which writes the agent databases directly, never cabinet-db.json).
 import fs from 'fs';
 import path from 'path';
 import { createClient, SupabaseClient } from '@supabase/supabase-js';

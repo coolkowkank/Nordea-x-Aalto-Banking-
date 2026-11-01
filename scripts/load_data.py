@@ -9,7 +9,7 @@ Files it reads (the record kind comes from --kind, or else from the file or shee
   .csv / .tsv         one record per row. Headers like accounts.current.balance become nested fields,
                       cells holding JSON ({...} or [...]) are parsed, numbers and true/false are converted.
   .json               a list of records, a full snapshot {"users": {...}, "transactions": [...], ...}
-                      (the shape of data/cabinet-db.json), or raw rows [{"kind", "id", "data"}, ...].
+                      (the shape the old data/cabinet-db.json used), or raw rows [{"kind", "id", "data"}, ...].
   .jsonl / .ndjson    one record per line.
   .xlsx               one record per row; each sheet named after a kind is loaded as that kind
                       (needs: pip install openpyxl).
@@ -33,10 +33,10 @@ first hydrates the local databases from the hosted tables, so existing hosted re
 the load instead of being replaced by it.
 App plumbing (chat transcripts, logs, rewards) goes to the abel_records table when
 SUPABASE_URL and SUPABASE_SECRET_KEY are also set (run supabase/setup.sql once for that),
-and to data/cabinet-db.json otherwise. All variables are read from the environment, .env
-or .env.local.
-Use --target file to skip Supabase entirely: the three agent databases stay local files
-(data/arch/*.db) and plumbing stays in data/cabinet-db.json.
+and into the agent databases' app_* namespaces otherwise (pushed hosted with the customer).
+All variables are read from the environment, .env or .env.local.
+Use --target file to skip Supabase entirely: everything stays in the local agent databases
+(data/arch/*.db); a fresh load never creates data/cabinet-db.json.
 Afterwards it asks the running app to read the data again (POST /api/admin/reload), so no restart is needed.
 """
 from __future__ import annotations
@@ -60,7 +60,6 @@ ROOT = Path(__file__).resolve().parent.parent
 TABLE = "abel_records"
 # Honour CABINET_DATA_DIR like the server does, so a scratch/test data dir can be loaded (G9).
 DATA_DIR = Path(os.environ["CABINET_DATA_DIR"]).resolve() if os.environ.get("CABINET_DATA_DIR") else ROOT / "data"
-LOCAL_FILE = DATA_DIR / "cabinet-db.json"
 
 KINDS = [
     "users", "cabinetEntries", "transactions", "messages", "accessLog", "topicLog", "undoRecords",
@@ -324,7 +323,7 @@ class Supabase:
         self.key = os.environ.get("SUPABASE_SECRET_KEY") or os.environ.get("SUPABASE_SERVICE_ROLE_KEY") or ""
         if not self.url or not self.key:
             sys.exit("SUPABASE_URL and SUPABASE_SECRET_KEY are not set (environment, .env or .env.local). "
-                     "Or use --target file to write data/cabinet-db.json.")
+                     "Or use --target file to keep everything in the local agent databases.")
 
     def _call(self, method: str, query: str, body=None, prefer: str = "return=minimal"):
         headers = {"apikey": self.key, "Content-Type": "application/json", "Prefer": prefer}
@@ -435,20 +434,39 @@ def _register(uid: str) -> None:
     _index_write(_index_read() + [uid])
 
 
-def _empty_plumbing() -> dict:
-    return {**{k: [] for k in PLUMBING_KINDS}, "rewards": {}}
+# Plumbing kind -> (agent database, app table, timestamp field of the record).
+PLUMBING_TARGET = {
+    "messages": ("user", "app_messages", "created_at", "createdAt"),
+    "conversations": ("user", "app_conversations", "created_at", "createdAt"),
+    "topicLog": ("user", "app_topic_log", "at", "timestamp"),
+    "accessLog": ("cm", "app_access_log", "at", "timestamp"),
+    "earnings": ("nordea", "app_earnings", "at", "createdAt"),
+    "dataRewards": ("nordea", "app_data_rewards", "at", "at"),
+}
 
 
 class LocalFile:
     """G5: customer records go straight into the three agent databases (one SQLite file per
-    customer per database, the same files the app and the arch screens use); app plumbing
-    (chat transcripts, logs, conversations, earnings, rewards) stays in data/cabinet-db.json."""
+    customer per database, the same files the app and the arch screens use). G33: app plumbing
+    (chat transcripts, logs, conversations, earnings, rewards) goes into the SAME databases'
+    app_* namespaces - chat/topicLog in user.db, accessLog in cm.db, earnings/dataRewards/rewards
+    in nordea.db, exactly where migrate:legacy and the runtime put them. A fresh load never
+    creates data/cabinet-db.json."""
 
     def __init__(self) -> None:
-        self.state = json.loads(LOCAL_FILE.read_text(encoding="utf-8")) if LOCAL_FILE.exists() else {}
-        for k in PLUMBING_KINDS:
-            self.state.setdefault(k, [])
-        self.state.setdefault("rewards", {})
+        pass
+
+    def _upsert_plumbing(self, row: dict) -> None:
+        kind, rid, data = row["kind"], row["id"], row["data"]
+        uid = str(row.get("user_id") or data.get("userId") or "")
+        if not uid:
+            sys.exit(f"{kind}.{rid}: no userId - refusing to guess the owner")
+        _register(uid)
+        which, table, ts_col, ts_field = PLUMBING_TARGET[kind]
+        with _open_db(uid, which) as con:
+            con.execute(f"INSERT INTO {table} (id, {ts_col}, json) VALUES (?,?,?) "
+                        f"ON CONFLICT(id) DO UPDATE SET json=excluded.json",
+                        (rid, data.get(ts_field) or NOW, json.dumps(data, ensure_ascii=False)))
 
     # ---- customer records -> the owning agent's database
     def _upsert_customer(self, row: dict) -> None:
@@ -462,9 +480,13 @@ class LocalFile:
             if data.get("accounts"):
                 with _open_db(uid, "nordea") as con:
                     _kv_set(con, "balances", data["accounts"])
-            self.state["rewards"][uid] = {"points": data.get("points", 0),
-                                          **({"pointsSpent": data["pointsSpent"]} if "pointsSpent" in data else {}),
-                                          **({"redeemed": data["redeemed"]} if "redeemed" in data else {})}
+            rewards = {"points": data.get("points", 0),
+                       **({"pointsSpent": data["pointsSpent"]} if "pointsSpent" in data else {}),
+                       **({"redeemed": data["redeemed"]} if "redeemed" in data else {})}
+            with _open_db(uid, "nordea") as con:
+                con.execute("INSERT INTO app_rewards (user_id, json) VALUES (?,?) "
+                            "ON CONFLICT(user_id) DO UPDATE SET json=excluded.json",
+                            (uid, json.dumps(rewards, ensure_ascii=False)))
             return
         if kind == "cabinetEntries":
             if data.get("type") == "goal":
@@ -543,13 +565,7 @@ class LocalFile:
             if r["kind"] in CUSTOMER_KINDS:
                 self._upsert_customer(r)
                 continue
-            lst = self.state[r["kind"]]
-            at = next((i for i, x in enumerate(lst) if key_of(r["kind"], x) == r["id"]), None)
-            if at is None:
-                lst.append(r["data"])
-            else:
-                lst[at] = r["data"]
-        self.save()
+            self._upsert_plumbing(r)
 
     # ---- deletes
     def _delete_customer(self, kind: str, user_id: str | None) -> None:
@@ -561,7 +577,10 @@ class LocalFile:
                     if f.exists():
                         with sqlite3.connect(f) as con:
                             con.execute("DELETE FROM kv WHERE k IN ('profile', 'balances')")
-                self.state["rewards"].pop(uid, None)
+                f = _db_file(uid, "nordea")
+                if f.exists():
+                    with sqlite3.connect(f) as con:
+                        con.execute("DELETE FROM app_rewards WHERE user_id = ?", (uid,))
                 continue
             table_by_kind = {"cabinetEntries": None, "transactions": ("nordea", "transactions"),
                              "entryHistory": ("cm", "history"), "shares": ("cm", "shares"), "undoRecords": ("cm", "undo"),
@@ -591,13 +610,15 @@ class LocalFile:
                 continue
             with sqlite3.connect(f) as con:
                 for table in ("kv", "goals", "personal_facts", "documents", "entries", "history", "shares",
-                              "undo", "accounts", "transactions", "balance_snapshots", "import_batches"):
+                              "undo", "accounts", "transactions", "balance_snapshots", "import_batches",
+                              "app_conversations", "app_messages", "app_topic_log", "app_access_log",
+                              "app_earnings", "app_data_rewards", "app_rewards"):
                     try:
                         if con.execute(f"SELECT 1 FROM {table} LIMIT 1").fetchone():
                             empty = False
                     except sqlite3.OperationalError:
                         pass
-        if empty and uid not in self.state["rewards"]:
+        if empty:
             for which in ("user", "cm", "nordea"):
                 _db_file(uid, which).unlink(missing_ok=True)
             _index_write([u for u in _index_read() if u != uid])
@@ -608,20 +629,28 @@ class LocalFile:
             if k in CUSTOMER_KINDS:
                 self._delete_customer(k, user_id)
             else:
-                self.state[k] = [x for x in self.state[k] if user_id and x.get("userId") != user_id]
+                which, table = PLUMBING_TARGET[k][0], PLUMBING_TARGET[k][1]
+                for uid in ([user_id] if user_id else _index_read()):
+                    f = _db_file(uid, which)
+                    if not f.exists():
+                        continue
+                    with sqlite3.connect(f) as con:
+                        if user_id:
+                            con.execute(f"DELETE FROM {table} WHERE json_extract(json, '$.userId') = ?", (uid,))
+                        else:
+                            con.execute(f"DELETE FROM {table}")
         if not kind and not user_id:  # --clear: wipe the three databases and the index too
             for f in ARCH_DIR.glob("*.db"):
                 f.unlink()
             (ARCH_DIR / "customers.json").unlink(missing_ok=True)
-            self.state["rewards"] = {}
         for uid in ([user_id] if user_id else list(_index_read())):
             if uid:
                 self._prune(uid)
         self.save()
 
     def save(self) -> None:
-        LOCAL_FILE.parent.mkdir(parents=True, exist_ok=True)
-        LOCAL_FILE.write_text(json.dumps(self.state, indent=2, ensure_ascii=False), encoding="utf-8")
+        # G33: no JSON file - every write above already landed in the agent databases.
+        return
 
 
 # ---------------------------------------------------------------- hosted (G6/G20)
@@ -650,7 +679,8 @@ class Hosted(LocalFile):
     agent_user_records / agent_cm_records / agent_nordea_records - each through its OWN
     agent's role URL (USER_DB_URL, CM_DB_URL, NORDEA_DB_URL; see supabase/three-agents.sql).
     App plumbing goes to the abel_records table when SUPABASE_URL and SUPABASE_SECRET_KEY
-    are set, and to data/cabinet-db.json otherwise."""
+    are set, and into the local agent databases' app_* namespaces otherwise (pushed hosted
+    with the affected customers). No path writes data/cabinet-db.json."""
 
     def __init__(self) -> None:
         # G20 (merge, Bill 15:14): pull the hosted rows into the local agent databases FIRST,
@@ -672,7 +702,14 @@ class Hosted(LocalFile):
             super().upsert(cust)
             run_remote("push", *self._uids(cust))
         if plumb:
-            (self.plumbing.upsert if self.plumbing else super().upsert)(plumb)
+            if self.plumbing:
+                self.plumbing.upsert(plumb)
+            else:
+                # G33: plumbing lives in the local agent databases' app_* namespaces; push the
+                # affected customers so the hosted tables carry the same rows.
+                super().upsert(plumb)
+                uids = sorted({str(r.get("user_id") or r["data"].get("userId")) for r in plumb})
+                run_remote("push", *uids)
 
     def delete(self, kind: str | None = None, user_id: str | None = None) -> None:
         if kind is None and user_id is None:  # --clear: local, plumbing and every hosted row

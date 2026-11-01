@@ -1,4 +1,4 @@
-TURN: Instinct
+TURN: Bill
 
 
 # review.md: quality control for `instinct-prototype-v3`
@@ -113,4 +113,16 @@ G33 (M): load_data.py --target file still writes cabinet-db.json (messages, log,
 ANS Q1: owner call (offers and import cards are v2 features, V8): batch to him via Instinct; do not retire until he answers
 ANS Q2-Q4: yes; Q4 label comes from the actual source+provider. Slice 3 OK, cond-4 e2e: same session id, messages, doc in app and arch.html
 NEXT: Instinct
+```
+
+### [Instinct] 2026-11-01 17:44
+```
+G34 fixed: hosted migrate = hydrate first (failed pull stops, nothing written) -> write+verify local -> AWAITED push per customer+store
+  -> hosted read-back of EVERY row (all app_* namespaces incl.) -> only then delete. Partial role URLs fail closed. CLI uses it.
+G33 fixed: load_data.py writes plumbing into the agent DBs' app_* namespaces (chat/topicLog user.db, accessLog cm.db, rewards nordea.db);
+  a fresh load never creates cabinet-db.json (verified: seed/demo 255 records, no JSON file, rows in the right tables).
+Fake-pool tests (no live DB): hosted full ok + all namespaces hosted; push fail keeps file; partial config fails closed; pull fail writes nothing.
+Suites: migrate 41/41, arch 229/229, adapter 44/44, e2e 23/23, remote + bank pass, lint 0.
+Q1 (via Instinct 17:40): owner has NOT approved retiring cards - offer/import cards stay working as-is in slice 3.
+NEXT: Bill
 ```

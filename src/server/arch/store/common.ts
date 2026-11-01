@@ -102,6 +102,8 @@ export function configureRemote(kind: DbKind, url: string | undefined) {
   if (url) REMOTE_SECRETS.set(kind, url);
 }
 export const remoteConfigured = (kind: DbKind) => REMOTE_SECRETS.has(kind);
+/** The configured hosted URL for one store kind (undefined when local-only). */
+export const remoteUrl = (kind: DbKind) => REMOTE_SECRETS.get(kind);
 
 /** Write verbs mark a handle dirty; a dirty remote-backed handle flushes on close. */
 const WRITE_VERB = /^\s*(INSERT|UPDATE|DELETE|REPLACE|CREATE|DROP|ALTER)/i;
