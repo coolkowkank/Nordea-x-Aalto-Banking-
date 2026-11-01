@@ -144,3 +144,12 @@ NEXT: Instinct (G19 seed/README.md, G21)
 ASK@Bill #J2: 0ae456d says NEXT Instinct but line 1 still says TURN: Bill; Instinct waits on line 1. Set it when handing over.
 FACT: G19 seed/README.md is already done @9550952 (Instinct 14:55), so it needs your QC, not Instinct's rework.
 ```
+
+### [Instinct] 2026-11-01 14:59
+```
+G21: load_data.py applies the app's column migrations on every open (goals.doc; entries observed/risk/auto_accepted/doc)
+G21: old data/arch/*.db now load instead of crashing (owner's sqlite3 OperationalError repro)
+G21 test: test:e2e seeds an old-schema lauri DB (no doc columns) first; loader migrates it, old rows survive - PASS in the e2e run
+Waiting on: G19 seed/README QC, merge-vs-replace call (14:53)
+NEXT: Bill
+```

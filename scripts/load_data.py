@@ -385,10 +385,24 @@ def _db_file(uid: str, which: str) -> Path:
     return ARCH_DIR / f"{safe}.{which}.db"
 
 
+# G21: the same column migrations the app applies (userStore.ts / cmStore.ts) - a database file
+# left by an older version must load without crashing. (table, column, ddl)
+_MIGRATIONS = {
+    "user": [("goals", "doc", "doc TEXT")],
+    "cm": [("entries", "observed", "observed TEXT"), ("entries", "risk", "risk TEXT"),
+           ("entries", "auto_accepted", "auto_accepted INTEGER"), ("entries", "doc", "doc TEXT")],
+    "nordea": [],
+}
+
+
 def _open_db(uid: str, which: str) -> sqlite3.Connection:
     ARCH_DIR.mkdir(parents=True, exist_ok=True)
     con = sqlite3.connect(_db_file(uid, which))
     con.executescript(_SCHEMAS[which])
+    for table, col, ddl in _MIGRATIONS[which]:
+        cols = {r[1] for r in con.execute(f"PRAGMA table_info({table})")}
+        if col not in cols:
+            con.execute(f"ALTER TABLE {table} ADD COLUMN {ddl}")
     return con
 
 

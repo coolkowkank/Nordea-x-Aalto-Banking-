@@ -18,11 +18,46 @@ const DIR = fs.mkdtempSync(path.join(os.tmpdir(), 'e2e-'));
 const PORT = 3210 + Math.floor(Math.random() * 500);
 const BASE = `http://127.0.0.1:${PORT}`;
 
+// G21: leave an OLD-schema database behind first (goals without the doc column, entries without
+// the later provenance columns) - the loader must migrate it like the app does, not crash.
+{
+  const { DatabaseSync } = await import('node:sqlite');
+  fs.mkdirSync(path.join(DIR, 'arch'), { recursive: true });
+  const oldUser = new DatabaseSync(path.join(DIR, 'arch', 'lauri.user.db'));
+  oldUser.exec(`CREATE TABLE goals (id TEXT PRIMARY KEY, title TEXT NOT NULL, detail TEXT NOT NULL, created_at TEXT NOT NULL);
+    INSERT INTO goals VALUES ('old-goal', 'Old goal', 'from a previous version', '2026-01-01T00:00:00.000Z')`);
+  oldUser.close();
+  const oldCm = new DatabaseSync(path.join(DIR, 'arch', 'lauri.cm.db'));
+  oldCm.exec(`CREATE TABLE entries (id TEXT PRIMARY KEY, title TEXT NOT NULL, detail TEXT NOT NULL, goal_ids TEXT NOT NULL,
+    proposed_by TEXT NOT NULL, via_message_id TEXT, evidence TEXT, status TEXT NOT NULL,
+    dispute_reason TEXT, created_at TEXT NOT NULL);
+    INSERT INTO entries VALUES ('old-entry', 'Old entry', '', '[]', 'user', NULL, NULL, 'active', NULL, '2026-01-01T00:00:00.000Z')`);
+  oldCm.close();
+}
+
 // G18: go through run_python.mjs so the seed works with 'python' or 'python3'.
 const seed = spawnSync(process.execPath, ['scripts/run_python.mjs', 'scripts/load_data.py', 'seed/demo', '--target', 'file', '--no-reload'], {
   env: { ...process.env, CABINET_DATA_DIR: DIR }, encoding: 'utf-8',
 });
 if (seed.status !== 0) { console.error(seed.stdout, seed.stderr); process.exit(1); }
+
+// G21: the old database survived with its rows AND gained the new columns.
+{
+  const { DatabaseSync } = await import('node:sqlite');
+  const db = new DatabaseSync(path.join(DIR, 'arch', 'lauri.user.db'), { readOnly: true });
+  const cols = (db.prepare('PRAGMA table_info(goals)').all() as { name: string }[]).map((c) => c.name);
+  const kept = db.prepare("SELECT title FROM goals WHERE id = 'old-goal'").get();
+  db.close();
+  const cm = new DatabaseSync(path.join(DIR, 'arch', 'lauri.cm.db'), { readOnly: true });
+  const cmCols = (cm.prepare('PRAGMA table_info(entries)').all() as { name: string }[]).map((c) => c.name);
+  const cmKept = cm.prepare("SELECT title FROM entries WHERE id = 'old-entry'").get();
+  cm.close();
+  if (!cols.includes('doc') || !kept || !cmCols.includes('doc') || !cmCols.includes('observed') || !cmKept) {
+    console.error('G21 migration failed', { cols, kept, cmCols, cmKept });
+    process.exit(1);
+  }
+  console.log('PASS  G21: old-schema databases migrate and keep their rows');
+}
 
 const server = spawn('npx', ['tsx', 'server.ts'], {
   env: { ...process.env, CABINET_DATA_DIR: DIR, LLM_PROVIDER: 'mock', DEV_MONITOR: '1', PORT: String(PORT) },
