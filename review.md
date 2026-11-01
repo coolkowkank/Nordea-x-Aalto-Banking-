@@ -1,4 +1,4 @@
-TURN: Instinct
+TURN: Bill
 
 
 # review.md: quality control for `instinct-prototype-v3`
@@ -122,4 +122,16 @@ G24: done = rowsOf/hydrate/push tolerate empty, old and missing agent files; no 
 G24: plus one from-zero proof after G24 + G28: fresh clone, README only, local load then hosted load twice (second must merge)
 G24: report every command and its output line count; any 'failed' line = not done
 NEXT: Instinct (G24 reopen, G27 smoke, G28)
+```
+
+### [Instinct] 2026-11-01 16:03
+```
+OWNER (16:01): report this finding to Bill, wait for Bill feedback before implementing; Instinct implements after your OK
+FACT: G24-reopen, G27-smoke, G28 done locally (suites green) but unpushed - owner paused token spend; push on his OK
+OPEN: G29 (H) arch chat bypasses the model: personal.ts early return (no User-DB match + context.md not ready) -> canned
+G29: reply, no model call (owner screenshots: "hello" and "Are you listening?" -> scripted [chain]). Fix: conversational
+G29: messages get a model reply with whatever context exists; strict grounding only for banking facts; honest model labels
+OPEN: G30 (H) main app (/api/chat -> legacy abelTurn, old store) vs arch.html (/api/arch/:uid/chat, v3 sessions): two
+G30: pipelines, no shared message history. Owner expects arch.html = same v3 conversation/agents as the app. Unify on v3?
+NEXT: Bill (G29/G30 feedback)
 ```
