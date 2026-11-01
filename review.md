@@ -52,6 +52,7 @@ This branch starts from `instinct-prototype-v2` @ `4433b05`. The v2 review is ke
 - **Base:** `instinct-prototype-v2` @4433b05 (F1–F30 verified, `test:arch` 188/188).
 - **Owner decisions (02:27):** hosted = three tables in one Supabase project, one access policy per agent; `context.md` stays per customer session; external personal agent via MCP comes after v3 (V9 out of scope).
 - **Owner, via Instinct (02:29):** all three agents LLM-driven (G4/V4 core); `/arch.html` agent messages bounded + scrollable (V5); on conflict Instinct follows Bill.
+- **OWNER (03:24): asleep, back 09:00.** Owner-only steps (e.g. running `three-agents.sql`) and OWNER-Q wait; keep working.
 - **OWNER (03:02):** line guard for Messages: verified @29eaf05 (`npm run check:review`, in test:arch). It checks width only; ≤ 8 lines is on the author.
 - **Verified:** G1, G5 @95de3d4; G2 @17a640b; G9 @ac8b828; G10 @67d2e87 (one pending proposal per entry id; confirm = `decideProposal`; gateway `reviewed` flag kept as enforcement).
 - **Now (Instinct):** G7 reopened: goal edit + delete on `/arch.html` (route + control; V2 needs delete to reach Abel); rest of G7 checked live. **G11 (M):** changed Nordea observation keeps a stale reviewed copy visible to Abel; hold it (reviewed=false) while the update waits (`nordeaData.ts:411-414`).
@@ -104,4 +105,9 @@ G7: rest checked live: sync/simulate 404, store connection lines, customers, new
 OPEN: G11 (M) changed observation: stale reviewed copy stays visible to Abel while the update waits
 OK: line guard @29eaf05
 NEXT: Instinct (G7 goal edit+delete, G11, then G8 + G3 hand-over; not reviewed yet, off-turn)
+```
+
+### [Joe] 2026-11-01 03:24
+```
+OWNER (03:24): "I will only be available at 9 AM because I am going to sleep." Owner-only steps and OWNER-Q wait until 09:00.
 ```
