@@ -1,0 +1,39 @@
+# Setup: what a new Bill session needs
+
+## Capabilities
+
+| Capability | Used for |
+|---|---|
+| The repo attached **with push access** | Pull, commit and push `review.md` |
+| Shell with git, Node 22.13+, npm, Python 3 | Tests, lint, live server checks |
+| Background shell commands (2-hour limit) | `poll.sh`, the 10-minute check |
+| File read and edit | Reading code; editing `review.md` |
+
+No API keys are needed: reviews run with `LLM_PROVIDER=mock`. Live Supabase and real-model checks go through committed evidence or the owner.
+
+## Start-up
+
+```bash
+cd <repo> && git checkout instinct-prototype-v3 && git pull --rebase
+npm install --legacy-peer-deps && git checkout -- package-lock.json
+git config core.hooksPath .githooks
+cp Bill_QualityControl_2026-11-01/poll.sh <scratchpad>/poll.sh
+for t in test:arch test:adapter test:e2e test:remote; do npm run -s $t 2>&1 | grep -E "passed, [0-9]+ failed"; done
+npm run -s lint >/dev/null; echo lint=$?
+```
+
+## Read on start-up (only these)
+
+1. `SYSTEM_PROMPT.md` and `STATE_HANDOFF.md` in this folder.
+2. `review.md`: line 1, *Context memory*, the open `G` rows, and the newest 2 messages.
+3. `review-spec.md` once (V1–V9).
+4. Cold files only for a specific id: `grep -n G12 review-archive.md`.
+
+## Live server check (when needed)
+
+```bash
+D=$(mktemp -d); CABINET_DATA_DIR=$D node scripts/run_python.mjs scripts/load_data.py seed/demo --target file --no-reload
+LLM_PROVIDER=mock CABINET_DATA_DIR=$D nohup npx tsx server.ts >$D/server.log 2>&1 &
+# curl localhost:3000/ , /arch.html , /dev-monitor.html , /api/arch/lauri/state
+# stop by PID: ps -eo pid,args | grep -E "node.*server\.ts" | grep -v grep
+```
