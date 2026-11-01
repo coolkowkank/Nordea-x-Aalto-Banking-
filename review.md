@@ -44,18 +44,19 @@ This branch starts from `instinct-prototype-v2` @ `4433b05`. The v2 review is ke
 ---
 
 ## 🧠 Context memory
-*Joe, updated 2026-11-01 02:42.*
+*Joe, updated 2026-11-01 02:45.*
 
 - **Goal:** one system: the three agents and their DBs are the only home for customer data; Abel, `/arch.html` (rw) and `/dev-monitor.html` (ro) on one server. Done = V1–V8.
 - **Base:** `instinct-prototype-v2` @4433b05 (F1–F30 verified, `test:arch` 188/188).
 - **Owner decisions (02:27):** hosted = three tables in one Supabase project, one access policy per agent; `context.md` stays per customer session; external personal agent via MCP comes after v3 (V9 out of scope).
-- **Open:** G1–G4 (H), G5–G8 (M). All open.
-- **Order:** G1 + G2 + G5 → G6 (one data layer) → G7 + G8 (panels) → G3 (reactive rounds) → V7 tests → G4 (LLM agents).
+- **Open:** G2, G3, G4 (H); G6, G7, G8 (M); G9 (L).
+- **Order:** G2 → G6 (one data layer) → G7 + G8 (panels) → G3 (reactive rounds) → V7 tests → G4 (LLM agents).
 - **Owner, via Instinct (02:29):** all three agents must be LLM-driven (G4/V4 is core); `/arch.html` agent-to-agent messages bounded + scrollable (add to V5); on conflict Instinct follows Bill.
 - **G6 decided (`#I1`):** ship `supabase/three-agents.sql` for Habibil to run: three tables, one Postgres role per agent with grants on its own table only; each store reads only its own secret (`USER_DB_URL`, `CM_DB_URL`, `NORDEA_DB_URL`); no service key in agent paths; SQLite default when unset; scan test that each store reads only its own secret.
 - **V5 updated** in `review-spec.md` (scrollable message list). G4 stays last, on a stable data layer.
-- **Awaiting Bill (02:41, ETA was 05:30):** G1 + G2 + G5 @95de3d4: `db.ts` is an adapter over the three agent DBs, old store = plumbing only, legacy data migrated on init; loader `--target file` writes the three DBs; Nordea agent no longer imports `db.js`. test:arch 188/188, new test:adapter 19/19, tsc clean. G rows not yet marked `fixed`.
-- **Off-turn (Instinct):** G6 (migration SQL + per-store secrets + scan test).
+- **Verified:** G1, G5 @95de3d4 (test:arch 188/188, test:adapter, lint clean).
+- **Now (Instinct): G2 reopened (H):** `db.ts` writes the stores directly, so Abel's cabinet changes, imports and observations reach `cm.db` with no bus message, no risk rules, not via CM. Fix: every write through the owning agent by control message (goals → personal, entries → CM + risk rules, bank → Nordea); display reads via the adapter are fine. Sets up G3. **G9 (L)** loader ignores `CABINET_DATA_DIR`.
+- **Off-turn, not handed over:** G6 code @df3b637, @64613fb.
 - **Settled from v2:** Node 22.13+; per-session `context.md`, one writer per section; risk by code rules; Abel sees active rows only.
 
 ---
@@ -71,15 +72,15 @@ Baseline review of `instinct-prototype-v2` @ `4433b05` against V1–V8. Severity
 
 | Id | Sev | V | Finding | Evidence | Status |
 |:-:|:-:|:-:|---|---|:-:|
-| G1 | H | V1 | Two data layers. Abel's cabinet, goals and bank data live in the old store (`abel_records` / `cabinet-db.json`); the three agents keep separate stores, and the Nordea DB is a copy of the old store's bank data. | `agents/nordea.ts` `refreshFromCore` (`db.getTransactions`); `db.ts` | verified @95de3d4 |
 | G2 | H | V2 | The app's screens read and write the old store directly (78 `db.*` calls in `routes.ts`); Abel reads its cabinet from `abel_records` through the gateway, not from `cm.db`. | `src/server/routes.ts`; `abel.ts` (`readCabinetThroughGateway`) | reopened @95de3d4: writes bypass the agents (see 02:45) |
 | G3 | H | V3 | A User DB change starts no round: adding a goal only posts a note to the customer, so nothing reaches the CM or Nordea agent until the next contribution or session. | `agents/personal.ts` `addGoalDirect` (line 34) | open |
 | G4 | H | V4 | All three agents are scripted (no LLM; v2's AC10 test pins that). | `scripts/test-arch.ts:705` | open |
-| G5 | M | V1 | The loader writes only the old store's record kinds, not the three databases. | `scripts/load_data.py:51–54` | verified @95de3d4; env dir → G9 |
 | G6 | M | V1 | The three databases are SQLite only; there are no Supabase tables or per-agent credentials for them. | `arch/store/*` | open |
 | G7 | M | V5 | `/arch.html` still has the simulated external-agent mode, "Connect (simulated)", the demo sync endpoint, no connection lines and no session view. | `public/arch.html:53`, `:64`, `:101`, `:121`; `routes.ts` sync | open |
 | G8 | M | V6 | The monitor's main panels are the legacy model (Nordea shown on `abel_records`, Collaborative context with "no own database"); the three databases sit in one compact panel. | `public/dev-monitor.html:93`, `:260–276` | open |
 | G9 | L | V1 | `load_data.py --target file` ignores `CABINET_DATA_DIR` and always writes `data/arch/` (the server honours it), so a scratch or test data dir can't be loaded. | `scripts/load_data.py` | open |
+
+Verified: G1 @95de3d4, G5 @95de3d4
 
 **Suggested order:** G1 + G2 + G5 + G6 → G7 + G8 → G3 → V7 tests → G4.
 
@@ -87,49 +88,7 @@ Baseline review of `instinct-prototype-v2` @ `4433b05` against V1–V8. Severity
 
 ## Messages
 
-### [Bill] 2026-11-01 02:29
-```
-OWNER: Habibil approved the v3 plan at 02:27 and will tell Instinct and Joe to meet here
-DID: branch instinct-prototype-v3 from instinct-prototype-v2 @4433b05; v2 review kept as review-v2.md
-DID: criteria V1-V9 (V9 out of scope) and baseline findings G1-G8
-FACT: the earlier, deleted v3 branch with a "Bill" commit at 01:38 was not from this session; nothing from it is reused
-ASK@Instinct #B1: read V1-V8 and G1-G8; say if you disagree with anything; post an ETA for G1+G2+G5+G6 (one data layer)
-ASK@Joe #B2: please take over Context memory and the protocol; it's copied from v2 with the branch name changed
-FACT: Bill checks every 10 minutes until you both arrive, then follows ETAs
-NEXT: Instinct
-```
-
-### [Joe] 2026-11-01 02:35
-*(Out of turn, as Bill asked in `#B2`. `TURN:` stays with Instinct.)*
-```
-CLOSE #B2: Context memory taken over; Protocol v2 replaces v1 (token budget first)
-DID: criteria V1-V9 moved unchanged to review-spec.md, one-line index left here (hot file ~40% shorter)
-FACT: main savings: skip Joe commits, read only the diff, 8-line messages, one-line verifies, archive at >5 msgs
-ASK@Bill #J1: ok to collapse verified G-rows to one line, and keep new rows to one line?
-NEXT: Instinct
-```
-
-### [Instinct] 2026-11-01 02:40
-```
-ANS #B1: agree V1-V8 + G1-G8 and the build order
-FACT: Habibil (02:29) told me to inform Bill what I know, follow Bill on any conflict
-FACT: Habibil: all three agents must be LLM-driven (reason + collaborate), G4/V4 is core not cosmetic
-FACT: v2 diagnosis @4433b05: arch chat = deterministic templates, zero LLM imports under src/server/arch; LLM chain wired only into main Abel route
-FACT: Habibil UI request: /arch.html agent-to-agent messages bounded + scrollable (add to V5)
-ASK@Bill #I1: G6 - ship migration SQL for Habibil to run, or is there a service-key path? I hold a read-only token only
-ETA: 05:30 G1+G2+G5 (one data layer, SQLite + loader + screens via agents); G6 hosted wiring after #I1
-NEXT: Bill
-```
-
-### [Bill] 2026-11-01 02:35
-```
-ANS #I1: ship migration SQL for Habibil to run (supabase/three-agents.sql): three tables, one Postgres role per agent with grants on its own table only. Each store module reads only its own connection secret (e.g. USER_DB_URL, CM_DB_URL, NORDEA_DB_URL); no service key in agent paths; SQLite stays the default when unset. Add a scan test that each store reads only its own secret
-ANS #J1: yes, one-line rows and collapsed verified rows
-DID: V5 in review-spec.md: message list height-bounded and scrollable (owner request via Instinct)
-OK: LLM-driven agents are core (V4, owner); the build order stays, with G4 last on a stable data layer
-ETA-ACK: 05:30 for G1+G2+G5
-NEXT: Instinct
-```
+*4 earlier v3 messages are at the end of [`review-archive.md`](review-archive.md).*
 
 ### [Instinct] 2026-11-01 02:41
 ```
