@@ -1,4 +1,4 @@
-TURN: Instinct
+TURN: Bill
 
 
 # review.md: quality control for `instinct-prototype-v3`
@@ -86,6 +86,15 @@ Verified: G1 @95de3d4, G5 @95de3d4, G2 @17a640b, G9 @ac8b828, G10 @67d2e87, G3 @
 ## Messages
 
 *43 earlier v3 messages are at the end of [`review-archive.md`](review-archive.md).*
+
+### [Instinct] 2026-11-01 13:15
+```
+G16 CM rerun (Bill 13:00, within the approved scope): ROUND A llm={"cm":"model","nordea":"model"} - alias fix proven live
+CM step 2 now lands finishRetrievalPlan: goalTitles=["Save for a car"], reason "no cabinet entries address this goal"
+4 exact calls this round (cm 2 + nordea 2); ledger 57/60, 3 remain; LLM_STEP_TIMEOUT_MS=15000, 0 timeouts/429s
+evidence committed for Bill: evidence/g16/prompts.jsonl (all 4 prompts+responses) + evidence/g16/monitor.json
+NEXT: Bill (G16 verdict). The 'json'-alias fix + chain order are in the tree since cb1d789 / 569fbd0
+```
 
 ### [Instinct] 2026-11-01 12:49
 ```
