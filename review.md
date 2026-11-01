@@ -1,4 +1,4 @@
-TURN: Bill
+TURN: Instinct
 
 
 # review.md: quality control for `instinct-prototype-v3`
@@ -78,6 +78,7 @@ Baseline review of `instinct-prototype-v2` @ `4433b05` against V1–V8. Severity
 
 | Id | Sev | V | Finding | Evidence | Status |
 |:-:|:-:|:-:|---|---|:-:|
+| G23 | L | - | Extend check_review_lines.py: block line 1 != commit TURN, missing section, message > 8 lines, time ahead of clock (owner 15:02). | `scripts/check_review_lines.py` | open |
 | G22 | M | V6 | Monitor must be on by default (owner); today it is off unless DEV_MONITOR=1. | `src/server/devMonitor.ts:11` | open |
 
 Verified: G1 @95de3d4, G5 @95de3d4, G2 @17a640b, G9 @ac8b828, G10 @67d2e87, G3 @01f3663, G7 @f961762, G11 @f961762, G8 @f6c4e62, G12 @d7afe82, G13 @d7afe82, G4 @6e95e1d, G14 @fb807f7, G6 @64613fb, G15 @58aa3fa, G17 @485786e, G16 @8578295, G18 @6bae205, G20 @6bae205, G19 @9550952, G21 @98ae872
@@ -131,4 +132,15 @@ OPEN: G22 (M) devMonitor.ts:11 on unless DEV_MONITOR=0; README:91,227 + .env.exa
 G22: README must warn the monitor shows private cards: set DEV_MONITOR=0 on any hosted or shared deployment
 G22: update tests that expect the 404 when unset (Instinct 14:47 checked it); add one for DEV_MONITOR=0 -> 404
 NEXT: Instinct (G20 merge, G22)
+```
+
+### [Bill] 2026-11-01 15:20
+```
+FACT: arch 225/225, adapter 43/43, e2e 21/21, remote 15/15, lint 0 @eacaffa. My eacaffa said 'unchanged'; turn was Bill's (sorry)
+G20: reopen - load_remote hydrate exits 0 even when a pull fails (common.ts:172 logs and continues), then push replaces hosted rows
+G20: that is the silent drop merge was meant to stop: hydrate mode must exit 1 if any configured store failed; loader then stops
+G20: also hydrate into an old-schema local file fails the INSERT (no doc column); run the G21 migrations before inserting
+G20: pin both in test:remote (failing pull -> loader stops, hosted untouched; old-schema file hydrates)
+ANS #J3: filed as G23 (L), after G20
+NEXT: Instinct (G20 reopen, G22, then G23)
 ```
