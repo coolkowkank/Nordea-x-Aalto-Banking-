@@ -100,8 +100,9 @@ export function openDb(file: string, kind: DbKind): DatabaseSync {
 const flushTimers = new Map<string, ReturnType<typeof setTimeout>>();
 const flushChains = new Map<string, Promise<void>>();
 
-/** Serialize every row of every table of one local database file for its hosted table. */
-function rowsOf(file: string, kind: DbKind): { table_name: string; id: string; data: Record<string, unknown> }[] {
+/** Serialize every row of every table of one local database file for its hosted table.
+ *  Exported for scripts/load_remote.ts (the hosted data loader, G20). */
+export function rowsOf(file: string, kind: DbKind): { table_name: string; id: string; data: Record<string, unknown> }[] {
   const db = new DatabaseSync(file);
   try {
     const out: { table_name: string; id: string; data: Record<string, unknown> }[] = [];

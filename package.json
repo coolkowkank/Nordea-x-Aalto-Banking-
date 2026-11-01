@@ -8,14 +8,14 @@
     "build": "vite build",
     "start": "tsx server.ts",
     "preview": "vite preview",
-    "clean": "rm -rf dist server.js",
+    "clean": "node -e \"fs.rmSync('dist',{recursive:true,force:true});fs.rmSync('server.js',{force:true})\"",
     "lint": "tsc --noEmit",
     "test": "tsx scripts/test-bank-records.ts",
     "check:feed": "tsx scripts/check-feed-csv.ts",
-    "test:arch": "python3 scripts/check_review_lines.py && tsx scripts/test-arch.ts",
+    "test:arch": "node scripts/run_python.mjs scripts/check_review_lines.py && tsx scripts/test-arch.ts",
     "test:adapter": "tsx scripts/test-adapter.ts",
     "test:remote": "tsx scripts/test-remote.ts",
-    "check:review": "python3 scripts/check_review_lines.py",
+    "check:review": "node scripts/run_python.mjs scripts/check_review_lines.py",
     "test:e2e": "tsx scripts/test-e2e.ts"
   },
   "dependencies": {

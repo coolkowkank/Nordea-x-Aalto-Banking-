@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Load data into the Abel app's Supabase table (abel_records), separately from the app.
+Load data into the Abel app's stores, separately from the app.
 
 The app ships with no data. Whatever this script loads is what the app shows; with nothing loaded the
 app says "No data yet". Every record becomes one row: (kind, id, user_id, data jsonb).
@@ -25,8 +25,16 @@ Examples:
   python scripts/load_data.py --clear                         # just delete everything
   python scripts/load_data.py seed/demo --dry-run             # show what would be loaded
 
-Needs SUPABASE_URL and SUPABASE_SECRET_KEY (read from the environment, .env or .env.local), and
-supabase/setup.sql run once. Without Supabase use --target file to write the three agent databases (data/arch/*.db) instead;\napp plumbing (chat transcripts, logs, rewards) still goes to data/cabinet-db.json.
+The default hosted target needs the three per-agent role URLs - USER_DB_URL, CM_DB_URL and
+NORDEA_DB_URL (run supabase/three-agents.sql once in Supabase -> SQL Editor, one plain password
+per role) - and pushes customer records to agent_user_records / agent_cm_records /
+agent_nordea_records, each through its own agent's role, via scripts/load_remote.ts.
+App plumbing (chat transcripts, logs, rewards) goes to the abel_records table when
+SUPABASE_URL and SUPABASE_SECRET_KEY are also set (run supabase/setup.sql once for that),
+and to data/cabinet-db.json otherwise. All variables are read from the environment, .env
+or .env.local.
+Use --target file to skip Supabase entirely: the three agent databases stay local files
+(data/arch/*.db) and plumbing stays in data/cabinet-db.json.
 Afterwards it asks the running app to read the data again (POST /api/admin/reload), so no restart is needed.
 """
 from __future__ import annotations
@@ -38,6 +46,7 @@ import json
 import os
 import re
 import sqlite3
+import subprocess
 import sys
 import urllib.error
 import urllib.parse
@@ -591,6 +600,66 @@ class LocalFile:
         LOCAL_FILE.write_text(json.dumps(self.state, indent=2, ensure_ascii=False), encoding="utf-8")
 
 
+# ---------------------------------------------------------------- hosted (G6/G20)
+
+def run_remote(*args: str) -> None:
+    """Push or clear the hosted agent tables via the Node helper (pg driver lives there)."""
+    cmd = ["npx", "tsx", "scripts/load_remote.ts", *args]
+    if os.name == "nt":  # npx is npx.cmd on Windows
+        cmd = ["cmd", "/c", *cmd]
+    try:
+        subprocess.run(cmd, cwd=ROOT, check=True)
+    except FileNotFoundError:
+        sys.exit("npx was not found - install Node.js (the hosted push runs scripts/load_remote.ts).")
+    except subprocess.CalledProcessError:
+        sys.exit("Pushing to the hosted agent tables failed (see above). The local files under "
+                 "data/arch are loaded; fix the role URLs and re-run: npx tsx scripts/load_remote.ts push")
+
+
+class Hosted(LocalFile):
+    """G20: the default hosted target. Customer records are written to the local agent
+    databases (the same files as --target file) and then pushed to the hosted tables
+    agent_user_records / agent_cm_records / agent_nordea_records - each through its OWN
+    agent's role URL (USER_DB_URL, CM_DB_URL, NORDEA_DB_URL; see supabase/three-agents.sql).
+    App plumbing goes to the abel_records table when SUPABASE_URL and SUPABASE_SECRET_KEY
+    are set, and to data/cabinet-db.json otherwise."""
+
+    def __init__(self) -> None:
+        super().__init__()
+        has_sb = os.environ.get("SUPABASE_URL") and \
+            (os.environ.get("SUPABASE_SECRET_KEY") or os.environ.get("SUPABASE_SERVICE_ROLE_KEY"))
+        self.plumbing: Supabase | None = Supabase() if has_sb else None
+
+    @staticmethod
+    def _uids(rows: list[dict]) -> list[str]:
+        return sorted({str(r.get("user_id") or r["id"]) for r in rows if r["kind"] in CUSTOMER_KINDS})
+
+    def upsert(self, rows: list[dict]) -> None:
+        cust = [r for r in rows if r["kind"] in CUSTOMER_KINDS]
+        plumb = [r for r in rows if r["kind"] not in CUSTOMER_KINDS]
+        if cust:
+            super().upsert(cust)
+            run_remote("push", *self._uids(cust))
+        if plumb:
+            (self.plumbing.upsert if self.plumbing else super().upsert)(plumb)
+
+    def delete(self, kind: str | None = None, user_id: str | None = None) -> None:
+        if kind is None and user_id is None:  # --clear: local, plumbing and every hosted row
+            super().delete()
+            if self.plumbing:
+                self.plumbing.delete()
+            run_remote("clear")
+            return
+        uids = [user_id] if user_id else _index_read()
+        super().delete(kind, user_id)
+        if self.plumbing:
+            for k in ([kind] if kind else PLUMBING_KINDS):
+                if k in PLUMBING_KINDS:
+                    self.plumbing.delete(k, user_id)
+        if uids and (kind is None or kind in CUSTOMER_KINDS):
+            run_remote("push", *uids)  # replace each customer's hosted rows (drops deleted ones)
+
+
 def tell_app(app_url: str) -> None:
     req = urllib.request.Request(f"{app_url.rstrip('/')}/api/admin/reload", data=b"{}", method="POST",
                                  headers={"Content-Type": "application/json"})
@@ -616,7 +685,7 @@ def main() -> None:
                     help="delete the existing records of the kinds being loaded first (only that customer's with --user-id)")
     ap.add_argument("--keep-names", action="store_true", help="keep column names as they are (no user_id -> userId)")
     ap.add_argument("--target", choices=["supabase", "file"], default="supabase",
-                    help="supabase (default) or file = the three agent databases under data/arch for running without Supabase")
+                    help="supabase (default) = the hosted agent tables via the per-agent role URLs, or file = local data/arch/*.db only")
     ap.add_argument("--app-url", default="http://localhost:3000", help="running app to tell about the new data")
     ap.add_argument("--no-reload", action="store_true", help="don't tell the running app")
     ap.add_argument("--dry-run", action="store_true", help="read and check the files, show what would happen, change nothing")
@@ -650,7 +719,9 @@ def main() -> None:
     for r in rows:
         by_kind[r["kind"]] = by_kind.get(r["kind"], 0) + 1
 
-    where = "the three agent databases (data/arch/*.db)" if args.target == "file" else f"Supabase table {TABLE}"
+    where = ("the three agent databases (data/arch/*.db)" if args.target == "file" else
+             "the hosted agent tables (agent_user/cm/nordea_records)"
+             + (" + abel_records plumbing" if os.environ.get("SUPABASE_URL") else ""))
     if args.dry_run:
         if args.clear:
             print(f"Would delete all data in {where}.")
@@ -662,7 +733,7 @@ def main() -> None:
         return
 
     load_env()
-    store = LocalFile() if args.target == "file" else Supabase()
+    store = LocalFile() if args.target == "file" else Hosted()
     if args.clear:
         store.delete()
         print(f"Deleted all data in {where}.")

@@ -4,7 +4,7 @@
 
 **Three agents, three databases, one shared document - and the customer decides what gets stored.**
 
-*A Nordea × Aalto University mobile banking concept - `instinct-prototype-v2` branch*
+*A Nordea × Aalto University mobile banking concept - `instinct-prototype-v3` branch*
 
 [![Node 22.13+](https://img.shields.io/badge/Node-22.13%2B-339933?logo=node.js&logoColor=white)](https://nodejs.org)
 [![TypeScript](https://img.shields.io/badge/TypeScript-3178C6?logo=typescript&logoColor=white)](https://www.typescriptlang.org)
@@ -65,19 +65,53 @@ flowchart TD
 # 1. Get the code and switch to this branch
 git clone https://github.com/coolkowkank/Nordea-x-Aalto-Banking-.git
 cd Nordea-x-Aalto-Banking-
-git checkout instinct-prototype-v2
+git checkout instinct-prototype-v3
 
 # 2. Install
 npm install --legacy-peer-deps
 
 # 3. Load the fictional bank data (see seed/README.md)
-python3 scripts/load_data.py seed/demo --target file   # local file store; drop --target file to use Supabase
+python scripts/load_data.py seed/demo --target file   # local files; drop --target file for the hosted Supabase stores
+# (if "python" is not found, the command is "python3" on your machine)
 
 # 4. Run without an AI key
-LLM_PROVIDER=mock npm run dev
+LLM_PROVIDER=mock npm run dev        # bash
+# PowerShell:   $env:LLM_PROVIDER="mock"; npm run dev
+# Windows cmd:  set LLM_PROVIDER=mock && npm run dev
 ```
 
-Open **http://localhost:3000/arch.html** for the three-agent demo UI. The developer monitor at **http://localhost:3000/dev-monitor.html** is off unless you start with `DEV_MONITOR=1` (it shows private cards, so it is a laptop-only tool). Without `LLM_PROVIDER=mock`, Abel uses Gemini (`GEMINI_API_KEY`) or an OpenAI-compatible provider, as on `main`.
+Open **http://localhost:3000/arch.html** for the three-agent demo UI. Its controls: pick a customer in the **Customer** picker; chat (answered from the session's document); **New session** starts a fresh session whose next question rebuilds `context.md`; **Add goal** plus each goal's **edit**/**delete** manage the User DB goals; **Upload bank file** imports a JSON/CSV statement through the airlock; **Check feed** applies new rows of the Nordea feed CSV; the agent **off/on** switches pause one agent's reasoning; **Park** silences the whole cabinet; **Permissions** set the standing review level; **Contribute** runs a Nordea round; and the review and airlock queues take accept/reject decisions. The developer monitor at **http://localhost:3000/dev-monitor.html** is off unless you start with `DEV_MONITOR=1` (it shows private cards, so it is a laptop-only tool). Without `LLM_PROVIDER=mock`, Abel uses Gemini (`GEMINI_API_KEY`) or an OpenAI-compatible provider, as on `main`.
+
+### Settings worth knowing
+
+| Variable | Effect |
+|---|---|
+| `LLM_PROVIDER=mock` | Scripted stand-in for the models - local tests and a first look without a key |
+| `LLM_GEMINI_FIRST=true` | Try Gemini before the OpenAI-compatible models (default: they answer first, Gemini is the last fallback) |
+| `LLM_MAX_CALLS` | Cap on real provider HTTP calls per process; past the cap the agents run scripted and say so |
+| `LLM_AGENT_MAX_STEPS` | Tool-call steps an agent's model may take per run (default 4) |
+| `LLM_STEP_TIMEOUT_MS` | Timeout per model step in milliseconds (default 15000) |
+| `USER_DB_URL` · `CM_DB_URL` · `NORDEA_DB_URL` | The hosted agent stores (below); unset = local SQLite |
+| `SUPABASE_URL` + `SUPABASE_SECRET_KEY` | The `abel_records` plumbing table (below); unset = local file |
+
+### Optional: hosted storage on Supabase
+
+Local files are the default and need nothing. To host the data on [Supabase](https://supabase.com) instead:
+
+1. Create a project and run **supabase/three-agents.sql** once in the *SQL Editor* - it makes the three agent tables and one Postgres role per agent. Give each role a letters-and-digits password: `alter role agent_user password '...';` (same for `agent_cm`, `agent_nordea`).
+2. Run **supabase/setup.sql** once too (the `abel_records` table holds app plumbing: chat transcripts, logs, rewards).
+3. Put the connection strings in `.env` (see `.env.example`). Use the session pooler host from Supabase -> *Connect*; the direct `db.<project>` host is unreachable on networks without IPv6:
+   ```
+   USER_DB_URL="postgresql://agent_user.<project-ref>:<password>@aws-0-<region>.pooler.supabase.com:5432/postgres"
+   CM_DB_URL="postgresql://agent_cm.<project-ref>:<password>@aws-0-<region>.pooler.supabase.com:5432/postgres"
+   NORDEA_DB_URL="postgresql://agent_nordea.<project-ref>:<password>@aws-0-<region>.pooler.supabase.com:5432/postgres"
+   SUPABASE_URL="https://<project-ref>.supabase.co"
+   SUPABASE_SECRET_KEY="sb_secret_..."
+   ```
+   Each store only ever uses its own role's URL - no service key reaches an agent path (enforced by `supabase/three-agents.sql` grants and pinned by tests).
+4. Load the data without `--target file`: `python scripts/load_data.py seed/demo` writes the local agent databases and pushes them to the hosted tables (through `scripts/load_remote.ts`, each store with its own role).
+
+At startup the app replaces its local agent databases with the hosted rows (hydrate) and flushes later writes back; if Supabase is unreachable it keeps working on the local files and logs the failure.
 
 | Script | What it does |
 |---|---|
@@ -146,30 +180,42 @@ With a provider configured (`GEMINI_API_KEY` or `LLM_PROVIDER=openai`), all thre
 
 ## 🛣️ Routes
 
-All under `/api/arch/:uid/` (`src/server/arch/routes.ts`):
+Under `/api/arch/` (`src/server/arch/routes.ts`; `:uid` = the customer):
 
 | Route | Purpose |
 |---|---|
-| `GET state` | Cabinet, agents and document state for the demo UI |
-| `POST chat` | Session chat answered from the session's document |
-| `POST goals` | Add a customer goal |
-| `POST permissions` | Set standing permissions (`reviewLevel: 'all' \| 'high'`) |
-| `POST agent-query` | Ask an agent a direct question |
-| `POST personal-agent/connect` · `POST personal-agent/disconnect` | Swap between the in-app and an external personal agent |
-| `POST sync` · `POST airlock/:batchId/approve` · `POST airlock/:batchId/reject` | Sync ingestion through the airlock; approve or reject what enters the User DB |
-| `POST nordea/contribute` | Run a contribution round (Nordea proposals) |
-| `GET review` · `POST review/:messageId/accept` · `POST review/:messageId/reject` | The merge-review queue |
-| `GET entries` · `GET entries/:entryId/explain` · `POST entries/:entryId/dispute` · `POST entries/:entryId/undo` | Cabinet entries: list, explain, dispute, undo |
-| `POST cabinet/park` · `POST cabinet/resume` | Park or resume the whole cabinet |
-| `POST agents/:agent/off` · `POST agents/:agent/on` | Switch one agent off or on |
-| `DELETE db/:which` | Delete a database (customer-driven) |
+| `GET customers` | The customers with agent data (the demo UI's picker) |
+| `GET :uid/state` | Cabinet, agents and document state for the demo UI |
+| `POST :uid/session/new` | Start a fresh session; the next question rebuilds the document |
+| `POST :uid/chat` | Session chat answered from the session's document |
+| `POST :uid/goals` · `POST :uid/goals/:goalId` · `POST :uid/goals/:goalId/delete` | Add, edit and delete customer goals |
+| `POST :uid/permissions` | Set standing permissions (`reviewLevel: 'all' \| 'high'`) |
+| `POST :uid/agent-query` | Ask an agent a direct question |
+| `POST :uid/airlock/:batchId/approve` · `POST :uid/airlock/:batchId/reject` | Approve or reject what enters the User DB |
+| `POST :uid/nordea/contribute` | Run a contribution round (Nordea proposals) |
+| `GET :uid/review` · `POST :uid/review/:messageId/accept` · `POST :uid/review/:messageId/reject` | The merge-review queue |
+| `GET :uid/entries` · `GET :uid/entries/:entryId/explain` · `POST :uid/entries/:entryId/dispute` · `POST :uid/entries/:entryId/undo` | Cabinet entries: list, explain, dispute, undo |
+| `POST :uid/cabinet/park` · `POST :uid/cabinet/resume` | Park or resume the whole cabinet |
+| `POST :uid/agents/:agent/off` · `POST :uid/agents/:agent/on` | Switch one agent off or on |
+| `DELETE :uid/db/:which` | Delete a database (customer-driven) |
+
+App-level routes the demo surfaces use (`src/server/routes.ts`, `src/server/devMonitor.ts`):
+
+| Route | Purpose |
+|---|---|
+| `GET /api/dev/monitor` | The developer monitor's read-only view (only with `DEV_MONITOR=1`) |
+| `GET` · `POST /api/nordea-data` · `POST /api/nordea-data/check` | The Nordea feed: inspect, apply, and check for new rows (the **Check feed** button) |
+| `POST /api/import` | Import a bank file through the airlock (the **Upload bank file** button) |
 
 ## ✅ Checks
 
 | Check | Command | Covers |
 |---|---|---|
-| Architecture tests | `npm run test:arch` | 217 assertions: the one-database rule (source scan), per-session documents, reactive rounds, risk rules, permissions, decay, undo, the Abel integration, the G4 LLM planning path (mock provider) and the negative cases |
-| End-to-end | `npm run test:e2e` | 19 checks over a real booted server: a goal shows in all views, a review decision changes what the chat answers from, a bank import updates app + arch + monitor, session and top-up rounds run, and no code reads the old store |
+| Architecture tests | `npm run test:arch` | 225 assertions: the one-database rule (source scan), per-session documents, reactive rounds, risk rules, permissions, decay, undo, the Abel integration, the G4 LLM planning path (mock provider) and the negative cases |
+| End-to-end | `npm run test:e2e` | 21 checks over a real booted server: a goal shows in all views, a review decision changes what the chat answers from, a bank import updates app + arch + monitor, session and top-up rounds run, and no code reads the old store |
+| Data-layer adapter | `npm run test:adapter` | 43 checks: the old app store as an adapter over the three agent databases, legacy migration, and plumbing separation |
+| Hosted sync | `npm run test:remote` | 13 checks against an in-memory Postgres double: hydrate, flush, failures, and the one-role-per-agent grants |
+| review.md guard | `npm run check:review` | Keeps every review.md message inside the collaboration format |
 | Type check | `npm run lint` | `tsc --noEmit` across the app |
 | Bank records | `npm test` | Feed loading and bank-record maths |
 | Feed CSV | `npm run check:feed` | The Nordea feed CSV applies cleanly |
@@ -181,9 +227,9 @@ All under `/api/arch/:uid/` (`src/server/arch/routes.ts`):
 
 - **Figures are labelled "of related spending"** - goal matching uses category and description keywords, so a saving goal's figure is the related spending, not a true savings-transfer balance.
 - **Single process.** The round engine, bus and stores run in one Node process; `node:sqlite` files sit under the data dir. No distribution, no queues.
-- **No real external agent.** The "external personal agent" is a local client script (`scripts/personal-agent-client.ts`) exercising the same bus protocol.
 - **No live bank.** All account data is fictional, loaded with `scripts/load_data.py` (see `seed/README.md`).
 - **Demo UI.** `public/arch.html` and `public/dev-monitor.html` are demonstration surfaces, not the polished app from `main`.
+- **Hosted mode is hydrate-then-flush.** With the Supabase role URLs set, the hosted tables replace the local agent databases at startup and writes flush back; if Supabase is unreachable the app keeps working on the local files (the honest fallback copy) and logs the failure.
 
 </details>
 
@@ -194,17 +240,25 @@ All under `/api/arch/:uid/` (`src/server/arch/routes.ts`):
 src/server/arch/
   agents/       personal.ts · cm.ts · nordea.ts (each opens only its own store)
   store/        userStore · cmStore · nordeaStore · contextStore · busStore (node:sqlite)
+                remote.ts - the hosted Supabase sync (one role URL per store)
   orchestrator.ts  rounds, sessions, decay maintenance, Abel shared context
   rounds.ts        round engine        dispatcher.ts   bus delivery
+  llm.ts           the agents' model runs (tools, step limits, timeouts)
+  types.ts         the shared architecture types
   risk.ts          code-rule risk levels
   text.ts          keyword and category matching
   routes.ts        /api/arch/:uid/* HTTP surface
+supabase/
+  setup.sql        the abel_records table (app plumbing)
+  three-agents.sql the three hosted agent tables + one Postgres role per agent
 public/
   arch.html        three-agent demo UI
   dev-monitor.html developer monitor
 scripts/
   test-arch.ts     the architecture assertions (count in the Checks table)
   load_data.py     fictional bank data loader (see seed/README.md)
+  load_remote.ts   pushes the local agent databases to the hosted tables (load_data.py calls it)
+  run_python.mjs   runs Python as "python" or "python3", whichever the machine has
 ```
 
 The main Abel app (`src/server/abel.ts`, cabinet UI, access gateway) is shared with `main`; this branch wires Abel's chat into the three-agent context described above.

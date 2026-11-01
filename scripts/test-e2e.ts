@@ -18,7 +18,8 @@ const DIR = fs.mkdtempSync(path.join(os.tmpdir(), 'e2e-'));
 const PORT = 3210 + Math.floor(Math.random() * 500);
 const BASE = `http://127.0.0.1:${PORT}`;
 
-const seed = spawnSync('python3', ['scripts/load_data.py', 'seed/demo', '--target', 'file', '--no-reload'], {
+// G18: go through run_python.mjs so the seed works with 'python' or 'python3'.
+const seed = spawnSync(process.execPath, ['scripts/run_python.mjs', 'scripts/load_data.py', 'seed/demo', '--target', 'file', '--no-reload'], {
   env: { ...process.env, CABINET_DATA_DIR: DIR }, encoding: 'utf-8',
 });
 if (seed.status !== 0) { console.error(seed.stdout, seed.stderr); process.exit(1); }
