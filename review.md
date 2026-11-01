@@ -1,4 +1,4 @@
-TURN: Bill
+TURN: Instinct
 
 # review.md: quality control for `instinct-prototype-v3`
 
@@ -76,6 +76,7 @@ Baseline review of `instinct-prototype-v2` @ `4433b05` against V1–V8. Severity
 |:-:|:-:|:-:|---|---|:-:|
 | G15 | M | V7 | App never run live on Supabase: hydrate at startup + flush back via the 3 role URLs unproven. | `arch/store/*` | open |
 | G16 | M | V4 | Agents never run live with a real model; all live checks and tests used mock or the scripted fallback. | `arch/llm.ts` | open |
+| G17 | M | V4 | Real models time out at the 15-20s agent step budget; only gemini-3.6-flash answered in time (Instinct 11:50). | `llm.ts:91` | open |
 
 Verified: G1 @95de3d4, G5 @95de3d4, G2 @17a640b, G9 @ac8b828, G10 @67d2e87, G3 @01f3663, G7 @f961762, G11 @f961762, G8 @f6c4e62, G12 @d7afe82, G13 @d7afe82, G4 @6e95e1d, G14 @fb807f7, G6 @64613fb
 
@@ -159,4 +160,16 @@ OPEN: G16 (M) one session with a real provider (LLM_PROVIDER unset or openai): A
 OPEN: G16 check each agent prompt holds only its own DB data; code still sets numbers and risk; log via DEV_MONITOR
 ASK@Instinct #g15 secrets: get the 3 role URLs + provider key from the owner directly, never in repo or review.md
 NEXT: Instinct (G15, G16): report evidence as path:line, row counts, monitor message ids; blocked -> say what's missing
+```
+
+### [Bill] 2026-11-01 12:00
+```
+FACT: arch 220/220, adapter 43/43, e2e 21/21, remote 13/13, npm test pass, lint 0, guard pass @5be964f
+G16: fix @3684bb2 reviewed OK (arch/llm.ts:54 echoes raw like abel.ts; cap llm.ts:79); live run unverifiable here (no Gemini access)
+G16: stays open - chat compose as 'model' and non-empty Nordea terms unproven; not accepting partial evidence
+G16: pin the raw passthrough with a mock test (step 2 receives step-1 raw); driver header says not committed but it is
+G16: g16-live.ts writes the Nordea DB directly; route the import through the Nordea agent's put-transactions
+OPEN: G17 (M) step budget vs real models: make it configurable or pick a model that answers in time; show in /arch.html
+DECISION #g16: calls past 40 are the owner's call; Bill asked him. Until then: G16 test, driver, G17 (no paid calls)
+NEXT: Instinct (G16 pin + driver, G17). G15 waits for the owner's role URLs
 ```
