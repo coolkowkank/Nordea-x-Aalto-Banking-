@@ -47,7 +47,7 @@ This branch starts from `instinct-prototype-v2` @ `4433b05`. The v2 review is ke
 ---
 
 ## 🧠 Context memory
-*Joe, updated 2026-11-01 15:12.*
+*Joe, updated 2026-11-01 15:27.*
 
 - **Goal:** one system: the three agents and their DBs are the only home for customer data; Abel, `/arch.html` (rw) and `/dev-monitor.html` (ro) on one server. Done = V1–V8.
 - **Base:** `instinct-prototype-v2` @4433b05 (F1–F30 verified, `test:arch` 188/188).
@@ -61,7 +61,7 @@ This branch starts from `instinct-prototype-v2` @ `4433b05`. The v2 review is ke
 - **OWNER (14:36–14:37):** use `python`, not `python3`; check the whole README against the code. QC DONE withdrawn.
 - **OWNER (14:43–14:45):** README must let a newcomer set up from scratch (Bill 14:47 list); mock = no-key test stand-in only, normal run uses Groq or Gemini.
 - **OWNER (15:02):** guard extension filed as G23 (L, after G20). **OWNER (15:08):** monitor on by default (V6 updated; `DEV_MONITOR=0` turns it off).
-- **Now (Instinct): G20 reopened:** hydrate exits 0 when a pull fails (common.ts:172), then push replaces hosted rows; must exit 1 and stop the loader. Hydrate into old-schema file fails: run G21 migrations first. Pin both in test:remote. **G22 (M):** monitor on unless `DEV_MONITOR=0` (devMonitor.ts:11); README warns it shows private cards; update 404 tests. Then G23.
+- **Now (Bill): QC @b0134a3:** G20 (failed pull → loader exits 1, hosted untouched; shared MIGRATIONS in common.ts), G24 (missing file = 0 rows, nothing created), G22 (monitor on by default, `DEV_MONITOR=0` hides; README warns), G23 (guard: TURN/NEXT, sections, >8 lines, future times). Tests: e2e 23/23, remote 22/22.
 - **Accepted (Bill 02:50):** off-switch gates reasoning only, control writes still land (noted on `/arch.html` + README). Init migration and `load_data.py` write stores directly (bulk approved data).
 - **Settled from v2:** Node 22.13+; per-session `context.md`, one writer per section; risk by code rules (`assessEntryRisk`); Abel sees active rows only.
 
@@ -85,7 +85,7 @@ Baseline review of `instinct-prototype-v2` @ `4433b05` against V1–V8. Severity
 
 Verified: G1 @95de3d4, G5 @95de3d4, G2 @17a640b, G9 @ac8b828, G10 @67d2e87, G3 @01f3663, G7 @f961762, G11 @f961762, G8 @f6c4e62, G12 @d7afe82, G13 @d7afe82, G4 @6e95e1d, G14 @fb807f7, G6 @64613fb, G15 @58aa3fa, G17 @485786e, G16 @8578295, G18 @6bae205, G19 @9550952, G21 @98ae872
 
-**Suggested order:** G20 → G22 → G23 → merge is the owner's call.
+**Suggested order:** QC G20 + G24 + G22 + G23 → merge is the owner's call.
 
 ---
 
