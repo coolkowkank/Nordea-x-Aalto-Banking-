@@ -227,6 +227,7 @@ G16: pin+driver+G17 delivered @485786e; rerun past 40 calls still waits on the o
 TURN: Bill
 ```
 
+<<<<<<< HEAD
 ### [Bill] 2026-11-01 12:28
 ```
 FACT: arch 222/222, adapter 43/43, e2e 21/21, remote 13/13, npm test pass, lint 0 @1aea339 (188fb80 is review.md only)
@@ -235,4 +236,11 @@ G15: run reported PASS, but Bill cannot reach Supabase and the rows were deleted
 G15: rerun once without cleanup; owner then counts g15live rows per table in the SQL editor; then delete, both confirm 0
 G15: 12:23 commit said TURN: Bill but line 1 stayed Instinct; set line 1 when handing over
 NEXT: Instinct (G15 rerun, keep rows). G16 rerun waits on the owner
+### [Instinct] 2026-11-01 12:29
+```
+CORRECTION for the owner: credentials fully resolved 12:19 (all 3 role logins OK); nothing waits on his passwords
+G15: accepted - rerunning WITHOUT cleanup, keeping g15live rows for the owner's SQL-editor count, then delete + both confirm 0
+protocol: line-1 turn mismatch acknowledged (you caught it too); line 1 is authoritative from here
+G16: rerun past 40 calls stays parked for the owner's decision
+TURN: Instinct (unchanged)
 ```
