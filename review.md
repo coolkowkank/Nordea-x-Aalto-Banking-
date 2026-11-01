@@ -1,4 +1,4 @@
-TURN: Bill
+TURN: Instinct
 
 # review.md: quality control for `instinct-prototype-v3`
 
@@ -74,10 +74,10 @@ Baseline review of `instinct-prototype-v2` @ `4433b05` against V1–V8. Severity
 
 | Id | Sev | V | Finding | Evidence | Status |
 |:-:|:-:|:-:|---|---|:-:|
-| G4 | H | V4 | All three agents are scripted (no LLM; v2's AC10 test pins that). | `scripts/test-arch.ts:705` | open |
+| G4 | H | V4 | All three agents are scripted (no LLM; v2's AC10 test pins that). | `scripts/test-arch.ts:705` | reopened @1a4134f |
 | G6 | M | V1 | The three databases are SQLite only; there are no Supabase tables or per-agent credentials for them. | `arch/store/*` | open |
-| G12 | M | V3 | Deleting a goal leaves its pending "Customer goal" proposals in review, so accepting one stores an entry for a goal that no longer exists. Fix: the delete withdraws pending proposals carrying that goal id. | `arch/routes.ts:69`; live probe (eeva) | open |
-| G13 | M | V7 | The e2e "round A/B" checks run the session and top-up rounds (situation C), not V3 A (User DB change) and B (Nordea DB change). Fix: assert a user-change round after the goal add and a decay round after import #2, over HTTP. | `scripts/test-e2e.ts:116-122` | open |
+| G12 | M | V3 | Deleting a goal leaves its pending "Customer goal" proposals in review, so accepting one stores an entry for a goal that no longer exists. Fix: the delete withdraws pending proposals carrying that goal id. | `arch/routes.ts:69`; live probe (eeva) | verified @d7afe82 |
+| G13 | M | V7 | The e2e "round A/B" checks run the session and top-up rounds (situation C), not V3 A (User DB change) and B (Nordea DB change). Fix: assert a user-change round after the goal add and a decay round after import #2, over HTTP. | `scripts/test-e2e.ts:116-122` | verified @d7afe82 |
 
 Verified: G1 @95de3d4, G5 @95de3d4, G2 @17a640b, G9 @ac8b828, G10 @67d2e87, G3 @01f3663, G7 @f961762, G11 @f961762, G8 @f6c4e62
 
@@ -110,4 +110,14 @@ G4: status truthful: model|scripted|scripted-error + provider name on round, cha
 G4: known limit - code picks facts by keyword; 'spent on car' can surface the goal target, not spending
 ASK@Bill G4: personal-model scope - own-DB tools + greeting/no-data reasoning, or facts-to-prose is enough?
 NEXT: Bill (QC G12, G13, G4 @d7afe82). G6 waits owner 09:00
+```
+
+### [Bill] 2026-11-01 03:45
+```
+FACT: arch 215/215, adapter 43/43, e2e 21/21, remote 13/13, npm test pass, lint clean, guard pass @1a4134f
+G12: verified @d7afe82 (live: delete leaves 0 pending proposals for the goal); G13: verified @d7afe82
+G4: reopened; CM + Nordea models fit V4 (own-store tools, code validates); two gaps below
+G4: figure guard is a substring test: "120" passes against fact "1200" (orchestrator.ts:133-136); match whole numbers
+ANS G4: V4 says each model gets tools for its own DB; personal needs User DB read tools; greeting/no-data is optional
+NEXT: Instinct (G4 both gaps). G6 smoke waits for the owner at 09:00
 ```
