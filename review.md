@@ -1,4 +1,4 @@
-TURN: Bill
+TURN: Instinct
 
 
 # review.md: quality control for `instinct-prototype-v3`
@@ -79,12 +79,13 @@ Baseline review of `instinct-prototype-v2` @ `4433b05` against V1–V8. Severity
 
 | Id | Sev | V | Finding | Evidence | Status |
 |:-:|:-:|:-:|---|---|:-:|
+| G24 | M | V1 | load_remote push fails on an existing EMPTY agent file (left by the pre-fix run): 'no such table: kv'. | `store/common.ts:105` | open (reopened) |
 | G27 | M | V7 | supabase/README.md is v2: says abel_records holds customers; no three-agents.sql steps; first-start copy claim is gone (db.ts:389). | `supabase/README.md:8-62` | open |
 | G28 | M | V1 | nordea_feed is read with the service key (store.ts:32), not the Nordea agent's role; README never mentions the feed. | `src/server/nordeaFeed.ts:24` | open |
-| G26 | L | V7 | README:123,129-130 present setup.sql + SUPABASE_URL/SECRET_KEY as required; they are optional (plumbing, else local file). | `README.md:123` | open |
-| G25 | H | V2 | Hosted mode: DELETE db/:which only unlinks the local file; hosted rows stay and the next startup hydrate restores them. | `store/common.ts:230` | open |
+| G26 | L | V7 | README:123,129-130 present setup.sql + SUPABASE_URL/SECRET_KEY as required; they are optional (plumbing, else local file). | `README.md:123` | verified @d8c6ba1 |
+| G25 | H | V2 | Hosted mode: DELETE db/:which only unlinks the local file; hosted rows stay and the next startup hydrate restores them. | `store/common.ts:230` | verified @d8c6ba1 |
 
-Verified: G1 @95de3d4, G5 @95de3d4, G2 @17a640b, G9 @ac8b828, G10 @67d2e87, G3 @01f3663, G7 @f961762, G11 @f961762, G8 @f6c4e62, G12 @d7afe82, G13 @d7afe82, G4 @6e95e1d, G14 @fb807f7, G6 @64613fb, G15 @58aa3fa, G17 @485786e, G16 @8578295, G18 @6bae205, G19 @9550952, G21 @98ae872, G20 @b0134a3, G22 @b0134a3, G24 @b0134a3, G23 @53dec36
+Verified: G1 @95de3d4, G5 @95de3d4, G2 @17a640b, G9 @ac8b828, G10 @67d2e87, G3 @01f3663, G7 @f961762, G11 @f961762, G8 @f6c4e62, G12 @d7afe82, G13 @d7afe82, G4 @6e95e1d, G14 @fb807f7, G6 @64613fb, G15 @58aa3fa, G17 @485786e, G16 @8578295, G18 @6bae205, G19 @9550952, G21 @98ae872, G20 @b0134a3, G22 @b0134a3, G23 @53dec36
 
 **Suggested order:** QC G25-G27 → G28 → merge is the owner's call.
 
@@ -140,4 +141,15 @@ DID: G27 - supabase/README.md rewritten for v3 (three-agents.sql + passwords + p
 PART: G28 - remaining next run: nordea_feed grant+policy for agent_nordea, feed read via NORDEA_DB_URL, main README feed section. ETA next hand-over
 FACT: arch 225/225, remote 26/26, lint 0, guard pass
 NEXT: Bill (G25-G27 QC); Instinct continues G28 after
+```
+
+### [Bill] 2026-11-01 15:43
+```
+FACT: adapter 43/43, e2e 23/23, remote 26/26, lint 0 @d8c6ba1. G25: verified @d8c6ba1. G26: verified @d8c6ba1
+G24: reopen - owner @latest: `push alex -> agent_cm_records failed: no such table: kv`; the pre-fix run left alex.cm.db EMPTY
+G24: rowsOf must read absent tables as 0 rows for an existing empty/old file; pin with a 0-byte file. Loader end text blames
+G24: the role URLs on any failure; name the failed store/uid instead (owner misled twice)
+G27: nearly - supabase/README.md:39-43 smoke 'should print 1' prints nothing on empty tables; psql "$X" is bash-only
+G27: add supabase/role-smoke.sql: SET ROLE per agent+anon, read/write each table, PASS/FAIL table (as owner ran at 11:14)
+NEXT: Instinct (G24 reopen, G27 smoke, G28)
 ```
