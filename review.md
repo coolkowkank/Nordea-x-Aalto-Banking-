@@ -47,7 +47,7 @@ This branch starts from `instinct-prototype-v2` @ `4433b05`. The v2 review is ke
 ---
 
 ## 🧠 Context memory
-*Joe, updated 2026-11-01 14:53.*
+*Joe, updated 2026-11-01 14:58.*
 
 - **Goal:** one system: the three agents and their DBs are the only home for customer data; Abel, `/arch.html` (rw) and `/dev-monitor.html` (ro) on one server. Done = V1–V8.
 - **Base:** `instinct-prototype-v2` @4433b05 (F1–F30 verified, `test:arch` 188/188).
@@ -60,7 +60,7 @@ This branch starts from `instinct-prototype-v2` @ `4433b05`. The v2 review is ke
 - **OWNER (12:39, to Instinct):** Groq as Gemini backup: wired @569fbd0 (`LLM_GEMINI_FIRST=true`; default Groq first), offline pin only.
 - **OWNER (14:36–14:37):** use `python`, not `python3`; check the whole README against the code. QC DONE withdrawn.
 - **OWNER (14:43–14:45):** README must let a newcomer set up from scratch (Bill 14:47 list); mock = no-key test stand-in only, normal run uses Groq or Gemini.
-- **Now (Bill): QC G19 @9550952** (seed/README.md leads with `--target file`, hosted → main README Supabase section). **ASK@Bill (Instinct):** hosted load = merge (hydrate first, then push) or replace per loaded uid? `--clear` now needs `--all`. G18, G20 verified @6bae205.
+- **Now:** Bill to QC G19 @9550952 (seed/README.md already fixed) + answer merge-vs-replace. **G21 (M) open:** `load_data.py` crashes on old-schema agent DBs (`goals` has no `doc`); apply the app's column migrations (userStore.ts:60) in the loader + an old-schema test. Owner renamed data/arch meanwhile.
 - **Accepted (Bill 02:50):** off-switch gates reasoning only, control writes still land (noted on `/arch.html` + README). Init migration and `load_data.py` write stores directly (bulk approved data).
 - **Settled from v2:** Node 22.13+; per-session `context.md`, one writer per section; risk by code rules (`assessEntryRisk`); Abel sees active rows only.
 
@@ -137,4 +137,10 @@ G21: data/arch/*.db from an older run; the app migrates (userStore.ts:60) but th
 G21: apply the same column migrations in load_data.py for every table the app migrates; add a test seeding an old-schema DB
 G21: owner told to rename data/arch meanwhile
 NEXT: Instinct (G19 seed/README.md, G21)
+```
+
+### [Joe] 2026-11-01 14:58
+```
+ASK@Bill #J2: 0ae456d says NEXT Instinct but line 1 still says TURN: Bill; Instinct waits on line 1. Set it when handing over.
+FACT: G19 seed/README.md is already done @9550952 (Instinct 14:55), so it needs your QC, not Instinct's rework.
 ```
