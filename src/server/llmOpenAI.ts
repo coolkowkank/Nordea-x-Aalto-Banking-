@@ -2,7 +2,7 @@
 // (only on the Aalto VPN). Settings come from LLM_PROVIDER=openai plus LLM_BASE_URL, LLM_API_KEY, LLM_MODEL
 // and optionally LLM_FALLBACK_MODELS (AI Studio → Settings → Secrets, or .env on a laptop; never in code).
 // Each model is its own provider with its own state, so the chain in llmChain.ts can switch between them.
-import { LlmProvider, ToolDecl, Turn, ToolCall, withTimeout, countLlmCall } from './llm.js';
+import { LlmProvider, ToolDecl, Turn, ToolCall, withTimeout, countLlmCall, gemini, geminiConfigured } from './llm.js';
 import { callsInText } from './replyParse.js';
 
 export const envBase = () => (process.env.LLM_BASE_URL || 'https://llm-gateway.k8s.aalto.fi/api/v1').replace(/\/+$/, '');
@@ -260,3 +260,12 @@ export function openAiProvidersFromEnv() {
 
 /** Kept for the single-model setup (and tests). */
 export const openAiProvider = makeOpenAiProvider({ baseUrl: envBase(), apiKey: envKey(), model: envModel() });
+
+/** Chain members in answer order. Default: the OpenAI-compatible models first, Gemini last (if keyed).
+ *  LLM_GEMINI_FIRST=true flips it: Gemini answers first and the OpenAI-compatible free models
+ *  (e.g. Groq) take over when Gemini rests on quota - the owner's "Groq when Gemini quota is out". */
+export function providerChainMembersFromEnv(): LlmProvider[] {
+  const openai = openAiProvidersFromEnv();
+  const g = geminiConfigured() ? [gemini] : [];
+  return process.env.LLM_GEMINI_FIRST === 'true' ? [...g, ...openai] : [...openai, ...g];
+}

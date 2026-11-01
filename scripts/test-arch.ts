@@ -638,6 +638,24 @@ check('G16: the counter resets and the cap lifts when unset', LL.llmCallCount() 
   check('G16 Groq pin: a {"name":"json"} block without the required keys is NOT a call', notArgs.calls.length === 0, JSON.stringify(notArgs.calls));
 }
 
+// Groq-as-Gemini-backup (owner 12:39): LLM_GEMINI_FIRST=true puts Gemini first and the
+// OpenAI-compatible free models after it; the default keeps them first. Offline wiring pin only.
+{
+  const O = await import('../src/server/llmOpenAI.js');
+  process.env.GEMINI_API_KEY = 'offline-pin-key';
+  process.env.LLM_BASE_URL = 'https://api.groq.com/openai/v1';
+  delete process.env.LLM_GEMINI_FIRST;
+  const dflt = O.providerChainMembersFromEnv();
+  process.env.LLM_GEMINI_FIRST = 'true';
+  const flipped = O.providerChainMembersFromEnv();
+  delete process.env.GEMINI_API_KEY; delete process.env.LLM_GEMINI_FIRST; delete process.env.LLM_BASE_URL;
+  check('chain order: default is Groq-first, LLM_GEMINI_FIRST=true is Gemini-first with Groq backup',
+    dflt.length === flipped.length && dflt.length >= 2 &&
+    (dflt[0] as any).label === 'Groq' && (dflt.at(-1) as any).name === 'gemini' &&
+    (flipped[0] as any).name === 'gemini' && (flipped[1] as any).label === 'Groq',
+    `default=${dflt.map((m: any) => m.label || m.name)} flipped=${flipped.map((m: any) => m.label || m.name)}`);
+}
+
 // G17: the agent step budget and step timeout are configurable via env; defaults unchanged.
 {
   const AL = await import('../src/server/arch/llm.js');

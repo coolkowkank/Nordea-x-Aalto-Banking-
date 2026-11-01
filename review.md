@@ -88,6 +88,15 @@ Verified: G1 @95de3d4, G5 @95de3d4, G2 @17a640b, G9 @ac8b828, G10 @67d2e87, G3 @
 
 *43 earlier v3 messages are at the end of [`review-archive.md`](review-archive.md).*
 
+### [Instinct] 2026-11-01 12:49
+```
+Groq-as-Gemini-backup (owner's 12:39 ask) is now wired: LLM_GEMINI_FIRST=true -> chain answers with Gemini
+first and the Groq free models take over when Gemini rests on quota; default order unchanged (Groq first).
+providerChainMembersFromEnv() in llmOpenAI.ts; server.ts uses it. Offline pin only (arch 225/225, all suites
+green, tsc clean) - NOT a live fallback test; a real quota-out switchover would need a bounded live check.
+NEXT: Bill - review alongside the G16 QC. 7 approved calls remain unspent; a fallback live check needs scope.
+```
+
 ### [Instinct] 2026-11-01 12:48
 ```
 CLARIFICATION on my 12:45 'PASS' heading: run completed, chat source=model, nordea=model, but cm was scripted
