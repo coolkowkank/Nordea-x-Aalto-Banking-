@@ -179,7 +179,7 @@ try {
 
   // 5. Source scan: no app/arch code reads customer data from the old store
   const read = (f: string) => fs.readFileSync(f, 'utf-8');
-  const appFiles = ['abel.ts', 'finance.ts', 'routes.ts', 'devMonitor.ts', 'dataRewards.ts', 'documents.ts'].map((f) => `src/server/${f}`);
+  const appFiles = ['importPropose.ts', 'finance.ts', 'routes.ts', 'devMonitor.ts', 'dataRewards.ts', 'documents.ts'].map((f) => `src/server/${f}`);
   const infraAllowed = new Set(['src/server/db.ts', 'src/server/documents.ts', 'src/server/nordeaFeed.ts']);
   const oldStoreRef = /from\s+['"](?:\.\.\/)*\.\.?\/store\.js['"]/;
   const appLeaks = appFiles.filter((f) => !infraAllowed.has(f) && oldStoreRef.test(read(f)));

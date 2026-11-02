@@ -364,14 +364,15 @@ check('AC2: only the Nordea agent module writes the Nordea section', nordeaSrc.i
 check('AC1: the dispatcher and round engine open no agent store at all',
   !/(userStore|cmStore|nordeaStore)/.test(readSrc('../src/server/arch/dispatcher.ts')) && !/(userStore|cmStore|nordeaStore)/.test(readSrc('../src/server/arch/rounds.ts')));
 
-// --- AC11/F10: the in-app Abel (the LLM) never opens user.db or any architecture store -
-// its facts come through the access gateway. "Abel" as the architecture's personal agent is
-// the Abel mode of the personal agent (personalLabel), not the LLM module.
-const abelSrc = readSrc('../src/server/abel.ts');
-check('AC11: the in-app Abel module imports no architecture store and no user.db access',
-  !/(arch\/store|userStore|cmStore|nordeaStore|contextStore|loadUserDb)/.test(abelSrc), (abelSrc.match(/from\s+['"][^'"]+['"]/g) ?? []).join(','));
-check('AC11: Abel reads its cabinet through the access gateway, and only there',
-  abelSrc.includes('readCabinetThroughGateway') && !/abel_records/.test(abelSrc.replace(/readCabinetThroughGateway|previewCabinetForAgent/g, '')), '');
+// --- AC11: the legacy Abel modules are gone - the app chats only through the arch pipeline.
+// The old boundary property (no app module opens an agent store) is pinned by AC1/AC2 and
+// G30 slice 3; these checks pin the removal itself so the old path cannot creep back.
+const abelGone = (f: string) => !fs.existsSync(new URL(f, import.meta.url));
+const tsIn = (dir: string): string[] => fs.readdirSync(new URL(dir, import.meta.url)).filter((f) => f.endsWith('.ts')).map((f) => `${dir}/${f}`);
+const appLayerFiles = [...tsIn('../src/server'), ...tsIn('../src/server/arch'), ...tsIn('../src/server/arch/agents'), ...tsIn('../src/server/arch/store')];
+const legacyAbelRefs = appLayerFiles.filter((f) => /from\s+['"][^'"]*abel(?:Offline)?\.js['"]/.test(readSrc(f)));
+check('AC11: abel.ts and abelOffline.ts are removed and no module imports them',
+  abelGone('../src/server/abel.ts') && abelGone('../src/server/abelOffline.ts') && legacyAbelRefs.length === 0, legacyAbelRefs.join(','));
 
 // --- AC6: a contribution runs as a real build round: open -> contributions -> done -> finalise -> stored
 const UID9 = 'rounduser';
@@ -775,7 +776,7 @@ check('F20: a self-declared "observed" flag cannot downgrade an inference', RK.a
 // --- F21: one shared word-bounded sensitive list; no substring false positives.
 check('F21: "reunion" and "drugstore" are NOT sensitive', RK.assessProposalRisk(fakeMsg('nordea', { transactionIds: ['t1'], total: 10 }, 'Reunion party at the drugstore')) === 'medium');
 check('F21: pregnancy, divorce, gambling and debt collectors ARE sensitive (high)', ['pregnancy costs', 'divorce fund', 'gambling habit', 'debt collector payment'].every((t) => RK.assessProposalRisk(fakeMsg('nordea', { transactionIds: ['t1'], total: 10 }, t)) === 'high'));
-check('F21: abel.ts uses the shared sensitive list (no private copy)', !/const SENSITIVE = /.test(fs.readFileSync(new URL('../src/server/abel.ts', import.meta.url), 'utf-8')) && fs.readFileSync(new URL('../src/server/abel.ts', import.meta.url), 'utf-8').includes("from './sensitive.js'"));
+check('F21: the import helper uses the shared sensitive list (no private copy)', !/const SENSITIVE = /.test(fs.readFileSync(new URL('../src/server/importPropose.ts', import.meta.url), 'utf-8')) && fs.readFileSync(new URL('../src/server/importPropose.ts', import.meta.url), 'utf-8').includes("from './sensitive.js'"));
 
 // --- F22: per-entry undo for automatically stored entries, logged; manual entries refused.
 const undone = A.undoEntry(UID15, autoMed!.id) as { undone?: boolean };
@@ -883,7 +884,7 @@ check('F23: plain loan/debt talk is NOT high risk in the AC7 rule', ['pay off my
 check('F23: debt DISTRESS is still high risk', ['debt collector payment', 'arrears piling up', "can't pay my bills", 'bankruptcy filing'].every((t) => RK.assessProposalRisk(fakeMsg('nordea', { transactionIds: ['t1'], total: 10 }, t)) === 'high'));
 check('F23: Abel keeps its narrow guard - a loan goal still saves without the private tap', !SENS.ABEL_PRIVATE_TOPIC.test('pay off my student loan debt') && !SENS.ABEL_PRIVATE_TOPIC.test('monthly mortgage payment'));
 check('F23: Abel still guards the genuinely private topics', ['cancer treatment fund', 'therapy sessions', 'gambling recovery'].every((t) => SENS.ABEL_PRIVATE_TOPIC.test(t)));
-check('F23: abel.ts uses the narrow ABEL_PRIVATE_TOPIC, not the wide risk list', fs.readFileSync(new URL('../src/server/abel.ts', import.meta.url), 'utf-8').includes('ABEL_PRIVATE_TOPIC') && !fs.readFileSync(new URL('../src/server/abel.ts', import.meta.url), 'utf-8').includes('SENSITIVE_TOPIC as SENSITIVE'));
+check('F23: the import helper uses the narrow ABEL_PRIVATE_TOPIC, not the wide risk list', fs.readFileSync(new URL('../src/server/importPropose.ts', import.meta.url), 'utf-8').includes('ABEL_PRIVATE_TOPIC') && !fs.readFileSync(new URL('../src/server/importPropose.ts', import.meta.url), 'utf-8').includes('SENSITIVE_TOPIC as SENSITIVE'));
 
 
 // --- F24: customer-side entries decay too - a goal removed from the User DB flags its entry stale.
@@ -1024,14 +1025,24 @@ const f30Doc = S.loadContext(UID33)!;
 check("F30: the STORED document still records the marks - only Abel's copy is filtered", f30Doc.sections.memory.rows.some((r) => r.status === 'stale' && r.detail.includes('1234')) && f30Doc.sections.memory.rows.some((r) => r.status === 'disputed' && r.detail.includes('999')), f30Doc.sections.memory.rows.map((r) => `${r.status}:${r.detail.slice(0, 40)}`).join(' | '));
 
 
-// The main-chat path itself: Abel's real turn carries the shared context into the system prompt (mock provider, no AI spend).
-applyNordeaData('lauri', { accounts: [{ key: 'current', currency: 'EUR' }, { key: 'savings' }], transactions: [{ date: '2026-10-25', amount: 3000, description: 'SALARY', category: 'SALARY' }] }, 'test seed');
-const { setProviderForTests } = await import('../src/server/llm.js');
-let capturedSystem = '';
-setProviderForTests({ name: 'capture', isConfigured: () => true, step: async (args: { system: string }) => { capturedSystem = args.system; return { calls: [{ id: 'c1', name: 'finishReply', args: { text: 'ok', suggestions: [], usedEntryIds: [], topic: 'other', couldHelp: true } }] }; } } as never);
-const ABEL = await import('../src/server/abel.js');
-await ABEL.abelTurn('lauri', 'conv-main-test', 'abel', 'hello', { userDbFacts: 'Goals: Save for a laptop', sharedContext: '- Goal: Save for a laptop (goal-1)', provenance: ['user-db via the personal agent'] });
-check('F10p2: the main Abel chat carries the shared context into its real prompt, with provenance', capturedSystem.includes('SHARED CONTEXT') && capturedSystem.includes('Save for a laptop') && capturedSystem.includes('user-db via the personal agent'));
+// The main-chat path itself (F10p2, arch form): the personal agent's model composes the
+// reply from the code-selected shared-context rows, each labelled with its provenance -
+// capture the real compose call (no AI spend).
+{
+  const UID40 = 'chatprompt';
+  S.saveNordeaDb({ userId: UID40, accounts: [], transactions: [{ id: 'cp1', userId: UID40, date: '2026-10-01', category: 'transport', amount: -100, account: 'current', description: 'Fuel for the car' }] });
+  A.addGoalDirect(UID40, 'Save for a car');
+  await A.contribute(UID40);
+  decideFirstNordea(UID40);
+  const captured: { system: string; prompt: string }[] = [];
+  const { setProviderForTests } = await import('../src/server/llm.js');
+  setProviderForTests({ name: 'capture', isConfigured: () => true, step: async (args: { system?: string; turns?: { text?: string }[] }) => { captured.push({ system: args.system ?? '', prompt: (args.turns ?? []).map((t) => t.text ?? '').join('\n') }); return { calls: [{ id: 'c1', name: 'finishReply', args: { reply: 'ok, recorded' } }] }; } } as never);
+  await A.chat(UID40, 'what do you know about my car saving?');
+  setProviderForTests(null);
+  const compose = captured.find((c) => /personal banking assistant agent/.test(c.system));
+  check('F10p2: the main chat composes its reply from code-selected shared context, with provenance (arch path)',
+    !!compose && compose.prompt.includes('Shared context (via the Context Memory agent)') && /car/i.test(compose.prompt), (compose?.prompt ?? '(no compose call)').slice(0, 160));
+}
 const routesSrc2 = readSrc('../src/server/routes.ts');
 check('G30 slice 3: /api/chat answers through the arch pipeline, conversation id IS the session id', /archChat\(userId, u\.text, conv\.id\)/.test(routesSrc2) && !/abelTurn|abelSharedContext/.test(routesSrc2));
 
