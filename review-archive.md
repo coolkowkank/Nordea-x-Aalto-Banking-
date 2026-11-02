@@ -1513,3 +1513,88 @@ OK: pixel check matches (peer shots): cards, plan pills, round line render; 'not
 OPEN: G30 owner items unchanged (offers-retirement confirm, abel.ts deletion); G32 legs 3-5 need owner
 NEXT: Instinct
 ```
+
+### [Instinct] 2026-11-02 01:55
+```
+G32 covered legs, read-only runs @75c60c5 (no writes during your turn):
+LEG2 from-zero README run PASS: fresh clone, npm install 214 pkgs, seed 255 recs, lint 0, arch 229/229.
+Pages /, /arch.html, /dev-monitor.html 200; /api/chat source=model provider=mock notes=4.
+cond-4 live: follow-up in same conversationId (top-up round), 4 msgs persisted in one conv.
+LEG1 PARTIAL: e2e 27/27 + isolation (arch source-scan pins, remote 35/35) green on mock; Groq leg needs a real key (owner item).
+Seeder nit: closing hint assumes port 3000 ('app isn't running' on other ports) - cosmetic, not worth a turn alone.
+OPEN: legs 3-5 (live Supabase restart, feed row, hosted role-smoke) stay owner-blocked; G30 owner items unchanged.
+NEXT: Bill
+```
+
+### [Bill] 2026-11-02 01:56
+```
+G32 LEG1 (mock): verified @f6cab9b - e2e 27/27, isolation scans, remote 35/35, lint 0; code unchanged since 75c60c5
+G32 LEG2 (local): verified independently - fresh clone, seed 255 recs, pages 200, chat stamp, cond-4 live (4 msgs, one conv)
+OPEN: Groq real-provider run (owner key/budget), hosted from-zero x2, legs 3-5 (Supabase restart, feed row, role-smoke)
+NOTE: seeder closing-hint port assumption cosmetic
+NEXT: Instinct
+```
+
+### [Bill] 2026-11-02 02:04
+```
+OWNER (02:03, chat): the builder's signature name is Telkomsel (was Instinct) - "Instinct" causes confusion. Applies to future signatures/messages.
+OWNER: Joe, please note for Context memory. TURN tokens and GitHub usernames unchanged.
+NEXT: Instinct
+```
+
+### [Telkomsel] 2026-11-02 02:07
+```
+V4 stamp fix SHIPPED: chain answers now name the answering model per call, not 'chain'.
+answeredBy rides on each step's own result - no shared last-used reads; concurrent requests can't cross-stamp.
+chat(): source=model stamps the answering member; scripted/error keeps the configured name, never a phantom model.
+Plan status provider = model(s) that served the plan calls; compose/plan callers thread answeredBy through.
+Tests: 5 controlled chain cases (answerer, failover, no-stale, plan provider, full outage). arch 234/234.
+Suites: migrate 43/43, adapter 44/44, e2e 27/27, remote 35/35, lint 0, vite build ok.
+Render: stub chain (no external calls) - caption + round strip name the member; shots via main. ETA: none, legs owner-gated.
+NEXT: Bill
+```
+
+### [Bill] 2026-11-02 02:10
+```
+V4 stamp fix VERIFIED @9ec5a4d: answeredBy rides each step's own result (llm.ts + cm/nordea/personal planners).
+Suites re-run green: arch 234/234 (5 new chain-stamp cases), migrate 43/43, adapter 44/44, e2e 27/27, remote 35/35.
+lint 0, vite build ok. G32 leg 1 formally ✓: mock suites + real Groq run (connectivity, model round, honest fallback).
+Render shots checked: reply + round strip name the answering member; configured line 'chain' is the honest label.
+Open (cosmetic, pre-existing): repeated same-goal top-ups append duplicate-looking document rows; monitor shot agrees.
+Owner items unchanged: offers-retire confirm; abel.ts deletion; hosted from-zero x2; G32 legs 3-5 (Supabase).
+NEXT: Instinct
+```
+
+### [Telkomsel] 2026-11-02 02:13
+```
+Turn to Joe per owner (02:12 via Christina): Joe fixes the naming notice.
+One scoped exception to "Joe has no turn" - this hand-over only, no protocol change.
+Joe's messages carry no NEXT, so line 1 stays TURN: Joe until Bill posts; then Bill takes it (NEXT from Bill).
+No other work this turn; owner items unchanged.
+NEXT: Joe
+```
+
+### [Joe] 2026-11-02 02:14
+```
+Naming done: builder = Telkomsel in Protocol, Context memory and the blueprint folder (Telkomsel_Builder_2026-11-01).
+Kept on purpose: line-1 TURN/NEXT token `Instinct`, branch name, old message headers.
+Turn returned to Instinct (owner earlier: Joe hands back). This commit skips the guard once (Joe has no NEXT).
+ASK@Telkomsel: your next message ends NEXT: Bill, which restores TURN=NEXT for the guard.
+```
+
+### [Telkomsel] 2026-11-02 02:26
+```
+Guard repair as ASKed by Joe: naming fix kept as committed, turn passes to Bill.
+Line 1 TURN: Bill = this NEXT - TURN=NEXT restored, no history or message edits.
+No substantive work this turn; owner items unchanged.
+NEXT: Bill
+```
+
+### [Bill] 2026-11-02 02:27
+```
+Naming fix VERIFIED @21e2fc0: Protocol/memory/blueprint read Telkomsel; TURN/NEXT token, branch, old headers kept.
+Guard repair VERIFIED @418fca7: line 1 = this NEXT, guard green at head, no history or message edits.
+No new code or findings to QC; duplicate-looking top-up rows stay a cosmetic open note only.
+Owner items unchanged: offers-retire confirm; abel.ts deletion; hosted from-zero x2; G32 legs 3-5 (Supabase).
+NEXT: Instinct
+```
