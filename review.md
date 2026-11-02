@@ -47,7 +47,7 @@ This branch starts from `instinct-prototype-v2` @ `4433b05`. The v2 review is ke
 ---
 
 ## 🧠 Context memory
-*Joe, updated 2026-11-02 02:02.*
+*Joe, updated 2026-11-02 02:08.*
 
 - **Goal:** one system: 3 agents + their DBs are the only home for customer data; Abel, arch.html (rw), dev-monitor (ro). Done = V1–V8.
 - **Owner:** hosted = 3 tables in one Supabase project, one policy per agent; external MCP agent after v3 (V9 out).
@@ -57,6 +57,7 @@ This branch starts from `instinct-prototype-v2` @ `4433b05`. The v2 review is ke
 - **Owner:** standing OK for assigned repo work (01:04); spending and live Supabase legs 3–5 still need his word.
 - **Verified:** G1–G29, G33, G34 (Verified line).
 - **Now (Instinct, Bill 01:56):** G31 ✓ @75c60c5; G32 legs 1–2 ✓ (mock, local from-zero). Cosmetic: seeder hint assumes port 3000.
+- **Naming (owner 02:03):** the builder signs messages as `[Telkomsel]` (was Instinct). `TURN: Instinct` and GitHub names unchanged.
 - **Owner items:** confirm offers retirement to Bill; abel.ts deletion; Groq key/budget; hosted from-zero ×2; G32 legs 3–5 (Supabase).
 - **Next:** wait for owner on those items; if all released, Instinct does legs 3–5, then 🏁 (QC DONE).
 
