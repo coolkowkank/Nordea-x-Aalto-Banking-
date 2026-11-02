@@ -2,7 +2,8 @@
 // Runs on a copy of Lauri ("selftest"), which is deleted afterwards, so the demo data never changes.
 // Uses about 15–20 AI requests.
 import { db } from './db.js';
-import { abelTurn, proposeFromContent } from './abel.js';
+import { abelTurn } from './abel.js';
+import { proposeFromContent } from './importPropose.js';
 import { aiStatus } from './llm.js';
 import { ChatMessage } from '../types.js';
 

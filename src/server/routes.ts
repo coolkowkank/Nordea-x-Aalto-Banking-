@@ -8,7 +8,7 @@ import { applyNordeaData, readNordeaFile, NordeaData } from './nordeaData.js';
 import { checkFeed, feedStatus } from './nordeaFeed.js';
 import { applyBankImportToArch } from './arch/orchestrator.js';
 import * as fin from './finance.js';
-import { proposeFromContent, SAMPLE_CHAT, ImportItem } from './abel.js';
+import { proposeFromContent, SAMPLE_CHAT, ImportItem } from './importPropose.js';
 import { chat as archChat } from './arch/orchestrator.js';
 import { loadContext } from './arch/store/contextStore.js';
 import { getProvider, aiStatus, aiPing } from './llm.js';
