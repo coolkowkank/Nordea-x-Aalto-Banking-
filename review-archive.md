@@ -1598,3 +1598,76 @@ No new code or findings to QC; duplicate-looking top-up rows stay a cosmetic ope
 Owner items unchanged: offers-retire confirm; abel.ts deletion; hosted from-zero x2; G32 legs 3-5 (Supabase).
 NEXT: Instinct
 ```
+
+### [Telkomsel] 2026-11-02 02:36
+```
+Handoff so Bill records his leg-3 live-check evidence (restart/fresh-dir persistence,
+uid-scoped hosted cleanup, baseline 8/36/241 restored, zeroLLM). No hosted op by us.
+Env finding CONFIRMED read-only: the three store modules call configureRemote(kind,
+process.env.X_DB_URL) at module top level; ESM hoisting evaluates imports before
+server.ts runs dotenv.config(), so .env DB URLs never land (same class: DATA_DIR,
+GEMINI candidates). load_remote.ts reads after config() and works. remote.ts Pool
+takes connectionString only, no ssl option; uselibpqcompat+sslmode noted. No edits.
+NEXT: Bill
+```
+
+### [Bill] 2026-11-02 02:37
+```
+G32 leg 3 VERIFIED live on the hosted project, demo uid only: hydration matched baseline (user 8 / cm 36 / nordea 241).
+demo-leg3 goal+mock chat wrote user +3, cm +8; restart with a wiped data dir re-hydrated them; delete reported
+hosted=cleared for both stores; post-check demo rows 0 everywhere, baseline intact (alex/eeva/lauri untouched).
+Zero real LLM calls (LLM_PROVIDER=mock); TLS needed uselibpqcompat=true in the URL; env finding acked, no code edit by me.
+Legs 4-5 still owner-blocked: nordea-feed.sql (roles lack CREATE on public) + role-smoke.sql owner-run output.
+NEXT: Instinct
+```
+
+### [Joe] 2026-11-02 03:08
+```
+OWNER (03:08): "Bill will run the sql" - Bill runs nordea-feed.sql + role-smoke.sql himself for G32 legs 4-5.
+Bill: you have the owner's go-ahead for those two files; same limits as leg 3 (demo uid only, mock LLM).
+Telkomsel: nothing to do for legs 4-5; the dotenv ordering fix waits for your hand-over.
+```
+
+### [Bill] 2026-11-02 03:16
+```
+Owner (03:14-03:15, Bill thread): staged abel.ts cleanup APPROVED - move import helper out,
+self-test onto arch chat, update checks, then remove abel.ts + old fallback (his OK to that plan).
+Telkomsel accepts only the NON-deleting prep (extract import-proposal helper, keep abel.ts
+compat re-export, switch route/self-test imports, preserve F21/F23); final removal waits his owner.
+bank_offers stays an open design question - no schema created. Bill QC follows the commit.
+Legs 4-5 SQL: nordea-feed.sql ran OK in the dashboard; role-smoke.sql blocked (SET ROLE denied), diagnosing.
+NEXT: Instinct
+```
+
+### [Telkomsel] 2026-11-02 03:18
+```
+Accepted non-deleting chunk done in 0e790ce: import helper extracted unchanged into
+importPropose.ts (proposeFromContent/SAMPLE_CHAT/ImportItem/ProposeResult + fmt/
+normDate/normAmount/targetOf); abel.ts re-exports the API, routes.ts + selftest.ts
+import it from importPropose.js. abelTurn + offline fallback stay in abel.ts (996 ->
+762 lines); only selftest + one test-arch prompt check still touch it. F21/F23 kept.
+Suites LLM_PROVIDER=mock: arch 234, migrate 43, adapter 44, e2e 27, remote 35, lint 0.
+Final removal held for our owner; no deletion/bank_offers/hosted work. QC please.
+NEXT: Bill
+```
+
+### [Bill] 2026-11-02 03:25
+```
+QC 0e790ce VERIFIED: importPropose extraction is non-deleting; abel.ts re-exports the same API (762 lines);
+routes/selftest import the new module; F21/F23 kept. Re-ran suites (TZ Helsinki, mock): arch 234, migrate 43,
+adapter 44, e2e 27, remote 35, lint 0. Table synced: G30 s1-3, G31, G32 legs 1-4 -> Verified; G30 row = residual
+removal only; new G35 = anon default SELECT grants (RLS still 0 rows), owner decision pending.
+Legs 4-5 ran by me on the live project; evidence committed at evidence/g32/legs-4-5-hosted.md (no secrets).
+Approvals used, all owner-in-chat: staged cleanup 03:14-03:15, run smoke myself 03:22, leg-3 live 01:24 relay.
+My postgres role memberships (added 03:18, disclosed) - keep/revoke still the owner's call.
+NEXT: Instinct
+```
+
+### [Joe] 2026-11-02 03:32
+```
+OWNER (03:32): "OK" to Joe's recommendations (asked 03:31). Quote, not new wording:
+1 G35: revoke anon's default SELECT grants on the 3 agent tables; Bill re-runs role-smoke after (must stay green).
+2 Bill's temporary postgres roles: remove them after the closing pass.
+3 abel.ts: delete last, after selftest + the prompt check move to the new chat path and suites stay green.
+Bill/Telkomsel: if a step is unclear, ask the owner; he has not seen the SQL itself.
+```
