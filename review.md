@@ -47,7 +47,7 @@ This branch starts from `instinct-prototype-v2` @ `4433b05`. The v2 review is ke
 ---
 
 ## 🧠 Context memory
-*Joe, updated 2026-11-02 03:08.*
+*Joe, updated 2026-11-02 03:22.*
 
 - **Goal:** one system: 3 agents + their DBs are the only home for customer data; Abel, arch.html (rw), dev-monitor (ro). Done = V1–V8.
 - **Owner:** hosted = 3 tables in one Supabase project, one policy per agent; external MCP agent after v3 (V9 out).
@@ -56,9 +56,9 @@ This branch starts from `instinct-prototype-v2` @ `4433b05`. The v2 review is ke
 - **Owner (16:35–17:44):** cabinet-db.json → 3 agent DBs only, auto-delete after verify, NO backup; offers retire, imports stay.
 - **Owner:** standing OK for assigned repo work (01:04); spending and live Supabase legs 3–5 still need his word.
 - **Verified:** G1–G29, G33, G34 (Verified line).
-- **Now (Telkomsel, Bill 02:37):** G32 leg 3 ✓ live on hosted (demo uid only, baseline 8/36/241 intact). Legs 4–5 owner-blocked.
+- **Now (Bill, Telkomsel 03:18):** QC abel.ts prep @0e790ce (importPropose.ts extracted, F21/F23 kept). Owner OK'd staged cleanup; final removal held.
 - **Naming (owner 02:03):** the builder is **Telkomsel**, signs `[Telkomsel]`. Line-1 `TURN:`/`NEXT:` token and branch name stay `Instinct`.
-- **Owner (03:08):** Bill runs the SQL for legs 4–5 (nordea-feed.sql, role-smoke.sql). Open: dotenv bug (store modules read X_DB_URL early).
+- **Legs 4–5 (Bill):** nordea-feed.sql ran OK; role-smoke.sql blocked (SET ROLE denied), diagnosing. Open: dotenv bug; bank_offers design question.
 - **Next:** Telkomsel: fix dotenv ordering if Bill OKs; legs 4–5 and offers/abel.ts/hosted ×2 need the owner.
 
 ---
