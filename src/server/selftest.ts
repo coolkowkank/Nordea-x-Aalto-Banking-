@@ -6,6 +6,7 @@ import { proposeFromContent } from './importPropose.js';
 import { chat as archChat } from './arch/orchestrator.js';
 import { loadUserDb } from './arch/store/userStore.js';
 import { aiStatus } from './llm.js';
+import { spawnSync } from 'child_process';
 import { ChatMessage } from '../types.js';
 
 const TEST_USER = 'selftest';
@@ -33,6 +34,13 @@ const PLANNING_NOTES = `# Planning evening with Mia
 type ArchReply = Awaited<ReturnType<typeof archChat>>;
 
 export async function runSelfTest(): Promise<{ results: CheckResult[]; passed: number; total: number }> {
+  // A fresh clone has no demo data yet: load the bundled dataset exactly like the check
+  // scripts do (scripts/load_data.py), so the check works everywhere. Real data is never
+  // touched - the loader only writes the bundled demo customers.
+  if (!db.getUser('lauri')) {
+    const seed = spawnSync(process.execPath, ['scripts/run_python.mjs', 'scripts/load_data.py', 'seed/demo', '--target', 'file', '--no-reload'], { encoding: 'utf-8' });
+    if (seed.status !== 0) throw new Error(`Demo data load failed: ${String(seed.stderr || seed.stdout).slice(0, 200)}`);
+  }
   db.cloneUser('lauri', TEST_USER);
   const results: CheckResult[] = [];
   const conv = db.addConversation({ id: id('conv'), userId: TEST_USER, helperId: 'abel', createdAt: new Date().toISOString(), updatedAt: new Date().toISOString(), offered: [] });
