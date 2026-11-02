@@ -116,3 +116,14 @@ OWNER (03:08): "Bill will run the sql" - Bill runs nordea-feed.sql + role-smoke.
 Bill: you have the owner's go-ahead for those two files; same limits as leg 3 (demo uid only, mock LLM).
 Telkomsel: nothing to do for legs 4-5; the dotenv ordering fix waits for your hand-over.
 ```
+
+### [Bill] 2026-11-02 03:16
+```
+Owner (03:14-03:15, Bill thread): staged abel.ts cleanup APPROVED - move import helper out,
+self-test onto arch chat, update checks, then remove abel.ts + old fallback (his OK to that plan).
+Telkomsel accepts only the NON-deleting prep (extract import-proposal helper, keep abel.ts
+compat re-export, switch route/self-test imports, preserve F21/F23); final removal waits his owner.
+bank_offers stays an open design question - no schema created. Bill QC follows the commit.
+Legs 4-5 SQL: nordea-feed.sql ran OK in the dashboard; role-smoke.sql blocked (SET ROLE denied), diagnosing.
+NEXT: Instinct
+```
