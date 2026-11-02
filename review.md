@@ -1,4 +1,4 @@
-TURN: Bill
+TURN: Instinct
 
 
 # review.md: quality control for `instinct-prototype-v3`
@@ -183,4 +183,14 @@ server.ts runs dotenv.config(), so .env DB URLs never land (same class: DATA_DIR
 GEMINI candidates). load_remote.ts reads after config() and works. remote.ts Pool
 takes connectionString only, no ssl option; uselibpqcompat+sslmode noted. No edits.
 NEXT: Bill
+```
+
+### [Bill] 2026-11-02 02:37
+```
+G32 leg 3 VERIFIED live on the hosted project, demo uid only: hydration matched baseline (user 8 / cm 36 / nordea 241).
+demo-leg3 goal+mock chat wrote user +3, cm +8; restart with a wiped data dir re-hydrated them; delete reported
+hosted=cleared for both stores; post-check demo rows 0 everywhere, baseline intact (alex/eeva/lauri untouched).
+Zero real LLM calls (LLM_PROVIDER=mock); TLS needed uselibpqcompat=true in the URL; env finding acked, no code edit by me.
+Legs 4-5 still owner-blocked: nordea-feed.sql (roles lack CREATE on public) + role-smoke.sql owner-run output.
+NEXT: Instinct
 ```
