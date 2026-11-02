@@ -10,7 +10,7 @@ This branch starts from `instinct-prototype-v2` @ `4433b05`. The v2 review is ke
 | Who | Role |
 |---|---|
 | **Bill** (Claude) | Quality control. Reviews against the criteria below, runs tests and live checks, writes findings. Does not edit code. |
-| **Instinct** | Builds. Reads the findings, changes the code, posts an ETA with each hand-over. |
+| **Telkomsel** | Builds. Reads the findings, changes the code, posts an ETA with each hand-over. |
 | **Joe** (Claude) | Communication rules and Context memory. |
 | **Habibil** (owner) | Approved this plan on 1 Nov 02:27. Not supervising; Bill acts on his behalf. |
 
@@ -21,7 +21,7 @@ This branch starts from `instinct-prototype-v2` @ `4433b05`. The v2 review is ke
 **Hot file / cold files.** `review.md` holds only what changes: TURN, this protocol, Context memory, open findings, newest messages. Cold, read only when you need a specific id (`grep -n G3 review-*.md`): `review-spec.md` (criteria), `review-v2.md`, `review-archive.md`.
 
 **Turns and git**
-1. Loop **Instinct → Bill → Instinct**; act only when line 1 names you. Joe has no turn; edits only Protocol, Context memory, archive/spec moves; never `TURN:` or anyone's message.
+1. Loop **Telkomsel → Bill → Telkomsel** (line-1 token stays `Instinct`); act only when line 1 names you. Joe has no turn; edits only Protocol, Context memory, archive/spec moves; never `TURN:` or anyone's message.
 2. `git pull --rebase` before editing and before committing; non-force push; never push to `main`.
 3. Commit message `<Name>: <what>. TURN: <next>`. Off-turn: code commits ok, no `review.md` edits, message ends `TURN: <current> (unchanged)`.
 
@@ -42,24 +42,24 @@ This branch starts from `instinct-prototype-v2` @ `4433b05`. The v2 review is ke
 13. Context memory ≤ 15 lines, updated only at hand-overs. More than **5** messages → Joe archives all but the newest **2** to `review-archive.md`, unchanged.
 15. **Fewer pushes:** every push wakes the others. Fold fix-ups (lint, typos) into your next real commit instead of pushing them alone.
 16. **Short lines:** a CMP line ≤ 150 characters; over → split it or cite `path:line`; details go in the commit message. A pre-commit guard will enforce it (OWNER 03:02).
-17. The owner asks Joe for progress, so Bill and Instinct don't spend context on status reports. `ASK@Joe` if a rule costs more than it saves.
+17. The owner asks Joe for progress, so Bill and Telkomsel don't spend context on status reports. `ASK@Joe` if a rule costs more than it saves.
 
 ---
 
 ## 🧠 Context memory
-*Joe, updated 2026-11-02 02:08.*
+*Joe, updated 2026-11-02 02:12.*
 
 - **Goal:** one system: 3 agents + their DBs are the only home for customer data; Abel, arch.html (rw), dev-monitor (ro). Done = V1–V8.
 - **Owner:** hosted = 3 tables in one Supabase project, one policy per agent; external MCP agent after v3 (V9 out).
-- **Owner:** all 3 agents LLM-driven (V4); on conflict Instinct follows Bill; Groq free tier for live runs.
+- **Owner:** all 3 agents LLM-driven (V4); on conflict Telkomsel follows Bill; Groq free tier for live runs.
 - **Owner (16:22):** Abel answers ONLY from finalised context.md; Bill's 4 conditions (16:26) are the QC gate.
 - **Owner (16:35–17:44):** cabinet-db.json → 3 agent DBs only, auto-delete after verify, NO backup; offers retire, imports stay.
 - **Owner:** standing OK for assigned repo work (01:04); spending and live Supabase legs 3–5 still need his word.
 - **Verified:** G1–G29, G33, G34 (Verified line).
-- **Now (Instinct, Bill 01:56):** G31 ✓ @75c60c5; G32 legs 1–2 ✓ (mock, local from-zero). Cosmetic: seeder hint assumes port 3000.
-- **Naming (owner 02:03):** the builder signs messages as `[Telkomsel]` (was Instinct). `TURN: Instinct` and GitHub names unchanged.
+- **Now (Telkomsel, Bill 01:56):** G31 ✓ @75c60c5; G32 legs 1–2 ✓ (mock, local from-zero). Cosmetic: seeder hint assumes port 3000.
+- **Naming (owner 02:03):** the builder is **Telkomsel**, signs `[Telkomsel]`. Line-1 `TURN:`/`NEXT:` token and branch name stay `Instinct`.
 - **Owner items:** confirm offers retirement to Bill; abel.ts deletion; Groq key/budget; hosted from-zero ×2; G32 legs 3–5 (Supabase).
-- **Next:** wait for owner on those items; if all released, Instinct does legs 3–5, then 🏁 (QC DONE).
+- **Next:** wait for owner on those items; if all released, Telkomsel does legs 3–5, then 🏁 (QC DONE).
 
 ---
 

@@ -1,11 +1,11 @@
-# STATE_HANDOFF.md: Instinct, 1 Nov 2026, 21:30 Helsinki
+# STATE_HANDOFF.md: Telkomsel, 1 Nov 2026, 21:30 Helsinki
 
 **Live state = 🧠 Context memory in review.md.** This file adds what is not there.
 
 ## At hand-off
 - Chain: `G1–G29 ✓ G33 ✓ G34 ✓ > **G30 slice 3 (QC pending)** > G31 > G32 > 🏁`. TURN: Instinct.
 - Last pushed code: 7a659f2 (slice 3: /api/chat via arch chat(), offers retired, G34 canon() fix; Bill verified G34 @4844ff8).
-- The previous Instinct session was stopped by the owner (18:07). Its unpushed local work may be lost:
+- The previous Telkomsel session was stopped by the owner (18:07). Its unpushed local work may be lost:
   compare `git log origin/instinct-prototype-v3` with your tree before assuming anything exists.
 
 ## Your work, in order
@@ -24,5 +24,5 @@
 - Hosted = 3 tables in one Supabase project, one policy per agent. V9 (external MCP agent) is out of scope.
 
 ## Known habits
-- Bill and Instinct once typed message times ahead of the clock; the guard blocks it. Check `date` first.
-- Instinct once wiped all review.md sections in a hand-over (43fad9c); run `grep -n '^## '`.
+- Bill and Telkomsel once typed message times ahead of the clock; the guard blocks it. Check `date` first.
+- Telkomsel once wiped all review.md sections in a hand-over (43fad9c); run `grep -n '^## '`.

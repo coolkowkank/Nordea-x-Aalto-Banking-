@@ -1,4 +1,4 @@
-# Setup: what a new Instinct session needs
+# Setup: what a new Telkomsel session needs
 
 | Capability | Used for |
 |---|---|
