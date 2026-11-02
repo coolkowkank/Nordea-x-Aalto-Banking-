@@ -711,7 +711,7 @@ export function publishParkState(uid: string) {
 export async function llmPlanRetrieval(uid: string, question: string, goalTitles: string[]): Promise<import('../llm.js').PlanOutcome<string[]>> {
   const { archLlmEnabled, runAgentReasoning, cleanTerms } = await import('../llm.js');
   if (!archLlmEnabled() || !goalTitles.length) return { plan: null, status: 'scripted' };
-  const { result: out, error } = await runAgentReasoning({
+  const { result: out, error, answeredBy } = await runAgentReasoning({
     agent: 'cm',
     system: [
       'You are the Context Memory agent of a banking assistant. You own the cabinet (the shared context between the customer and Nordea).',
@@ -733,5 +733,5 @@ export async function llmPlanRetrieval(uid: string, question: string, goalTitles
   if (!out) return { plan: null, status: 'scripted' };
   const original = new Map(goalTitles.map((g) => [g.toLowerCase(), g]));
   const picked = cleanTerms(out.goalTitles, 3).map((g) => original.get(g)).filter((g): g is string => !!g);
-  return picked.length ? { plan: picked, status: 'model' } : { plan: null, status: 'scripted' };
+  return picked.length ? { plan: picked, status: 'model', ...(answeredBy ? { answeredBy } : {}) } : { plan: null, status: 'scripted' };
 }

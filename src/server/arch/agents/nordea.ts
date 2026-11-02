@@ -290,7 +290,7 @@ registerHandler('nordea', handleMessage);
 export async function llmProposeMatchTerms(uid: string, goalTitles: string[]): Promise<import('../llm.js').PlanOutcome<Record<string, string[]>>> {
   const { archLlmEnabled, runAgentReasoning, cleanTerms } = await import('../llm.js');
   if (!archLlmEnabled() || !goalTitles.length) return { plan: null, status: 'scripted' };
-  const { result: out, error } = await runAgentReasoning({
+  const { result: out, error, answeredBy } = await runAgentReasoning({
     agent: 'nordea',
     system: [
       'You are the Nordea agent of a banking assistant. You own the Nordea DB (accounts and transactions). You propose, you never decide.',
@@ -330,5 +330,5 @@ export async function llmProposeMatchTerms(uid: string, goalTitles: string[]): P
     const cleaned = cleanTerms(v, 6);
     if (cleaned.length) terms[title] = cleaned;
   }
-  return Object.keys(terms).length ? { plan: terms, status: 'model' } : { plan: null, status: 'scripted' };
+  return Object.keys(terms).length ? { plan: terms, status: 'model', ...(answeredBy ? { answeredBy } : {}) } : { plan: null, status: 'scripted' };
 }

@@ -695,6 +695,49 @@ LL.setProviderForTests(null);
   check('G29: with no provider the honest scripted fallback still answers', noModel.source === 'scripted' && noModel.reply.length > 0, noModel.source);
 }
 
+// --- V4 provider stamp (Bill's Groq smoke lead): a chain must stamp the member that
+// ANSWERED each call - never the word 'chain', never a stale last-used model. The answerer
+// rides on each step result (answeredBy), so concurrent requests cannot cross-stamp.
+{
+  const { makeChain } = await import('../src/server/llmChain.js');
+  type FakeTools = { tools: { name: string }[] };
+  const smart = (label: string, model: string) => ({
+    name: label.toLowerCase(), label, model, isConfigured: () => true,
+    step: async (args: FakeTools) => {
+      const t = args.tools.map((x) => x.name);
+      if (t.includes('finishRetrievalPlan')) return { calls: [{ id: `${label}-cm`, name: 'finishRetrievalPlan', args: { goalTitles: ['save for a car'], reason: 'test' } }] };
+      if (t.includes('finishMatchTerms')) return { calls: [{ id: `${label}-no`, name: 'finishMatchTerms', args: { terms: { 'save for a car': ['wash'] } } }] };
+      return { calls: [{ id: `${label}-fin`, name: 'finishReply', args: { reply: 'Here is your answer, grounded and plain.' } }] };
+    },
+  });
+  const down = (label: string, model: string) => ({
+    name: label.toLowerCase(), label, model, isConfigured: () => true,
+    step: async (): Promise<never> => { throw new Error('provider exploded'); }, // unclassified kind: rests 0ms, no chain wait
+  });
+  const groq = () => smart('Groq', 'openai/gpt-oss-120b') as never;
+  const gem = () => smart('Gemini', 'gemini-3.8-flash') as never;
+
+  LL.setProviderForTests(makeChain([groq(), gem()]) as never);
+  const c1 = await A.chat(UID53, 'are you there?', 'chain-sess-1');
+  check('V4: a chain answer stamps the answering member, not "chain"', c1.source === 'model' && c1.provider === 'Groq openai/gpt-oss-120b', `${c1.source} / ${c1.provider}`);
+
+  LL.setProviderForTests(makeChain([down('Groq', 'openai/gpt-oss-120b') as never, gem()]) as never);
+  const c2 = await A.chat(UID53, 'are you there?', 'chain-sess-2');
+  check('V4: on failover the stamp names the member that actually answered', c2.source === 'model' && c2.provider === 'Gemini gemini-3.8-flash', `${c2.source} / ${c2.provider}`);
+
+  LL.setProviderForTests(makeChain([groq(), gem()]) as never);
+  const c3 = await A.chat(UID53, 'are you there?', 'chain-sess-3');
+  check("V4: the stamp follows each call's own answerer (no stale last-used model)", c3.source === 'model' && c3.provider === 'Groq openai/gpt-oss-120b', `${c3.source} / ${c3.provider}`);
+
+  const c5 = await A.chat(UID53, 'how is my car saving going?', 'chain-sess-5');
+  check('V4: the round plan status names the model that served the plan calls', !!c5.plan && c5.plan.cm === 'model' && c5.plan.provider === 'Groq openai/gpt-oss-120b', JSON.stringify(c5.plan));
+
+  LL.setProviderForTests(makeChain([down('Groq', 'openai/gpt-oss-120b') as never]) as never);
+  const c4 = await A.chat(UID53, 'are you there?', 'chain-sess-4');
+  check('V4: a full outage stamps the configured provider, never a phantom answering model', c4.source === 'scripted-error' && c4.provider === 'chain', `${c4.source} / ${c4.provider}`);
+  LL.setProviderForTests(null);
+}
+
 // --- F18: maintenance rounds merge into the open session's document - no row is dropped.
 const UID17 = 'mergeround';
 A.addGoalDirect(UID17, 'Save for a car');

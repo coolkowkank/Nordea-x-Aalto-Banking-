@@ -44,7 +44,9 @@ export function makeChain(members: LlmProvider[]): ChainProvider {
       s.restUntil = 0;
       lastUsed = m;
       lastOk = { at: s.lastOk.at, model: name(m) };
-      return res;
+      // V4: the answerer rides on THIS result - a concurrent request can overwrite lastUsed,
+      // but never another call's answeredBy.
+      return { ...res, answeredBy: name(m) };
     } catch (err: any) {
       const message = clean(err);
       const kind = classify(message);

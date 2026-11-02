@@ -114,12 +114,14 @@ export async function chat(uid: string, text: string, clientSessionId?: string):
   // exist in the selected facts, or the scripted reply stands (no invented numbers).
   let source: 'model' | 'scripted' | 'scripted-error' = 'scripted';
   let suggestions: string[] = [];
+  let answeredBy: string | undefined; // V4: the chain member that actually answered THIS reply
   // G29: no User-DB/context hit must NOT bypass the model - it still composes the reply from
   // whatever it has (its own User DB via tools + the session document); the figure guard below
   // is unchanged, so without sourced facts any invented number drops it back to the scripted text.
   if (!parked && !getOff(uid).includes('personal')) {
     const { llmComposeReply } = await import('./agents/personal.js');
     const composed = await llmComposeReply(uid, text, answer.parts);
+    answeredBy = composed.answeredBy;
     if (composed.plan && figuresGrounded(composed.plan, [...answer.factSources, ...(composed.seenFacts ?? [])])) {
       answer = { ...answer, reply: composed.plan };
       source = 'model';
@@ -133,7 +135,9 @@ export async function chat(uid: string, text: string, clientSessionId?: string):
   }
   saveSession(uid, { ...session, lastActivityAt: now() });
   const { archLlmProviderName } = await import('./llm.js');
-  const provider = archLlmProviderName() ?? undefined;
+  // V4: a model reply names the model that answered it (the chain member on this call);
+  // a scripted fallback keeps the configured-provider name and never implies a model answered.
+  const provider = (source === 'model' ? answeredBy ?? archLlmProviderName() : archLlmProviderName()) ?? undefined;
   return { reply: answer.reply, used: answer.used, sessionId: session.id, source, ...(provider ? { provider } : {}), ...(planStatus ? { plan: planStatus } : {}) };
 }
 
@@ -255,9 +259,13 @@ async function planRoundLlm(uid: string, question: string): Promise<NonNullable<
   const { llmProposeMatchTerms } = await import('./agents/nordea.js');
   const [cmPlan, nordeaPlan] = await Promise.all([llmPlanRetrieval(uid, question, titles), llmProposeMatchTerms(uid, titles)]);
   const { archLlmProviderName } = await import('./llm.js');
+  // V4: name the model(s) that served the plan calls, not the chain; fall back to the
+  // configured provider only when neither plan ran on a model.
+  const planProviders = [...new Set([cmPlan.answeredBy, nordeaPlan.answeredBy].filter((x): x is string => !!x))];
+  const planProvider = planProviders.length ? planProviders.join(' / ') : archLlmProviderName();
   const status = {
     cm: cmPlan.status, nordea: nordeaPlan.status,
-    ...(archLlmProviderName() ? { provider: archLlmProviderName()! } : {}),
+    ...(planProvider ? { provider: planProvider } : {}),
     ...(cmPlan.error || nordeaPlan.error ? { error: [cmPlan.error, nordeaPlan.error].filter(Boolean).join('; ') } : {}),
   };
   if (!cmPlan.plan && !nordeaPlan.plan && !status.error) return undefined; // fully scripted, nothing to record

@@ -26,6 +26,10 @@ export interface StepResult {
   calls: ToolCall[];
   text?: string;
   raw?: unknown;
+  /** V4: which member of a provider chain answered THIS call (e.g. "Groq openai/gpt-oss-120b").
+   *  Set per result by the chain, so a stamp never reads shared last-used state. Single
+   *  providers leave it unset - their name already identifies them. */
+  answeredBy?: string;
 }
 
 export interface LlmProvider {

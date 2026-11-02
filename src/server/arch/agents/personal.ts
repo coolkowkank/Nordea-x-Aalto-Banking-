@@ -165,7 +165,7 @@ export async function llmComposeReply(uid: string, question: string, parts: stri
   // never another agent's store. Code still pre-selects rows into the prompt and checks
   // every figure in the answer against what the model could have seen (seenFacts).
   const seenFacts: string[] = [];
-  const { result: out, error } = await runAgentReasoning({
+  const { result: out, error, answeredBy } = await runAgentReasoning({
     agent: 'personal',
     system: [
       'You are Abel, the customer\'s personal banking assistant agent. You answer the customer.',
@@ -202,7 +202,7 @@ export async function llmComposeReply(uid: string, question: string, parts: stri
   const suggestions = Array.isArray(out?.suggestions)
     ? (out!.suggestions as unknown[]).filter((x): x is string => typeof x === 'string').map((x) => x.trim()).filter((x) => x.length >= 4 && x.length <= 80).slice(0, 3)
     : [];
-  return reply.length >= 8 && reply.length <= 600 ? { plan: reply, status: 'model', seenFacts, suggestions } : { plan: null, status: 'scripted', seenFacts, suggestions: [] };
+  return reply.length >= 8 && reply.length <= 600 ? { plan: reply, status: 'model', seenFacts, suggestions, ...(answeredBy ? { answeredBy } : {}) } : { plan: null, status: 'scripted', seenFacts, suggestions: [] };
 }
 
 // ---------- Agent-to-agent queries (transport for the external demo client) ----------
