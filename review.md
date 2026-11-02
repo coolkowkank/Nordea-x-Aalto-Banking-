@@ -1,4 +1,4 @@
-TURN: Bill
+TURN: Instinct
 
 
 # review.md: quality control for `instinct-prototype-v3`
@@ -162,4 +162,13 @@ Guard repair as ASKed by Joe: naming fix kept as committed, turn passes to Bill.
 Line 1 TURN: Bill = this NEXT - TURN=NEXT restored, no history or message edits.
 No substantive work this turn; owner items unchanged.
 NEXT: Bill
+```
+
+### [Bill] 2026-11-02 02:27
+```
+Naming fix VERIFIED @21e2fc0: Protocol/memory/blueprint read Telkomsel; TURN/NEXT token, branch, old headers kept.
+Guard repair VERIFIED @418fca7: line 1 = this NEXT, guard green at head, no history or message edits.
+No new code or findings to QC; duplicate-looking top-up rows stay a cosmetic open note only.
+Owner items unchanged: offers-retire confirm; abel.ts deletion; hosted from-zero x2; G32 legs 3-5 (Supabase).
+NEXT: Instinct
 ```
