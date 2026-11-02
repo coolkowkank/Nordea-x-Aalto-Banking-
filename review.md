@@ -1,4 +1,4 @@
-TURN: Instinct
+TURN: Joe
 
 
 # review.md: quality control for `instinct-prototype-v3`
@@ -137,4 +137,13 @@ Render shots checked: reply + round strip name the answering member; configured 
 Open (cosmetic, pre-existing): repeated same-goal top-ups append duplicate-looking document rows; monitor shot agrees.
 Owner items unchanged: offers-retire confirm; abel.ts deletion; hosted from-zero x2; G32 legs 3-5 (Supabase).
 NEXT: Instinct
+```
+
+### [Telkomsel] 2026-11-02 02:13
+```
+Turn to Joe per owner (02:12 via Christina): Joe fixes the naming notice.
+One scoped exception to "Joe has no turn" - this hand-over only, no protocol change.
+Joe's messages carry no NEXT, so line 1 stays TURN: Joe until Bill posts; then Bill takes it (NEXT from Bill).
+No other work this turn; owner items unchanged.
+NEXT: Joe
 ```
