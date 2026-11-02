@@ -5,6 +5,7 @@ import { db } from './db.js';
 import { proposeFromContent } from './importPropose.js';
 import { chat as archChat } from './arch/orchestrator.js';
 import { loadUserDb } from './arch/store/userStore.js';
+import { listCustomers } from './arch/store/common.js';
 import { aiStatus } from './llm.js';
 import { spawnSync } from 'child_process';
 import { ChatMessage } from '../types.js';
@@ -35,9 +36,14 @@ type ArchReply = Awaited<ReturnType<typeof archChat>>;
 
 export async function runSelfTest(): Promise<{ results: CheckResult[]; passed: number; total: number }> {
   // A fresh clone has no demo data yet: load the bundled dataset exactly like the check
-  // scripts do (scripts/load_data.py), so the check works everywhere. Real data is never
-  // touched - the loader only writes the bundled demo customers.
+  // scripts do (scripts/load_data.py), so the check works everywhere. Only a genuinely
+  // EMPTY store is seeded automatically - the load upserts the demo records, so with any
+  // existing customer it could overwrite edited demo records, and that is the operator's
+  // call, never automatic. Real (non-demo) customers are never touched either way.
   if (!db.getUser('lauri')) {
+    if (listCustomers().length > 0) {
+      throw new Error('The demo customer lauri is not loaded, but the store is not empty - load the demo dataset yourself: python scripts/load_data.py seed/demo');
+    }
     const seed = spawnSync(process.execPath, ['scripts/run_python.mjs', 'scripts/load_data.py', 'seed/demo', '--target', 'file', '--no-reload'], { encoding: 'utf-8' });
     if (seed.status !== 0) throw new Error(`Demo data load failed: ${String(seed.stderr || seed.stdout).slice(0, 200)}`);
   }
@@ -74,7 +80,7 @@ export async function runSelfTest(): Promise<{ results: CheckResult[]; passed: n
   const before = JSON.stringify(db.getUser(TEST_USER)?.accounts);
 
   await ask('Goal question uses the real numbers', 'Am I on track for my flat?', (r) =>
-    [has(r.reply, '30 000'), 'Should use the real 30 000 € deposit target - the arch path has no saved-amount computation']);
+    [has(r.reply, '30 000'), 'Should use the real 30 000 € deposit target from the demo data']);
   await ask('Spending question stays honest about data access', 'Where does my money go?', (r) =>
     [/bank data|shared context|not enough|not have|don.t have/i.test(r.reply) || has(r.reply, '1 150') || has(r.reply, '1 987'), 'The personal agent cannot read the bank DB - it must say so plainly or use grounded shared-context figures']);
   await ask('Flat search shows no partner offer (offers retired, owner 17:44)', "I'm looking for an apartment in Espoo", (r) =>

@@ -20,7 +20,8 @@
     "test:e2e": "tsx scripts/test-e2e.ts",
     "migrate:legacy": "tsx scripts/migrate-legacy.ts",
     "test:migrate": "tsx scripts/test-migrate.ts",
-    "test:env": "tsx scripts/test-env.ts"
+    "test:env": "tsx scripts/test-env.ts",
+    "test:selftest": "tsx scripts/test-selftest.ts"
   },
   "dependencies": {
     "@google/genai": "^2.4.0",
