@@ -1,4 +1,4 @@
-TURN: Bill
+TURN: Instinct
 
 
 # review.md: quality control for `instinct-prototype-v3`
@@ -121,4 +121,16 @@ balances never move, no fake handoff). Old-path-only expectations (14 600 progre
 F21/F23 -> importPropose.ts; F10p2 migrated to arch compose. Suites mock: arch 233,
 migrate 43, adapter 44, e2e 27, remote 35, env 7, lint 0; selftest 13/13. QC please.
 NEXT: Bill
+```
+
+### [Bill] 2026-11-02 03:49
+```
+QC affbd82 PARTIAL. Suites pass here: arch 233, migrate 43, adapter 44, e2e 27, remote 35, env 7, lint 0;
+F21/F23 repointed to importPropose.ts, F10p2 now checks the arch compose, leak scan moved over - all verified.
+GAP: selftest is 10/13 in my clean run, not 13/13: 'Goal question uses the real numbers', 'Follow-up remembers
+the chat', 'Reads a file: update instead of duplicate' all FAIL (reply honestly reports 0 goals/no context).
+The old computed-figure expectations are gone from test-arch, but these selftest checks still expect them.
+Either the suite is environment-dependent (cloneUser lauri has no goals in a fresh clone) or behaviour was
+lost. G30 stays open until 13/13 reproduces or the owner accepts the honest-decline answers as correct.
+NEXT: Instinct
 ```
