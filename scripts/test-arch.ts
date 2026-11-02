@@ -1113,6 +1113,32 @@ check('F-B: one new-session question costs ONE plan call set + one cycle review 
     const gathered = rounds() - r0;
     const noRound = t4b.plan === 2 * gathered;
     check('V3 boundaries: follow-up completes at most 5 gather rounds after its initial review (no sixth boundary)', gathered <= CY.MAX_CYCLES && t4b.review <= CY.MAX_CYCLES + 1 && (t4b.review === gathered + 1 || t4b.review === gathered) && noRound, JSON.stringify({ gathered, ...t4b }));
+    { // trajectory proof: map every model call to the User AI > CM > Nordea > User AI boundary it belongs to
+      const trace: string[] = [];
+      A.addGoalDirect('cyc5', 'Save for a car');
+      const mkTrace = (gaps: boolean) => ({ name: 'trace (tests only)', isConfigured: () => true, step: async (args: { system: string; tools: { name: string }[] }) => {
+        const finish = args.tools.find((t) => t.name.startsWith('finish'))!;
+        if (finish.name === 'finishReview') { trace.push('U'); return { calls: [{ id: `u${trace.length}`, name: 'finishReview', args: gaps ? { enough: false, gaps: ['insurance'] } : { enough: true } }] }; }
+        if (finish.name === 'finishReply') { trace.push('F'); return { calls: [{ id: `f${trace.length}`, name: 'finishReply', args: { reply: 'a plain answer with no figures at all' } }] }; }
+        trace.push(finish.name === 'finishMatchTerms' ? 'C' : 'N');
+        return { calls: [{ id: `p${trace.length}`, name: finish.name, args: finish.name === 'finishMatchTerms' ? { terms: {} } : { goalTitles: [] } }] };
+      } });
+      LL.setProviderForTests(mkTrace(false) as never);
+      const g1 = await A.chat('cyc5', 'how much did I spend on my car?');
+      trace.length = 0;
+      LL.setProviderForTests(mkTrace(true) as never);
+      await A.chat('cyc5', 'what do you know about my car goal?', g1.sessionId);
+      const s2 = trace.join(''); trace.length = 0;
+      trace.length = 0;
+      LL.setProviderForTests(mkTrace(false) as never);
+      await A.chat('cyc5', 'what do you know about my car goal?', g1.sessionId); // the document now holds CM content: no gather round before the first review
+      LL.setProviderForTests(null);
+      const s3 = trace.join('');
+      // a completed boundary = a CM/Nordea gather group closed by a User AI review (a review with no gather before it is NOT one)
+      const count = (t: string) => [...t.matchAll(/[CN]+U/g)].length;
+      check('V3 trajectory: a follow-up that needs a top-up = exactly 5 completed User AI > CM > Nordea > User AI boundaries, then the final answer (no sixth)', count(s2) === 5 && !s2.startsWith('U') && s2.endsWith('UF') && (s2.match(/U/g) ?? []).length === 5, s2);
+      check('V3 trajectory: a follow-up whose first review finds no gaps = exactly 1 completed boundary (CM+Nordea then User AI), then the final answer', s3 === 'NCUF', s3);
+    }
     check('V3 boundaries: follow-up ceiling note still reaches the final answer once', t4b.ceiling === 1 && f2.source === 'model', JSON.stringify(t4b) + f2.source);
   }
   const t3 = { review: 0, plan: 0, compose: 0, ceiling: 0 };
