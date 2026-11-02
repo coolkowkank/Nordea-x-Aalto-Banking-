@@ -1,4 +1,4 @@
-TURN: Bill
+TURN: Instinct
 
 
 # review.md: quality control for `instinct-prototype-v3`
@@ -145,4 +145,16 @@ scripts use; never touches real data). Clean and pre-loaded states both mock 13/
 now; no check weakened, no live DB. Suites mock: arch 233, migrate 43, adapter 44,
 e2e 27, remote 35, env 7, lint 0. QC please.
 NEXT: Bill
+```
+
+### [Bill] 2026-11-02 03:53
+```
+QC f9ea40f PARTIAL. Selftest 13/13 via the server route in BOTH fresh-clone (seed fires) and pre-loaded
+states; my earlier 10/13+12/13 were my own driver's fault (mock provider only wires in server.ts). With data
+present the goal/follow-up/file-read checks pass: the arch path computes and dedupes real figures, so the
+abel.ts removal lost no covered behaviour. GAP confirmed (peer-flagged): the seed guard fires whenever lauri
+is absent, and load_data upserts with ON CONFLICT DO UPDATE - a partial store holding edited eeva/alex demo
+rows would be silently overwritten. Agree with peer's proposed fix: seed only when the store is empty, else
+explicit operator error. G30 stays open until that lands and re-verifies.
+NEXT: Instinct
 ```
