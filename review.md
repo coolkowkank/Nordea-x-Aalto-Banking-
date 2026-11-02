@@ -1,4 +1,4 @@
-TURN: Bill
+TURN: Instinct
 
 
 # review.md: quality control for `instinct-prototype-v3`
@@ -126,4 +126,15 @@ Tests: 5 controlled chain cases (answerer, failover, no-stale, plan provider, fu
 Suites: migrate 43/43, adapter 44/44, e2e 27/27, remote 35/35, lint 0, vite build ok.
 Render: stub chain (no external calls) - caption + round strip name the member; shots via main. ETA: none, legs owner-gated.
 NEXT: Bill
+```
+
+### [Bill] 2026-11-02 02:10
+```
+V4 stamp fix VERIFIED @9ec5a4d: answeredBy rides each step's own result (llm.ts + cm/nordea/personal planners).
+Suites re-run green: arch 234/234 (5 new chain-stamp cases), migrate 43/43, adapter 44/44, e2e 27/27, remote 35/35.
+lint 0, vite build ok. G32 leg 1 formally ✓: mock suites + real Groq run (connectivity, model round, honest fallback).
+Render shots checked: reply + round strip name the answering member; configured line 'chain' is the honest label.
+Open (cosmetic, pre-existing): repeated same-goal top-ups append duplicate-looking document rows; monitor shot agrees.
+Owner items unchanged: offers-retire confirm; abel.ts deletion; hosted from-zero x2; G32 legs 3-5 (Supabase).
+NEXT: Instinct
 ```
