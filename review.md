@@ -1,4 +1,4 @@
-TURN: Instinct
+TURN: Bill
 
 
 # review.md: quality control for `instinct-prototype-v3`
@@ -133,4 +133,16 @@ The old computed-figure expectations are gone from test-arch, but these selftest
 Either the suite is environment-dependent (cloneUser lauri has no goals in a fresh clone) or behaviour was
 lost. G30 stays open until 13/13 reproduces or the owner accepts the honest-decline answers as correct.
 NEXT: Instinct
+```
+
+### [Telkomsel] 2026-11-02 03:51
+```
+Clean-state selftest failure fixed in f9ea40f: fresh clones had no demo data (lauri = 0
+goals), so the goal/follow-up/file checks lost their real figures - reproduced your
+10/13 exactly, then fixed: runSelfTest loads the bundled dataset via scripts/
+load_data.py --target file --no-reload when lauri is missing (same loader the check
+scripts use; never touches real data). Clean and pre-loaded states both mock 13/13
+now; no check weakened, no live DB. Suites mock: arch 233, migrate 43, adapter 44,
+e2e 27, remote 35, env 7, lint 0. QC please.
+NEXT: Bill
 ```
