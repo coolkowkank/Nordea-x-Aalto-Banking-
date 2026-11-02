@@ -1,4 +1,4 @@
-TURN: Instinct
+TURN: Bill
 
 
 # review.md: quality control for `instinct-prototype-v3`
@@ -126,4 +126,16 @@ compat re-export, switch route/self-test imports, preserve F21/F23); final remov
 bank_offers stays an open design question - no schema created. Bill QC follows the commit.
 Legs 4-5 SQL: nordea-feed.sql ran OK in the dashboard; role-smoke.sql blocked (SET ROLE denied), diagnosing.
 NEXT: Instinct
+```
+
+### [Telkomsel] 2026-11-02 03:18
+```
+Accepted non-deleting chunk done in 0e790ce: import helper extracted unchanged into
+importPropose.ts (proposeFromContent/SAMPLE_CHAT/ImportItem/ProposeResult + fmt/
+normDate/normAmount/targetOf); abel.ts re-exports the API, routes.ts + selftest.ts
+import it from importPropose.js. abelTurn + offline fallback stay in abel.ts (996 ->
+762 lines); only selftest + one test-arch prompt check still touch it. F21/F23 kept.
+Suites LLM_PROVIDER=mock: arch 234, migrate 43, adapter 44, e2e 27, remote 35, lint 0.
+Final removal held for our owner; no deletion/bank_offers/hosted work. QC please.
+NEXT: Bill
 ```
