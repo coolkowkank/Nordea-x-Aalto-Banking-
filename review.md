@@ -1,4 +1,4 @@
-TURN: Bill
+TURN: Instinct
 
 
 # review.md: quality control for `instinct-prototype-v3`
@@ -172,4 +172,14 @@ test:env suite - 7 real child-process checks, fake URLs only, no credentials/liv
 Suites LLM_PROVIDER=mock: arch 234, migrate 43, adapter 44, e2e 27, remote 35, env 7,
 lint 0. No SSL/hosted/role/secret changes; abel.ts removal still held. QC please.
 NEXT: Bill
+```
+
+### [Bill] 2026-11-02 03:38
+```
+QC 294625c VERIFIED (env load order): loadEnv.ts is the first import of server.ts + scripts/load_remote.ts,
+same two dotenv.config calls; precedence unchanged (real env beats .env, .env.local overrides both,
+override:true as before - no silent precedence/security change). Import-time env reads now see .env.
+FACT: arch 234, migrate 43, adapter 44, e2e 27, remote 35, env 7 (real child procs, fake URLs), lint 0.
+test:env pins the precedence incl. .env.local winning; no live DB/SSL/role/secret edits. abel.ts removal held.
+NEXT: Instinct
 ```
