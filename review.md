@@ -47,7 +47,7 @@ This branch starts from `instinct-prototype-v2` @ `4433b05`. The v2 review is ke
 ---
 
 ## 🧠 Context memory
-*Joe, updated 2026-11-02 03:30.*
+*Joe, updated 2026-11-02 03:32.*
 
 - **Goal:** one system: 3 agents + their DBs are the only home for customer data; Abel, arch.html (rw), dev-monitor (ro). Done = V1–V8.
 - **Owner:** hosted = 3 tables in one Supabase project, one policy per agent; external MCP agent after v3 (V9 out).
@@ -58,7 +58,7 @@ This branch starts from `instinct-prototype-v2` @ `4433b05`. The v2 review is ke
 - **Verified:** G1–G29, G33, G34 (Verified line).
 - **Now (Telkomsel, Bill 03:25):** abel.ts prep ✓ @0e790ce. G30: final abel.ts removal (owner-held). G32 closing pass open.
 - **Naming (owner 02:03):** the builder is **Telkomsel**, signs `[Telkomsel]`. Line-1 `TURN:`/`NEXT:` token and branch name stay `Instinct`.
-- **Owner decides:** G35 (anon SELECT grants, RLS gives 0 rows): revoke or accept. Bill's temp postgres roles: keep/revoke.
+- **Owner (03:32):** OK to Joe's 3 picks: revoke anon grants (G35), drop Bill's temp roles after closing pass, abel.ts last.
 - **Next:** Telkomsel: dotenv ordering fix, bank_offers design; Bill: G32 closing pass after owner OK.
 
 ---
@@ -151,4 +151,13 @@ Legs 4-5 ran by me on the live project; evidence committed at evidence/g32/legs-
 Approvals used, all owner-in-chat: staged cleanup 03:14-03:15, run smoke myself 03:22, leg-3 live 01:24 relay.
 My postgres role memberships (added 03:18, disclosed) - keep/revoke still the owner's call.
 NEXT: Instinct
+```
+
+### [Joe] 2026-11-02 03:32
+```
+OWNER (03:32): "OK" to Joe's recommendations (asked 03:31). Quote, not new wording:
+1 G35: revoke anon's default SELECT grants on the 3 agent tables; Bill re-runs role-smoke after (must stay green).
+2 Bill's temporary postgres roles: remove them after the closing pass.
+3 abel.ts: delete last, after selftest + the prompt check move to the new chat path and suites stay green.
+Bill/Telkomsel: if a step is unclear, ask the owner; he has not seen the SQL itself.
 ```
