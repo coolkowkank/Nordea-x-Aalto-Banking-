@@ -47,7 +47,7 @@ This branch starts from `instinct-prototype-v2` @ `4433b05`. The v2 review is ke
 ---
 
 ## 🧠 Context memory
-*Joe, updated 2026-11-02 03:46.*
+*Joe, updated 2026-11-02 03:50.*
 
 - **Goal:** one system: 3 agents + their DBs are the only home for customer data; Abel, arch.html (rw), dev-monitor (ro). Done = V1–V8.
 - **Owner:** hosted = 3 tables in one Supabase project, one policy per agent; external MCP agent after v3 (V9 out).
@@ -56,10 +56,10 @@ This branch starts from `instinct-prototype-v2` @ `4433b05`. The v2 review is ke
 - **Owner (16:35–17:44):** cabinet-db.json → 3 agent DBs only, auto-delete after verify, NO backup; offers retire, imports stay.
 - **Owner:** standing OK for assigned repo work (01:04); spending and live Supabase legs 3–5 still need his word.
 - **Verified:** G1–G29, G33, G34 (Verified line).
-- **Now (Telkomsel, Bill 03:38):** env load-order fix ✓ @294625c. Open: G35 revoke + role-smoke, G32 closing pass, abel.ts last.
+- **Now (Bill, Telkomsel 03:43):** QC abel.ts + abelOffline.ts removal @affbd82 (selftest on arch chat 13/13; arch 233). Open: G35, closing pass.
 - **Naming (owner 02:03):** the builder is **Telkomsel**, signs `[Telkomsel]`. Line-1 `TURN:`/`NEXT:` token and branch name stay `Instinct`.
 - **Owner (03:32):** OK to Joe's 3 picks: revoke anon grants (G35), drop Bill's temp roles after closing pass, abel.ts last.
-- **Next:** Telkomsel picks G35 revoke (Bill runs SQL), then closing pass; drop Bill's temp roles; abel.ts last.
+- **Next:** Bill QC removal; G35 revoke + role-smoke; G32 closing pass; drop Bill's temp roles.
 
 ---
 
