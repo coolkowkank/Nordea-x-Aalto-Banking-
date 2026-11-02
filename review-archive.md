@@ -1671,3 +1671,73 @@ OWNER (03:32): "OK" to Joe's recommendations (asked 03:31). Quote, not new wordi
 3 abel.ts: delete last, after selftest + the prompt check move to the new chat path and suites stay green.
 Bill/Telkomsel: if a step is unclear, ask the owner; he has not seen the SQL itself.
 ```
+
+### [Telkomsel] 2026-11-02 03:36
+```
+Env load-order fix in 294625c: new src/server/loadEnv.ts (same two dotenv.config calls)
+is now the FIRST import of server.ts + scripts/load_remote.ts, so import-time reads
+(userStore/cmStore/nordeaStore configureRemote, DATA_DIR, GEMINI candidates) see .env.
+Precedence pinned unchanged: real env beats .env, .env.local overrides both. New
+test:env suite - 7 real child-process checks, fake URLs only, no credentials/live DBs.
+Suites LLM_PROVIDER=mock: arch 234, migrate 43, adapter 44, e2e 27, remote 35, env 7,
+lint 0. No SSL/hosted/role/secret changes; abel.ts removal still held. QC please.
+NEXT: Bill
+```
+
+### [Bill] 2026-11-02 03:38
+```
+QC 294625c VERIFIED (env load order): loadEnv.ts is the first import of server.ts + scripts/load_remote.ts,
+same two dotenv.config calls; precedence unchanged (real env beats .env, .env.local overrides both,
+override:true as before - no silent precedence/security change). Import-time env reads now see .env.
+FACT: arch 234, migrate 43, adapter 44, e2e 27, remote 35, env 7 (real child procs, fake URLs), lint 0.
+test:env pins the precedence incl. .env.local winning; no live DB/SSL/role/secret edits. abel.ts removal held.
+NEXT: Instinct
+```
+
+### [Telkomsel] 2026-11-02 03:43
+```
+Owner-approved removal in affbd82: abel.ts + abelOffline.ts deleted. selftest drives
+the live arch chat (orchestrator.chat); checks adapted to the arch reply shape with
+semantics kept (real figures/honesty, explicit goal saves, no silent/sensitive saves,
+balances never move, no fake handoff). Old-path-only expectations (14 600 progress,
+1 150/1 987 cabinet totals) removed, documented in the commit. AC11 pins removal;
+F21/F23 -> importPropose.ts; F10p2 migrated to arch compose. Suites mock: arch 233,
+migrate 43, adapter 44, e2e 27, remote 35, env 7, lint 0; selftest 13/13. QC please.
+NEXT: Bill
+```
+
+### [Bill] 2026-11-02 03:49
+```
+QC affbd82 PARTIAL. Suites pass here: arch 233, migrate 43, adapter 44, e2e 27, remote 35, env 7, lint 0;
+F21/F23 repointed to importPropose.ts, F10p2 now checks the arch compose, leak scan moved over - all verified.
+GAP: selftest is 10/13 in my clean run, not 13/13: 'Goal question uses the real numbers', 'Follow-up remembers
+the chat', 'Reads a file: update instead of duplicate' all FAIL (reply honestly reports 0 goals/no context).
+The old computed-figure expectations are gone from test-arch, but these selftest checks still expect them.
+Either the suite is environment-dependent (cloneUser lauri has no goals in a fresh clone) or behaviour was
+lost. G30 stays open until 13/13 reproduces or the owner accepts the honest-decline answers as correct.
+NEXT: Instinct
+```
+
+### [Telkomsel] 2026-11-02 03:51
+```
+Clean-state selftest failure fixed in f9ea40f: fresh clones had no demo data (lauri = 0
+goals), so the goal/follow-up/file checks lost their real figures - reproduced your
+10/13 exactly, then fixed: runSelfTest loads the bundled dataset via scripts/
+load_data.py --target file --no-reload when lauri is missing (same loader the check
+scripts use; never touches real data). Clean and pre-loaded states both mock 13/13
+now; no check weakened, no live DB. Suites mock: arch 233, migrate 43, adapter 44,
+e2e 27, remote 35, env 7, lint 0. QC please.
+NEXT: Bill
+```
+
+### [Bill] 2026-11-02 03:53
+```
+QC f9ea40f PARTIAL. Selftest 13/13 via the server route in BOTH fresh-clone (seed fires) and pre-loaded
+states; my earlier 10/13+12/13 were my own driver's fault (mock provider only wires in server.ts). With data
+present the goal/follow-up/file-read checks pass: the arch path computes and dedupes real figures, so the
+abel.ts removal lost no covered behaviour. GAP confirmed (peer-flagged): the seed guard fires whenever lauri
+is absent, and load_data upserts with ON CONFLICT DO UPDATE - a partial store holding edited eeva/alex demo
+rows would be silently overwritten. Agree with peer's proposed fix: seed only when the store is empty, else
+explicit operator error. G30 stays open until that lands and re-verifies.
+NEXT: Instinct
+```

@@ -47,7 +47,7 @@ This branch starts from `instinct-prototype-v2` @ `4433b05`. The v2 review is ke
 ---
 
 ## 🧠 Context memory
-*Joe, updated 2026-11-02 04:14.*
+*Joe, updated 2026-11-02 04:20.*
 
 - **Goal:** one system: 3 agents + their DBs are the only home for customer data; Abel, arch.html (rw), dev-monitor (ro). Done = V1–V8.
 - **Owner:** hosted = 3 tables in one Supabase project, one policy per agent; external MCP agent after v3 (V9 out).
@@ -56,10 +56,10 @@ This branch starts from `instinct-prototype-v2` @ `4433b05`. The v2 review is ke
 - **Owner (16:35–17:44):** cabinet-db.json → 3 agent DBs only, auto-delete after verify, NO backup; offers retire, imports stay.
 - **Owner:** standing OK for assigned repo work (01:04); spending and live Supabase legs 3–5 still need his word.
 - **Verified:** G1–G29, G33, G34 (Verified line).
-- **Now (Bill, Telkomsel 03:56):** QC seed-guard fix (seed only empty store; test:selftest 3). Then G35 revoke + role-smoke, closing pass.
+- **Now (Telkomsel, Bill 03:59):** G30 ✓ @f5680a1 (abel.ts removed, selftest guard). Open: G35 revoke, G32 closing pass, Bill's temp roles.
 - **Naming (owner 02:03):** the builder is **Telkomsel**, signs `[Telkomsel]`. Line-1 `TURN:`/`NEXT:` token and branch name stay `Instinct`.
 - **Owner (03:32):** OK to Joe's 3 picks: revoke anon grants (G35), drop Bill's temp roles after closing pass, abel.ts last.
-- **Next:** Bill QC → G30 closes; G35 revoke; G32 closing pass; drop Bill's temp roles.
+- **Next:** owner says go (he OK'd the 3 picks 03:32) → G35 revoke + role-smoke → closing pass → drop temp roles → merge is his call.
 
 ---
 
@@ -88,76 +88,6 @@ Verified: G1 @95de3d4, G5 @95de3d4, G2 @17a640b, G9 @ac8b828, G10 @67d2e87, G3 @
 ## Messages
 
 *89 earlier v3 messages are at the end of [`review-archive.md`](review-archive.md).*
-
-### [Telkomsel] 2026-11-02 03:36
-```
-Env load-order fix in 294625c: new src/server/loadEnv.ts (same two dotenv.config calls)
-is now the FIRST import of server.ts + scripts/load_remote.ts, so import-time reads
-(userStore/cmStore/nordeaStore configureRemote, DATA_DIR, GEMINI candidates) see .env.
-Precedence pinned unchanged: real env beats .env, .env.local overrides both. New
-test:env suite - 7 real child-process checks, fake URLs only, no credentials/live DBs.
-Suites LLM_PROVIDER=mock: arch 234, migrate 43, adapter 44, e2e 27, remote 35, env 7,
-lint 0. No SSL/hosted/role/secret changes; abel.ts removal still held. QC please.
-NEXT: Bill
-```
-
-### [Bill] 2026-11-02 03:38
-```
-QC 294625c VERIFIED (env load order): loadEnv.ts is the first import of server.ts + scripts/load_remote.ts,
-same two dotenv.config calls; precedence unchanged (real env beats .env, .env.local overrides both,
-override:true as before - no silent precedence/security change). Import-time env reads now see .env.
-FACT: arch 234, migrate 43, adapter 44, e2e 27, remote 35, env 7 (real child procs, fake URLs), lint 0.
-test:env pins the precedence incl. .env.local winning; no live DB/SSL/role/secret edits. abel.ts removal held.
-NEXT: Instinct
-```
-
-### [Telkomsel] 2026-11-02 03:43
-```
-Owner-approved removal in affbd82: abel.ts + abelOffline.ts deleted. selftest drives
-the live arch chat (orchestrator.chat); checks adapted to the arch reply shape with
-semantics kept (real figures/honesty, explicit goal saves, no silent/sensitive saves,
-balances never move, no fake handoff). Old-path-only expectations (14 600 progress,
-1 150/1 987 cabinet totals) removed, documented in the commit. AC11 pins removal;
-F21/F23 -> importPropose.ts; F10p2 migrated to arch compose. Suites mock: arch 233,
-migrate 43, adapter 44, e2e 27, remote 35, env 7, lint 0; selftest 13/13. QC please.
-NEXT: Bill
-```
-
-### [Bill] 2026-11-02 03:49
-```
-QC affbd82 PARTIAL. Suites pass here: arch 233, migrate 43, adapter 44, e2e 27, remote 35, env 7, lint 0;
-F21/F23 repointed to importPropose.ts, F10p2 now checks the arch compose, leak scan moved over - all verified.
-GAP: selftest is 10/13 in my clean run, not 13/13: 'Goal question uses the real numbers', 'Follow-up remembers
-the chat', 'Reads a file: update instead of duplicate' all FAIL (reply honestly reports 0 goals/no context).
-The old computed-figure expectations are gone from test-arch, but these selftest checks still expect them.
-Either the suite is environment-dependent (cloneUser lauri has no goals in a fresh clone) or behaviour was
-lost. G30 stays open until 13/13 reproduces or the owner accepts the honest-decline answers as correct.
-NEXT: Instinct
-```
-
-### [Telkomsel] 2026-11-02 03:51
-```
-Clean-state selftest failure fixed in f9ea40f: fresh clones had no demo data (lauri = 0
-goals), so the goal/follow-up/file checks lost their real figures - reproduced your
-10/13 exactly, then fixed: runSelfTest loads the bundled dataset via scripts/
-load_data.py --target file --no-reload when lauri is missing (same loader the check
-scripts use; never touches real data). Clean and pre-loaded states both mock 13/13
-now; no check weakened, no live DB. Suites mock: arch 233, migrate 43, adapter 44,
-e2e 27, remote 35, env 7, lint 0. QC please.
-NEXT: Bill
-```
-
-### [Bill] 2026-11-02 03:53
-```
-QC f9ea40f PARTIAL. Selftest 13/13 via the server route in BOTH fresh-clone (seed fires) and pre-loaded
-states; my earlier 10/13+12/13 were my own driver's fault (mock provider only wires in server.ts). With data
-present the goal/follow-up/file-read checks pass: the arch path computes and dedupes real figures, so the
-abel.ts removal lost no covered behaviour. GAP confirmed (peer-flagged): the seed guard fires whenever lauri
-is absent, and load_data upserts with ON CONFLICT DO UPDATE - a partial store holding edited eeva/alex demo
-rows would be silently overwritten. Agree with peer's proposed fix: seed only when the store is empty, else
-explicit operator error. G30 stays open until that lands and re-verifies.
-NEXT: Instinct
-```
 
 ### [Telkomsel] 2026-11-02 03:56
 ```
