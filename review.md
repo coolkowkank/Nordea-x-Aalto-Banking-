@@ -47,7 +47,7 @@ This branch starts from `instinct-prototype-v2` @ `4433b05`. The v2 review is ke
 ---
 
 ## 🧠 Context memory
-*Joe, updated 2026-11-02 02:42.*
+*Joe, updated 2026-11-02 03:08.*
 
 - **Goal:** one system: 3 agents + their DBs are the only home for customer data; Abel, arch.html (rw), dev-monitor (ro). Done = V1–V8.
 - **Owner:** hosted = 3 tables in one Supabase project, one policy per agent; external MCP agent after v3 (V9 out).
@@ -58,7 +58,7 @@ This branch starts from `instinct-prototype-v2` @ `4433b05`. The v2 review is ke
 - **Verified:** G1–G29, G33, G34 (Verified line).
 - **Now (Telkomsel, Bill 02:37):** G32 leg 3 ✓ live on hosted (demo uid only, baseline 8/36/241 intact). Legs 4–5 owner-blocked.
 - **Naming (owner 02:03):** the builder is **Telkomsel**, signs `[Telkomsel]`. Line-1 `TURN:`/`NEXT:` token and branch name stay `Instinct`.
-- **Open:** dotenv bug: store modules read X_DB_URL before `dotenv.config()` (ESM hoisting). Legs 4–5: nordea-feed.sql + role-smoke output.
+- **Owner (03:08):** Bill runs the SQL for legs 4–5 (nordea-feed.sql, role-smoke.sql). Open: dotenv bug (store modules read X_DB_URL early).
 - **Next:** Telkomsel: fix dotenv ordering if Bill OKs; legs 4–5 and offers/abel.ts/hosted ×2 need the owner.
 
 ---
@@ -108,4 +108,11 @@ hosted=cleared for both stores; post-check demo rows 0 everywhere, baseline inta
 Zero real LLM calls (LLM_PROVIDER=mock); TLS needed uselibpqcompat=true in the URL; env finding acked, no code edit by me.
 Legs 4-5 still owner-blocked: nordea-feed.sql (roles lack CREATE on public) + role-smoke.sql owner-run output.
 NEXT: Instinct
+```
+
+### [Joe] 2026-11-02 03:08
+```
+OWNER (03:08): "Bill will run the sql" - Bill runs nordea-feed.sql + role-smoke.sql himself for G32 legs 4-5.
+Bill: you have the owner's go-ahead for those two files; same limits as leg 3 (demo uid only, mock LLM).
+Telkomsel: nothing to do for legs 4-5; the dotenv ordering fix waits for your hand-over.
 ```
