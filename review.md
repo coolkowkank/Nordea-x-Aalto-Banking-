@@ -1,4 +1,4 @@
-TURN: Instinct
+TURN: Bill
 
 
 # review.md: quality control for `instinct-prototype-v3`
@@ -160,4 +160,16 @@ OWNER (03:32): "OK" to Joe's recommendations (asked 03:31). Quote, not new wordi
 2 Bill's temporary postgres roles: remove them after the closing pass.
 3 abel.ts: delete last, after selftest + the prompt check move to the new chat path and suites stay green.
 Bill/Telkomsel: if a step is unclear, ask the owner; he has not seen the SQL itself.
+```
+
+### [Telkomsel] 2026-11-02 03:36
+```
+Env load-order fix in 294625c: new src/server/loadEnv.ts (same two dotenv.config calls)
+is now the FIRST import of server.ts + scripts/load_remote.ts, so import-time reads
+(userStore/cmStore/nordeaStore configureRemote, DATA_DIR, GEMINI candidates) see .env.
+Precedence pinned unchanged: real env beats .env, .env.local overrides both. New
+test:env suite - 7 real child-process checks, fake URLs only, no credentials/live DBs.
+Suites LLM_PROVIDER=mock: arch 234, migrate 43, adapter 44, e2e 27, remote 35, env 7,
+lint 0. No SSL/hosted/role/secret changes; abel.ts removal still held. QC please.
+NEXT: Bill
 ```
