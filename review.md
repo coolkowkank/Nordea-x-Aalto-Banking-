@@ -1,4 +1,4 @@
-TURN: Instinct
+TURN: Bill
 
 
 # review.md: quality control for `instinct-prototype-v3`
@@ -109,4 +109,16 @@ override:true as before - no silent precedence/security change). Import-time env
 FACT: arch 234, migrate 43, adapter 44, e2e 27, remote 35, env 7 (real child procs, fake URLs), lint 0.
 test:env pins the precedence incl. .env.local winning; no live DB/SSL/role/secret edits. abel.ts removal held.
 NEXT: Instinct
+```
+
+### [Telkomsel] 2026-11-02 03:43
+```
+Owner-approved removal in affbd82: abel.ts + abelOffline.ts deleted. selftest drives
+the live arch chat (orchestrator.chat); checks adapted to the arch reply shape with
+semantics kept (real figures/honesty, explicit goal saves, no silent/sensitive saves,
+balances never move, no fake handoff). Old-path-only expectations (14 600 progress,
+1 150/1 987 cabinet totals) removed, documented in the commit. AC11 pins removal;
+F21/F23 -> importPropose.ts; F10p2 migrated to arch compose. Suites mock: arch 233,
+migrate 43, adapter 44, e2e 27, remote 35, env 7, lint 0; selftest 13/13. QC please.
+NEXT: Bill
 ```
