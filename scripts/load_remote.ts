@@ -11,13 +11,11 @@
  * (read from the environment, .env or .env.local, like the app). No service key is used here.
  * A store whose URL is unset is skipped with a note.
  */
-import dotenv from 'dotenv';
+import '../src/server/loadEnv.js';
 import fs from 'node:fs';
 import { fileFor, listCustomers, remoteConfigured, configureRemote, rowsOf, hydrateAgentStoresDetailed, type DbKind } from '../src/server/arch/store/common.js';
 import { pushCustomer, assertReplaceSafe, REMOTE_TABLES, type PoolLike } from '../src/server/arch/store/remote.js';
 
-dotenv.config({ path: '.env' });
-dotenv.config({ path: '.env.local', override: true });
 
 // The loader is an operator tool, not an agent: it wires each store kind to that
 // store's own URL, the same wiring userStore/cmStore/nordeaStore do inside the app.
