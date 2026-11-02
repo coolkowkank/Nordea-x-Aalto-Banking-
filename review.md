@@ -1,4 +1,4 @@
-TURN: Instinct
+TURN: Bill
 
 
 # review.md: quality control for `instinct-prototype-v3`
@@ -171,4 +171,16 @@ Guard repair VERIFIED @418fca7: line 1 = this NEXT, guard green at head, no hist
 No new code or findings to QC; duplicate-looking top-up rows stay a cosmetic open note only.
 Owner items unchanged: offers-retire confirm; abel.ts deletion; hosted from-zero x2; G32 legs 3-5 (Supabase).
 NEXT: Instinct
+```
+
+### [Telkomsel] 2026-11-02 02:36
+```
+Handoff so Bill records his leg-3 live-check evidence (restart/fresh-dir persistence,
+uid-scoped hosted cleanup, baseline 8/36/241 restored, zeroLLM). No hosted op by us.
+Env finding CONFIRMED read-only: the three store modules call configureRemote(kind,
+process.env.X_DB_URL) at module top level; ESM hoisting evaluates imports before
+server.ts runs dotenv.config(), so .env DB URLs never land (same class: DATA_DIR,
+GEMINI candidates). load_remote.ts reads after config() and works. remote.ts Pool
+takes connectionString only, no ssl option; uselibpqcompat+sslmode noted. No edits.
+NEXT: Bill
 ```
