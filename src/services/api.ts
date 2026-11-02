@@ -294,3 +294,12 @@ export const fetchDbStatus = () => fetch('/api/db-status').then((r) => j<DbStatu
 export interface CheckResult { name: string; asked: string; ok: boolean; why: string; reply: string; cards: string[]; answeredBy: string; ms: number }
 /** Runs about 12 real questions; can take a few minutes on a free plan. */
 export const runSelfTest = () => post('/api/selftest', {}).then((r) => j<{ results: CheckResult[]; passed: number; total: number }>(r));
+
+/** R2: user cards waiting for approval (same pending list as arch.html; one decision, one result). */
+export interface ApprovalCard { id: string; summary: string; detail: string; approvalId: string; levelName: string }
+const LEVEL_NAMES: Record<number, string> = { 0: 'No-risk certified (level 0)', 1: 'Review everything pass certified (level 1)', 2: 'High-risk pass certified (level 2)' };
+export const fetchApprovalCards = (userId: string): Promise<ApprovalCard[]> =>
+  fetch(`/api/arch/${encodeURIComponent(userId)}/review`).then((r) => (r.ok ? r.json() : { proposals: [] })).then((d: { proposals?: { id: string; summary: string; payload?: { detail?: string; approval?: { id: string; level: number } } }[] }) =>
+    (d.proposals ?? []).filter((m) => m.payload?.approval).map((m) => ({ id: m.id, summary: m.summary, detail: m.payload?.detail ?? '', approvalId: m.payload!.approval!.id, levelName: LEVEL_NAMES[m.payload!.approval!.level] ?? '' }))).catch(() => []);
+export const decideApprovalCard = (userId: string, id: string, ok: boolean) =>
+  fetch(`/api/arch/${encodeURIComponent(userId)}/review/${encodeURIComponent(id)}/${ok ? 'accept' : 'reject'}`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' }).then((r) => r.ok);

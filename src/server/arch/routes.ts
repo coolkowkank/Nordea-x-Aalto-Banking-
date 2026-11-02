@@ -34,8 +34,10 @@ export function registerArchRoutes(app: Express) {
   app.post('/api/arch/:uid/entries/:entryId/undo', h((req, res) => res.json(undoEntry(uid(req), String(req.params.entryId)))));
 
   app.post('/api/arch/:uid/permissions', h((req, res) => {
-    const reviewLevel = req.body?.reviewLevel === 'high' ? 'high' as const : 'all' as const;
-    res.json(setStandingPermissions(uid(req), reviewLevel));
+    const reviewLevel = req.body?.reviewLevel === undefined ? undefined : req.body.reviewLevel === 'high' ? 'high' as const : 'all' as const;
+    const modes = ['No permission', 'Review everything', 'High risk mode'];
+    const userCardMode = typeof req.body?.userCardMode === 'string' && modes.includes(req.body.userCardMode) ? req.body.userCardMode : undefined;
+    res.json(setStandingPermissions(uid(req), reviewLevel, userCardMode));
   }));
 
   app.post('/api/arch/:uid/chat', h(async (req, res) => {

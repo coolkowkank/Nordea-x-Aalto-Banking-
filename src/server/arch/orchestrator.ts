@@ -550,8 +550,8 @@ export function undoEntry(uid: string, entryId: string) {
 }
 
 /** AC7: the customer sets standing permissions once (first start); until then nothing is automatic. */
-export function setStandingPermissions(uid: string, reviewLevel: 'all' | 'high') {
-  return controlRoundTrip(uid, 'cm', `Customer sets standing permissions: ${reviewLevel === 'high' ? 'only high risk waits for review' : 'everything waits for review'}.`, { control: 'set-permissions', reviewLevel }) as { reviewLevel: string };
+export function setStandingPermissions(uid: string, reviewLevel?: 'all' | 'high', userCardMode?: string) {
+  return controlRoundTrip(uid, 'cm', `Customer sets standing permissions${reviewLevel ? `: ${reviewLevel === 'high' ? 'only high risk waits for review' : 'everything waits for review'}` : ''}${userCardMode ? `; user-card approval mode "${userCardMode}"` : ''}.`, { control: 'set-permissions', reviewLevel, userCardMode }) as { reviewLevel: string; userCardMode: string };
 }
 
 export function explainEntry(uid: string, entryId: string) {

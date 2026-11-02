@@ -353,7 +353,7 @@ const nordeaSrc = readSrc('../src/server/arch/agents/nordea.ts');
 // dispatcher, the round engine, text helpers and shared types. No agent imports the app layer -
 // no agent may import the app layer (../../db.js) - each agent's own DB is its only data source.
 const importsOf = (src: string) => [...src.matchAll(/from\s+['"]([^'"]+)['"]/g)].map((m) => m[1]);
-const AGENT_SHARED = ['../types.js', '../text.js', '../store/busStore.js', '../store/contextStore.js', '../dispatcher.js', '../rounds.js', '../risk.js', '../llm.js']; // llm.js = the G4 bounded reasoning driver, not the app LLM // contextStore = the AC2 shared document, section writers pinned below
+const AGENT_SHARED = ['../approvalGate.js', '../types.js', '../text.js', '../store/busStore.js', '../store/contextStore.js', '../dispatcher.js', '../rounds.js', '../risk.js', '../llm.js']; // llm.js = the G4 bounded reasoning driver, not the app LLM // contextStore = the AC2 shared document, section writers pinned below
 const onlyAllowed = (src: string, ownStore: string, extra: string[] = []) => importsOf(src).every((spec) => [...AGENT_SHARED, ownStore, ...extra].includes(spec));
 check('AC1: the personal agent module imports only its own store plus shared bus/round infra', onlyAllowed(personalSrc, '../store/userStore.js'), importsOf(personalSrc).join(','));
 check('AC1: the CM agent module imports only its own store plus shared bus/round infra', onlyAllowed(cmSrc, '../store/cmStore.js'), importsOf(cmSrc).join(','));
@@ -496,7 +496,7 @@ S.saveNordeaDb({ userId: UID15, accounts: [], transactions: [{ id: 'k1', userId:
 A.addGoalDirect(UID15, 'Save for a car');
 await A.contribute(UID15);
 check('F7: first start defaults to review-everything (no standing permissions set yet)', A.reviewQueue(UID15).length === 2 && S.loadCmDb(UID15).entries.length === 0, `queue ${A.reviewQueue(UID15).length}`);
-A.setStandingPermissions(UID15, 'high');
+A.setStandingPermissions(UID15, 'high', 'High risk mode'); // R2: the own-goal (user) card follows the owner's table; level 1 passes in "High risk mode"
 const cm15 = S.loadCmDb(UID15);
 const autoLow = cm15.entries.find((e) => e.proposedBy === 'personal');
 const autoMed = cm15.entries.find((e) => e.proposedBy === 'nordea');
@@ -511,7 +511,7 @@ check('F7: explain shows the automatic store and its risk level', autoExplain.ex
 const UID16 = 'riskhigh';
 S.saveNordeaDb({ userId: UID16, accounts: [], transactions: [{ id: 'h1', userId: UID16, date: '2026-10-01', category: 'groceries', amount: -20, account: 'current', description: 'Weekly groceries' }] });
 A.addGoalDirect(UID16, 'therapy fund');
-A.setStandingPermissions(UID16, 'high');
+A.setStandingPermissions(UID16, 'high', 'High risk mode');
 await A.contribute(UID16);
 check('F7: a sensitive-topic proposal is HIGH risk and waits for the customer', S.loadCmDb(UID16).entries.length === 0 && A.reviewQueue(UID16).length === 1, `entries ${S.loadCmDb(UID16).entries.length} queue ${A.reviewQueue(UID16).length}`);
 
@@ -1229,7 +1229,7 @@ check('F22: undo refuses a manually reviewed entry (dispute instead)', refused.i
 const UID21 = 'churnuser';
 S.saveNordeaDb({ userId: UID21, accounts: [], transactions: [{ id: 'c1', userId: UID21, date: '2026-10-01', category: 'transport', amount: -60, account: 'current', description: 'Fuel for the car' }, { id: 'c2', userId: UID21, date: '2026-10-02', category: 'transport', amount: -40, account: 'current', description: 'Car wash' }] });
 A.addGoalDirect(UID21, 'Save for a car');
-A.setStandingPermissions(UID21, 'high');
+A.setStandingPermissions(UID21, 'high', 'High risk mode');
 await A.contribute(UID21);
 const churnEntry = S.loadCmDb(UID21).entries.find((e) => e.proposedBy === 'nordea')!;
 check('F8 setup: Nordea aggregate auto-stored with transaction evidence', !!churnEntry && churnEntry.evidence?.total === 100 && (churnEntry.evidence?.transactionIds?.length ?? 0) > 0, JSON.stringify(churnEntry?.evidence));
@@ -1241,7 +1241,7 @@ check('F8: the churn flag says the underlying transactions changed', S.loadBus(U
 const UID22 = 'ageduser';
 S.saveNordeaDb({ userId: UID22, accounts: [], transactions: [{ id: 'a1', userId: UID22, date: '2026-10-01', category: 'transport', amount: -50, account: 'current', description: 'Fuel for the car' }] });
 A.addGoalDirect(UID22, 'Save for a car');
-A.setStandingPermissions(UID22, 'high');
+A.setStandingPermissions(UID22, 'high', 'High risk mode');
 await A.contribute(UID22);
 const cm19 = S.loadCmDb(UID22);
 const agedEntry = cm19.entries.find((e) => e.proposedBy === 'nordea')!;
@@ -1254,7 +1254,7 @@ check('F8: an aged entry without verifiable transaction ids is flagged even thou
 const UID23 = 'agedokuser';
 S.saveNordeaDb({ userId: UID23, accounts: [], transactions: [{ id: 'b1', userId: UID23, date: '2026-10-01', category: 'transport', amount: -50, account: 'current', description: 'Fuel for the car' }] });
 A.addGoalDirect(UID23, 'Save for a car');
-A.setStandingPermissions(UID23, 'high');
+A.setStandingPermissions(UID23, 'high', 'High risk mode');
 await A.contribute(UID23);
 const cm19b = S.loadCmDb(UID23);
 cm19b.entries.forEach((e) => { e.createdAt = new Date(Date.now() - 40 * 24 * 60 * 60 * 1000).toISOString(); });
@@ -1265,7 +1265,7 @@ check('F8: an aged entry whose ids and total still match is CONFIRMED, not flagg
 const UID24 = 'noevuser';
 S.saveNordeaDb({ userId: UID24, accounts: [], transactions: [{ id: 'n1', userId: UID24, date: '2026-10-01', category: 'transport', amount: -75, account: 'current', description: 'Fuel for the car' }] });
 A.addGoalDirect(UID24, 'Save for a car');
-A.setStandingPermissions(UID24, 'high');
+A.setStandingPermissions(UID24, 'high', 'High risk mode');
 await A.contribute(UID24);
 const cm20 = S.loadCmDb(UID24);
 const noevEntry = cm20.entries.find((e) => e.proposedBy === 'nordea')!;
@@ -1280,7 +1280,7 @@ const UID40 = 'manytxuser';
 const manyTx = Array.from({ length: 30 }, (_, i) => ({ id: `m${i + 1}`, userId: UID40, date: '2026-10-01', category: 'transport' as const, amount: -10, account: 'current' as const, description: 'Fuel for the car' }));
 S.saveNordeaDb({ userId: UID40, accounts: [], transactions: manyTx });
 A.addGoalDirect(UID40, 'Save for a car');
-A.setStandingPermissions(UID40, 'high');
+A.setStandingPermissions(UID40, 'high', 'High risk mode');
 await A.contribute(UID40);
 const manyEntry = S.loadCmDb(UID40).entries.find((e) => e.proposedBy === 'nordea')!;
 check('F26 setup: aggregate stores a full-set id hash plus the 25-id display sample', typeof manyEntry.evidence?.transactionIdsHash === 'string' && manyEntry.evidence?.transactionIds?.length === 25, JSON.stringify(manyEntry.evidence).slice(0, 120));
@@ -1295,7 +1295,7 @@ check('F27: the goal aggregate names the figure as related spending', manyEntry.
 const UID41 = 'noticeuser';
 S.saveNordeaDb({ userId: UID41, accounts: [], transactions: [{ id: 'w1', userId: UID41, date: '2026-10-01', category: 'transport', amount: -60, account: 'current', description: 'Fuel for the car' }] });
 A.addGoalDirect(UID41, 'Save for a car');
-A.setStandingPermissions(UID41, 'high');
+A.setStandingPermissions(UID41, 'high', 'High risk mode');
 await A.contribute(UID41);
 S.saveNordeaDb({ userId: UID41, accounts: [], transactions: [{ id: 'w1', userId: UID41, date: '2026-10-01', category: 'transport', amount: -60, account: 'current', description: 'Fuel for the car' }, { id: 'w2', userId: UID41, date: '2026-10-02', category: 'transport', amount: -40, account: 'current', description: 'Car wash' }] });
 await A.contribute(UID41);
@@ -1305,7 +1305,7 @@ check('F28: under standing permissions the notice says the refresh was stored au
 const UID42 = 'noticeuser2';
 S.saveNordeaDb({ userId: UID42, accounts: [], transactions: [{ id: 'v1', userId: UID42, date: '2026-10-01', category: 'transport', amount: -60, account: 'current', description: 'Fuel for the car' }] });
 A.addGoalDirect(UID42, 'Save for a car');
-A.setStandingPermissions(UID42, 'high');
+A.setStandingPermissions(UID42, 'high', 'High risk mode');
 await A.contribute(UID42);
 A.setStandingPermissions(UID42, 'all');
 S.saveNordeaDb({ userId: UID42, accounts: [], transactions: [{ id: 'v1', userId: UID42, date: '2026-10-01', category: 'transport', amount: -60, account: 'current', description: 'Fuel for the car' }, { id: 'v2', userId: UID42, date: '2026-10-02', category: 'transport', amount: -40, account: 'current', description: 'Car wash' }] });
@@ -1327,7 +1327,7 @@ check('F23: the import helper uses the narrow ABEL_PRIVATE_TOPIC, not the wide r
 const UID25 = 'goalgoneuser';
 S.saveNordeaDb({ userId: UID25, accounts: [], transactions: [{ id: 'g1', userId: UID25, date: '2026-10-01', category: 'transport', amount: -100, account: 'current', description: 'Fuel for the car' }] });
 A.addGoalDirect(UID25, 'Save for a car');
-A.setStandingPermissions(UID25, 'high');
+A.setStandingPermissions(UID25, 'high', 'High risk mode');
 await A.contribute(UID25);
 const goalEntry = S.loadCmDb(UID25).entries.find((e) => e.proposedBy === 'personal')!;
 check('F24 setup: the goal entry is active in the cabinet', !!goalEntry && goalEntry.status === 'active' && goalEntry.goalIds.length === 1);
@@ -1341,7 +1341,7 @@ check('F24: the flag and the customer notice name the removed goal', S.loadBus(U
 const UID26 = 'goalkeptuser';
 S.saveNordeaDb({ userId: UID26, accounts: [], transactions: [{ id: 'k1', userId: UID26, date: '2026-10-01', category: 'transport', amount: -100, account: 'current', description: 'Fuel for the car' }] });
 A.addGoalDirect(UID26, 'Save for a car');
-A.setStandingPermissions(UID26, 'high');
+A.setStandingPermissions(UID26, 'high', 'High risk mode');
 await A.contribute(UID26);
 const keptRound = await A.contribute(UID26); // goal still exists
 check('F24: an existing goal is confirmed - no false stale flag', !keptRound.staleFlags.some((f) => f.reason === 'goal-removed') && S.loadCmDb(UID26).entries.find((e) => e.proposedBy === 'personal')?.status === 'active', JSON.stringify(keptRound.staleFlags));
@@ -1361,7 +1361,7 @@ const ac3Chat = await A.chat(UID27, 'what do you know about my laptop goal?');
 check('AC3: the personal agent answers from its own DB and the session document', ac3Chat.reply.length > 0 && ac3Chat.used.includes('user-db'), ac3Chat.used.join(','));
 
 // AC4: stored cabinet entries are structured: source agent, evidence, observed|inferred, timestamp.
-A.setStandingPermissions(UID27, 'high');
+A.setStandingPermissions(UID27, 'high', 'High risk mode');
 await A.contribute(UID27);
 const ac4Entry = S.loadCmDb(UID27).entries.find((e) => e.proposedBy === 'nordea')!;
 check('AC4: a stored entry records source agent, evidence, observed|inferred and a timestamp', !!ac4Entry && ac4Entry.evidence?.total != null && (ac4Entry.observed === 'observed' || ac4Entry.observed === 'inferred') && !!ac4Entry.createdAt, JSON.stringify(ac4Entry).slice(0, 160));
@@ -1397,7 +1397,7 @@ check('AC10+V4: arch/llm.ts is the single sanctioned bridge to the app LLM provi
 const UID28 = 'goalgone2';
 S.saveNordeaDb({ userId: UID28, accounts: [], transactions: [{ id: 'x1', userId: UID28, date: '2026-10-01', category: 'transport', amount: -100, account: 'current', description: 'Fuel for the car' }] });
 A.addGoalDirect(UID28, 'Save for a car');
-A.setStandingPermissions(UID28, 'high');
+A.setStandingPermissions(UID28, 'high', 'High risk mode');
 await A.contribute(UID28);
 const nordeaOnGoal = S.loadCmDb(UID28).entries.find((e) => e.proposedBy === 'nordea' && e.goalIds.length > 0)!;
 check('F25 setup: a Nordea entry tied to the goal is active', !!nordeaOnGoal && nordeaOnGoal.status === 'active');
@@ -1446,7 +1446,7 @@ check('F10p2: a parked cabinet serves no document; the customer\'s own User DB f
 const UID33 = 'abeldisp';
 S.saveNordeaDb({ userId: UID33, accounts: [], transactions: [{ id: 'dd1', userId: UID33, date: '2026-10-01', category: 'transport', amount: -1234, account: 'current', description: 'Fuel for the car' }] });
 A.addGoalDirect(UID33, 'Save for a car');
-A.setStandingPermissions(UID33, 'high');
+A.setStandingPermissions(UID33, 'high', 'High risk mode');
 await A.contribute(UID33);
 check('F30 setup: the active aggregate reaches Abel', ((await A.abelSharedContext(UID33, 'f30-s1', 'car')).sharedContext ?? '').includes('1234 EUR'));
 S.saveNordeaDb({ userId: UID33, accounts: [], transactions: [{ id: 'dd2', userId: UID33, date: '2026-10-02', category: 'transport', amount: -999, account: 'current', description: 'Car wash' }] });
@@ -1745,6 +1745,81 @@ check('Q2: caption order is elapsed (client-measured) first, then the exact cate
   check('R8: the goal cards sit below the chat box', html.indexOf('id="chat-in"') > 0 && html.indexOf('id="user-goals"') > html.indexOf('id="chat-in"'));
   { const gc = html.slice(html.indexOf("$('user-goals').innerHTML"), html.indexOf("$('cm-summary')")); check('R8: each goal is its own distinct card (own class, border, title, detail, Edit/Delete buttons), not a text line', /\.goalcard \{[^}]*border:/.test(html) && ['class="goalcard"', 'class="gt"', 'class="gd"', '>Edit</button>', '>Delete</button>'].every((x) => gc.includes(x))); }
   check('R9: no manual "Propose insight" button and no contribute route remain', !/btn-contribute|Propose goal-relevant/.test(html) && !/nordea\/contribute/.test(readSrc('../src/server/arch/routes.ts')));
+}
+
+// --- R2 (owner table + delegated policies): user cards only, approval id = level + consent version, pass table, UNKNOWN = level 2.
+{
+  const G = await import('../src/server/arch/approvalGate.js');
+  const CM = await import('../src/server/arch/agents/cm.js');
+  const L3 = [0, 1, 2] as const;
+  const pass = (m: any) => L3.map((l) => G.canPass(m, l)).join(',');
+  check('R2 table: "No permission" lets every level pass', pass('No permission') === 'true,true,true');
+  check('R2 table: "Review everything" blocks levels 1 and 2 (level 0 passes)', pass('Review everything') === 'true,false,false');
+  check('R2 table: "High risk mode" blocks only level 2', pass('High risk mode') === 'true,true,false');
+  check('R2 names kept exact', G.LEVEL_NAMES[0] === 'No-risk certified (level 0)' && G.LEVEL_NAMES[1] === 'Review everything pass certified (level 1)' && G.LEVEL_NAMES[2] === 'High-risk pass certified (level 2)');
+  check('R2: the default mode is "Review everything" and the rubric text is written down', G.DEFAULT_MODE === 'Review everything' && /Highest applicable level wins/.test(G.RUBRIC));
+  const U = 'r2user'; S.deleteDb(U, 'cm'); S.deleteDb(U, 'user');
+  const id = (t: string, d: string, level: 0 | 1 | 2) => G.makeApprovalId(level, G.contentHash({ title: t, detail: d, level, source: 'personal' }));
+  const card = (t: string, level: 0 | 1 | 2, d = t, claim: unknown = undefined) => S.appendMessage(U, { from: 'personal', to: 'cm', type: 'propose', status: 'pending', summary: t, payload: { detail: d, goalIds: ['g-r2'], observed: 'observed', ...(claim === null ? {} : { approval: claim ?? { id: id(t, d, level), level } }) } });
+  const titles = (u = U) => (S.loadCmDb(u).entries as any[]).filter((e) => e.status === 'active').map((e) => e.title).sort().join('|');
+  const waiting = (u = U) => (A.reviewQueue(u) as any[]).map((m) => m.summary).sort().join('|');
+  const informs = (u = U) => S.loadBus(u).messages.filter((m) => m.type === 'inform').map((m) => m.summary).join(' || ');
+  card('Card zero', 0); card('Card one', 1); card('Card two', 2);
+  A.setStandingPermissions(U, undefined, 'Review everything'); CM.autoStoreRoundProposals(U);
+  check('R2: "Review everything" stores level 0 only; levels 1 and 2 wait in the list', titles() === 'Card zero' && waiting() === 'Card one|Card two', `${titles()} / ${waiting()}`);
+  check('R2: a stored card keeps its approval id (level + consent version) durably, reloaded from the file', (S.loadCmDb(U).entries as any[]).find((x) => x.title === 'Card zero')?.approval?.id === id('Card zero', 'Card zero', 0));
+  A.setStandingPermissions(U, undefined, 'High risk mode');
+  check('R2 mode change: a LESS restrictive mode releases newly allowed pending cards (level 1), level 2 keeps waiting', titles() === 'Card one|Card zero' && waiting() === 'Card two', `${titles()} / ${waiting()}`);
+  check('R2 mode change: the release is audited as a mode pass, not the customer\'s approval', /Stored automatically by your "High risk mode" setting \(not your approval\): "Card one".*released because you changed the mode/.test(informs()), informs().slice(0, 300));
+  A.setStandingPermissions(U, undefined, 'Review everything');
+  check('R2 mode change: a stricter mode does not pull stored cards back', titles() === 'Card one|Card zero' && waiting() === 'Card two');
+  card('Card three', 1);
+  CM.autoStoreRoundProposals(U);
+  check('R2 mode change: a stricter mode applies to new cards (level 1 now waits)', waiting() === 'Card three|Card two');
+  const rej = (A.reviewQueue(U) as any[]).find((m) => m.summary === 'Card three');
+  A.decideProposal(U, rej.id, false);
+  A.setStandingPermissions(U, undefined, 'No permission');
+  check('R2 mode change: "No permission" releases the waiting level 2; an explicitly REJECTED card is never resurrected', titles() === 'Card one|Card two|Card zero' && waiting() === '', `${titles()} / ${waiting()}`);
+  const before = S.loadCmDb(U).entries.length;
+  card('Card zero', 0); card('Card two', 2); CM.autoStoreRoundProposals(U); A.setStandingPermissions(U, undefined, 'Review everything'); card('Card two', 2); CM.autoStoreRoundProposals(U);
+  check('R2: an unchanged approved/stored card is never requeued or duplicated, in any mode', S.loadCmDb(U).entries.length === before && waiting() === '', `${S.loadCmDb(U).entries.length} vs ${before} / ${waiting()}`);
+  card('Card one', 1, 'Card one with a new claim about the car');
+  CM.autoStoreRoundProposals(U);
+  check('R2 consent: a substantively changed card is a NEW version and waits (the old stored version stays until approved)', waiting() === 'Card one' && titles().includes('Card one'), `${titles()} / ${waiting()}`);
+  A.decideProposal(U, (A.reviewQueue(U) as any[])[0].id, true);
+  check('R2 consent: approving the new version replaces the old one (one active card, new detail and id)', (S.loadCmDb(U).entries as any[]).filter((e) => e.status === 'active' && e.title === 'Card one').length === 1 && (S.loadCmDb(U).entries as any[]).find((e) => e.status === 'active' && e.title === 'Card one').approval.id === id('Card one', 'Card one with a new claim about the car', 1));
+  // UNKNOWN / invalid / stale claims count as level 2 and are disclosed
+  const U2 = 'r2user2'; S.deleteDb(U2, 'cm');
+  const c2 = (t: string, claim: unknown) => S.appendMessage(U2, { from: 'personal', to: 'cm', type: 'propose', status: 'pending', summary: t, payload: { detail: 'x', goalIds: ['g'], observed: 'observed', ...(claim ? { approval: claim } : {}) } });
+  c2('No level', undefined); c2('Level 7', { id: 'apv-L0-x', level: 7 }); c2('Wrong id', { id: 'apv-L2-x', level: 0 }); c2('Stale claim', { id: id('Stale claim', 'old content', 0), level: 0 });
+  A.setStandingPermissions(U2, undefined, 'Review everything'); CM.autoStoreRoundProposals(U2);
+  const w1 = waiting(U2);
+  A.setStandingPermissions(U2, undefined, 'High risk mode');
+  check('R2 unknown: a missing, invalid, unparseable or stale level is effective level 2 and waits in Review everything AND High risk mode', (S.loadCmDb(U2).entries as any[]).length === 0 && w1.split('|').length === 4 && waiting(U2).split('|').length === 4, `${w1} / ${waiting(U2)}`);
+  check('R2 unknown: waiting cards stay out of context.md', !/No level|Stale claim/.test(JSON.stringify(S.loadContext(U2) ?? '')));
+  A.setStandingPermissions(U2, undefined, 'No permission');
+  const e2 = (S.loadCmDb(U2).entries as any[]);
+  check('R2 unknown: "No permission" passes them per the exact table, stored as level 2 with an UNKNOWN id, never as AI certification', e2.length === 4 && e2.every((e) => e.approval?.level === 2 && /^apv-L2-x[0-9a-f]+$/.test(e.approval.id)), JSON.stringify(e2.map((e) => e.approval)));
+  check('R2 unknown: the audit message says the AI gave no valid level', /the AI gave no valid level|no longer matches/.test(informs(U2)), informs(U2).slice(0, 300));
+  // sensitivity floor and authoritative level
+  const U3 = 'r2user3'; S.deleteDb(U3, 'cm');
+  S.appendMessage(U3, { from: 'personal', to: 'cm', type: 'propose', status: 'pending', summary: 'My health treatment', payload: { detail: 'health treatment plan', goalIds: ['g'], observed: 'observed', approval: { id: G.makeApprovalId(0, G.contentHash({ title: 'My health treatment', detail: 'health treatment plan', level: 0, source: 'personal' })), level: 0 } } });
+  A.setStandingPermissions(U3, undefined, 'Review everything'); CM.autoStoreRoundProposals(U3);
+  A.setStandingPermissions(U3, undefined, 'High risk mode');
+  check('R2: a sensitive topic claimed as level 0 is floored to level 2 and waits, even in High risk mode (direct input never overrides sensitivity)', waiting(U3) === 'My health treatment' && (S.loadCmDb(U3).entries as any[]).length === 0, `${waiting(U3)}`);
+  // bank side untouched
+  const U4 = 'r2user4'; S.deleteDb(U4, 'cm');
+  S.appendMessage(U4, { from: 'nordea', to: 'cm', type: 'propose', status: 'pending', summary: 'Bank card', payload: { detail: 'agg', transactionIds: ['t1'], total: 5, approval: { id: G.makeApprovalId(0, 'b'), level: 0 } } });
+  A.setStandingPermissions(U4, undefined, 'No permission'); CM.autoStoreRoundProposals(U4);
+  check('R2: bank-side proposals never use the new gate (a forged approval on a Nordea card is ignored)', (A.reviewQueue(U4) as any[]).length === 1 && (S.loadCmDb(U4).entries as any[]).length === 0);
+  // the User AI assigner (rubric) on a real round
+  const U5 = 'r2user5'; S.deleteDb(U5, 'cm'); S.deleteDb(U5, 'user');
+  A.addGoalDirect(U5, 'Save for a car'); A.addGoalDirect(U5, 'Pay for my health treatment');
+  const rr = await A.chat(U5, 'what do you know about my goals?');
+  const props = S.loadBus(U5).messages.filter((m) => m.type === 'propose' && m.from === 'personal');
+  const lv = (t: string) => ((props.find((m) => m.summary.includes(t))?.payload as any)?.approval ?? {}).level;
+  check('R2 assigner: the User AI marks a plain goal-summary card level 1 and a sensitive one level 2, with a reason and a matching id', lv('car') === 1 && lv("health") === 2 && props.every((m) => (m.payload as any).approvalReason && G.readApproval(m.payload)), JSON.stringify(props.map((m) => (m.payload as any).approval)));
+  check('R2 assigner: under the default mode both goal cards wait (level 1 and 2); "High risk mode" releases only the level 1 card', rr.reply !== undefined && waiting(U5).includes("health") && waiting(U5).includes('car') && (A.setStandingPermissions(U5, undefined, 'High risk mode'), waiting(U5) === 'Customer goal: Pay for my health treatment'), waiting(U5));
 }
 
 console.log(`\n${passed} passed, ${failed} failed`);

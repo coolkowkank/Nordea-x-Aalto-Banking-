@@ -12,6 +12,8 @@ import { loadContext, readSectionNote, readSectionRows, writeCustomerSection } f
 import { appendMessage, getAgentsOff, getCabinetParkedMirror, loadBus, saveBus, updateMessage } from '../store/busStore.js';
 import { registerHandler } from '../dispatcher.js';
 import { roundDone, runRound } from '../rounds.js';
+import { assessEntryRisk } from '../risk.js';
+import { assignLevel, makeApprovalId, contentHash } from '../approvalGate.js';
 
 export const personalLabel = (u: { personalAgent: { mode: string; externalName?: string } }) =>
   (u.personalAgent.mode === 'external' ? u.personalAgent.externalName || 'External personal agent' : 'Abel');
@@ -427,7 +429,14 @@ function handleMessage(uid: string, msg: AgentMessage) {
       appendMessage(uid, {
         from: 'personal', to: 'cm', type: 'propose', status: 'pending',
         summary: `Customer goal: ${g.title}`,
-        payload: { roundId: payload.roundId, goalIds: [g.id], detail: `The customer is saving toward "${g.title}". Proposed by the personal agent from the User DB (direct customer input).`, observed: 'observed' },
+        payload: (() => {
+          // R2: the User AI assigns the level by the written rubric (code floor + reason); the approval id carries level and consent version.
+          const detail = `The customer is saving toward "${g.title}". Proposed by the personal agent from the User DB (direct customer input).`;
+          const { risk } = assessEntryRisk({ title: `Customer goal: ${g.title}`, detail, source: 'customer' });
+          const { level, reason } = assignLevel({ risk, observed: 'observed', direct: false }) // the card is the AI's own summary of a stored goal (not the customer's literal words): level 1, the safer reading of the rubric;
+          const id = makeApprovalId(level, contentHash({ title: `Customer goal: ${g.title}`, detail, level, source: 'personal' }));
+          return { roundId: payload.roundId, goalIds: [g.id], detail, observed: 'observed', approval: { id, level }, approvalReason: reason };
+        })(),
       });
     }
     roundDone(uid, payload.roundId, 'personal');
