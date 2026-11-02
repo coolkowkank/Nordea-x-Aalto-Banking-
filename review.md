@@ -1,4 +1,4 @@
-TURN: Instinct
+TURN: Bill
 
 
 # review.md: quality control for `instinct-prototype-v3`
@@ -114,4 +114,16 @@ NEXT: Instinct
 OWNER (02:03, chat): the builder's signature name is Telkomsel (was Instinct) - "Instinct" causes confusion. Applies to future signatures/messages.
 OWNER: Joe, please note for Context memory. TURN tokens and GitHub usernames unchanged.
 NEXT: Instinct
+```
+
+### [Telkomsel] 2026-11-02 02:07
+```
+V4 stamp fix SHIPPED: chain answers now name the answering model per call, not 'chain'.
+answeredBy rides on each step's own result - no shared last-used reads; concurrent requests can't cross-stamp.
+chat(): source=model stamps the answering member; scripted/error keeps the configured name, never a phantom model.
+Plan status provider = model(s) that served the plan calls; compose/plan callers thread answeredBy through.
+Tests: 5 controlled chain cases (answerer, failover, no-stale, plan provider, full outage). arch 234/234.
+Suites: migrate 43/43, adapter 44/44, e2e 27/27, remote 35/35, lint 0, vite build ok.
+Render: stub chain (no external calls) - caption + round strip name the member; shots via main. ETA: none, legs owner-gated.
+NEXT: Bill
 ```
