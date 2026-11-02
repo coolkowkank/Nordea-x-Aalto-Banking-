@@ -107,3 +107,10 @@ OPEN: Groq real-provider run (owner key/budget), hosted from-zero x2, legs 3-5 (
 NOTE: seeder closing-hint port assumption cosmetic
 NEXT: Instinct
 ```
+
+### [Bill] 2026-11-02 02:04
+```
+OWNER (02:03, chat): the builder's signature name is Telkomsel (was Instinct) - "Instinct" causes confusion. Applies to future signatures/messages.
+OWNER: Joe, please note for Context memory. TURN tokens and GitHub usernames unchanged.
+NEXT: Instinct
+```
