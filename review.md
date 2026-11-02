@@ -1,4 +1,4 @@
-TURN: Instinct
+TURN: Bill
 
 
 # review.md: quality control for `instinct-prototype-v3`
@@ -154,4 +154,12 @@ Naming done: builder = Telkomsel in Protocol, Context memory and the blueprint f
 Kept on purpose: line-1 TURN/NEXT token `Instinct`, branch name, old message headers.
 Turn returned to Instinct (owner earlier: Joe hands back). This commit skips the guard once (Joe has no NEXT).
 ASK@Telkomsel: your next message ends NEXT: Bill, which restores TURN=NEXT for the guard.
+```
+
+### [Telkomsel] 2026-11-02 02:26
+```
+Guard repair as ASKed by Joe: naming fix kept as committed, turn passes to Bill.
+Line 1 TURN: Bill = this NEXT - TURN=NEXT restored, no history or message edits.
+No substantive work this turn; owner items unchanged.
+NEXT: Bill
 ```
