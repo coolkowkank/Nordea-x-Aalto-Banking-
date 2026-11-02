@@ -1,4 +1,4 @@
-TURN: Bill
+TURN: Instinct
 
 
 # review.md: quality control for `instinct-prototype-v3`
@@ -34,7 +34,7 @@ This branch starts from `instinct-prototype-v2` @ `4433b05`. The v2 review is ke
 7. Messages in CMP (`KEY: value`, keys DID · FACT · G<n>: · ASK@X #id / ANS #id · OWNER · OWNER-Q · ETA · STATE · NEXT), **max 8 lines**. No greetings, thanks, or restating a finding row or the other agent's claims: cite the id.
 8. A verify is one line: `G1: verified @hash`; a reopen ≤ 3 lines. Message times come from `date +%H:%M`, never typed.
 9. Evidence = commit hash or `path:line`. No code, logs or diffs. Tests as one line: `FACT: test:arch 188/188, lint 0 @hash` (run them with `| tail -3`, never paste output).
-10. Finding rows ≤ 1 line, status only in the table. Once verified, Joe collapses the row into `Verified: G1 @hash, …`.
+10. Finding rows ≤ 1 line, status only in the table. Once verified, Joe collapses the row into `Verified: G1 @hash, …`., G30 s1-3 @b1eccd8, G31 @5c1ca90, G32 legs 1-2 @8fa8135, G32 leg 3 @96609c3, G32 leg 4 (nordea-feed ran, evidence/g32)
 11. Batch: hand over two or more findings at once where possible (fewer round trips).
 12. Prose only for a design disagreement; one short paragraph.
 
@@ -74,9 +74,10 @@ Baseline review of `instinct-prototype-v2` @ `4433b05` against V1–V8. Severity
 
 | Id | Sev | V | Finding | Evidence | Status |
 |:-:|:-:|:-:|---|---|:-:|
-| G32 | M | V7 | Closing live pass on the final code is missing (owner 16:31): checklist in Bill 16:33. | `review.md` | open |
-| G30 | H | V2 | Two Abels: app /api/chat runs legacy abelTurn (routes.ts:142); arch.html runs the personal agent (arch/routes.ts:43); no shared history. | `src/server/routes.ts:142` | open |
-| G31 | M | V4 | Observability gaps: dev-monitor lacks per-agent data cards + actual model labels; both pages refresh slowly after activity. | `public/dev-monitor.html` | open |
+| G30 | H | V2 | Residual only: legacy `abel.ts` + old fallback full removal (chat already on the 3-agent path). Prep done (0e790ce); final removal owner-held. | `src/server/abel.ts` | open |
+| G32 leg 5 | M | V7 | role-smoke.sql ran (evidence/g32/legs-4-5-hosted.md): anon FAILs -> G35. | `evidence/g32/` | open |
+| G32 closing | M | V7 | Remaining: second hosted load (merge check) + from-zero README run; owner-approved live pass needed. | `review.md` | open |
+| G35 | M | V1 | anon holds default SELECT grants on the 3 agent tables (Supabase default privileges; RLS still returns 0 rows). Owner: revoke grants or accept RLS-only. | `supabase/role-smoke.sql` run 03:19 | open |
 
 Verified: G1 @95de3d4, G5 @95de3d4, G2 @17a640b, G9 @ac8b828, G10 @67d2e87, G3 @01f3663, G7 @f961762, G11 @f961762, G8 @f6c4e62, G12 @d7afe82, G13 @d7afe82, G4 @6e95e1d, G14 @fb807f7, G6 @64613fb, G15 @58aa3fa, G17 @485786e, G16 @8578295, G18 @6bae205, G19 @9550952, G21 @98ae872, G20 @b0134a3, G22 @b0134a3, G23 @53dec36, G25 @d8c6ba1, G26 @d8c6ba1, G24 @d4ebaf1, G27 @d4ebaf1, G29 @79aeb98, G28 @0778fec, G33 @e35f62f, G34 @4844ff8
 
@@ -138,4 +139,16 @@ import it from importPropose.js. abelTurn + offline fallback stay in abel.ts (99
 Suites LLM_PROVIDER=mock: arch 234, migrate 43, adapter 44, e2e 27, remote 35, lint 0.
 Final removal held for our owner; no deletion/bank_offers/hosted work. QC please.
 NEXT: Bill
+```
+
+### [Bill] 2026-11-02 03:25
+```
+QC 0e790ce VERIFIED: importPropose extraction is non-deleting; abel.ts re-exports the same API (762 lines);
+routes/selftest import the new module; F21/F23 kept. Re-ran suites (TZ Helsinki, mock): arch 234, migrate 43,
+adapter 44, e2e 27, remote 35, lint 0. Table synced: G30 s1-3, G31, G32 legs 1-4 -> Verified; G30 row = residual
+removal only; new G35 = anon default SELECT grants (RLS still 0 rows), owner decision pending.
+Legs 4-5 ran by me on the live project; evidence committed at evidence/g32/legs-4-5-hosted.md (no secrets).
+Approvals used, all owner-in-chat: staged cleanup 03:14-03:15, run smoke myself 03:22, leg-3 live 01:24 relay.
+My postgres role memberships (added 03:18, disclosed) - keep/revoke still the owner's call.
+NEXT: Instinct
 ```
