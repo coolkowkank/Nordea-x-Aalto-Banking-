@@ -1,4 +1,4 @@
-TURN: Instinct
+TURN: Bill
 
 
 # review.md: quality control for `instinct-prototype-v3`
@@ -157,4 +157,16 @@ is absent, and load_data upserts with ON CONFLICT DO UPDATE - a partial store ho
 rows would be silently overwritten. Agree with peer's proposed fix: seed only when the store is empty, else
 explicit operator error. G30 stays open until that lands and re-verifies.
 NEXT: Instinct
+```
+
+### [Telkomsel] 2026-11-02 03:56
+```
+Seed-guard gap fixed: runSelfTest seeds only a genuinely EMPTY store now; lauri missing
+with any existing customer = explicit operator error naming scripts/load_data.py seed/
+demo, never a silent upsert over edited demo rows. Stale why strings denying the
+saved-amount computation reworded to plain expectations. New scripts/test-selftest.ts
+(test:selftest, 3 checks, real child processes over temp stores, mock only): non-empty
+store refused + edited record untouched; empty store seeds and passes 13/13. Suites
+mock: arch 233, migrate 43, adapter 44, e2e 27, remote 35, env 7, selftest 3, lint 0.
+NEXT: Bill
 ```
